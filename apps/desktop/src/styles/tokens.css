@@ -1,0 +1,66 @@
+/* Newsprint design tokens (docs/DESIGN.md). The only source of colors, type and spacing.
+   <html data-edition="day|night"> switches the edition. No hex literals in components. */
+
+@import "@fontsource/playfair-display/600.css";
+@import "@fontsource/playfair-display/700.css";
+@import "@fontsource/playfair-display/800.css";
+@import "@fontsource/playfair-display/900.css";
+@import "@fontsource/source-serif-4/400.css";
+@import "@fontsource/source-serif-4/400-italic.css";
+@import "@fontsource/source-serif-4/600.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+
+:root,
+[data-edition="day"] {
+  --paper: #f3efe6;
+  --paper-2: #e9e3d6;
+  --ink: #1b1a17;
+  --ink-2: #57534a;
+  --rule: #bdb5a6;
+  --accent: #9e2a2b;
+  color-scheme: light;
+}
+
+[data-edition="night"] {
+  --paper: #191815;
+  --paper-2: #23211d;
+  --ink: #ece5d6;
+  --ink-2: #a79f90;
+  --rule: #3e3a33;
+  --accent: #e0605a;
+  color-scheme: dark;
+}
+
+:root {
+  --focus: var(--accent);
+
+  /* Board presets (Newsprint default: ink dark squares, hatched paper light squares) */
+  --board-light: #e9e1cc;
+  --board-dark: #1b1a17;
+
+  --font-masthead: "Playfair Display", "Times New Roman", serif;
+  --font-body: "Source Serif 4", Georgia, serif;
+  --font-label: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Type scale (rem) */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+  --text-masthead: 3rem;
+
+  --radius: 0.125rem;
+  --tracking-label: 0.06em;
+  --nav-width: 15rem;
+  --nav-rail: 4rem;
+
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --duration: 180ms;
+}

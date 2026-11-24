@@ -1,0 +1,89 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+/* Tailwind reads the tokens; utilities like bg-paper or text-ink-2 resolve to the edition. */
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-rule: var(--rule);
+  --color-accent: var(--accent);
+  --font-masthead: var(--font-masthead);
+  --font-body: var(--font-body);
+  --font-label: var(--font-label);
+  --font-mono: var(--font-mono);
+  --radius-sm: var(--radius);
+  --shadow-*: initial;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: var(--text-md);
+    -webkit-font-smoothing: antialiased;
+    transition:
+      background-color var(--duration) var(--ease),
+      color var(--duration) var(--ease);
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--ink);
+    color: var(--paper);
+  }
+}
+
+@layer components {
+  /* UI labels: IBM Plex Sans, uppercase, tracked */
+  .label {
+    font-family: var(--font-label);
+    font-weight: 500;
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+  }
+  .numeric {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .rule-double {
+    border-bottom: 3px double var(--ink);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
+}
+
+/* Newsprint board preset: a fine horizontal hatch inside the light squares only. */
+@layer components {
+  .board-light {
+    background-color: var(--board-light);
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0 3px,
+      color-mix(in srgb, var(--board-dark) 9%, transparent) 3px 4px
+    );
+    color: var(--board-dark);
+  }
+  .board-dark {
+    background-color: var(--board-dark);
+    color: var(--board-light);
+  }
+}
