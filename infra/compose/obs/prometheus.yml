@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 15s
+scrape_configs:
+  # Services in containers are reached by name; services run with `make dev` by host.docker.internal.
+  - job_name: services
+    metrics_path: /metrics
+    static_configs:
+      - targets: [template-go:8101, template-py:8102, template-java:8103]
+        labels: { mode: container }
+      - targets: [host.docker.internal:8101, host.docker.internal:8102, host.docker.internal:8103]
+        labels: { mode: native }

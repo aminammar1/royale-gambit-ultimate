@@ -1,0 +1,126 @@
+# Profiles (ADR-18):
+#   (none)     infrastructure only: postgres, redis, rabbitmq, mailpit   -> make infra
+#   full       + every real service container                           -> make up
+#   templates  + the three template services (P1 checks, CI smoke test)
+#   obs        + OpenTelemetry collector, Jaeger, Prometheus, Grafana
+name: royal-gambit
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  depends_on:
+    postgres: { condition: service_healthy }
+  extra_hosts: ["host.docker.internal:host-gateway"]
+
+services:
+  postgres:
+    image: postgres:19.0-trixie
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SERVICE_DATABASES: ${SERVICE_DATABASES}
+    ports: ["127.0.0.1:${POSTGRES_PORT}:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ../db/init-databases.sh:/docker-entrypoint-initdb.d/10-init-databases.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 3s
+      retries: 20
+
+  redis:
+    image: redis:8.8.4-trixie
+    ports: ["127.0.0.1:${REDIS_PORT}:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:4.4.1-management-alpine
+    ports:
+      - "127.0.0.1:${RABBITMQ_PORT}:5672"
+      - "127.0.0.1:${RABBITMQ_UI_PORT}:15672"
+    volumes:
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/20-rg.conf:ro
+      - ./rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 5s
+      retries: 30
+
+  mailpit:
+    image: axllent/mailpit:v1.34.0
+    ports:
+      - "127.0.0.1:${MAIL_SMTP_PORT}:1025"
+      - "127.0.0.1:${MAIL_UI_PORT}:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 3s
+      retries: 20
+
+  # ---- templates (copied to create real services; never deployed)
+  template-go:
+    <<: *service-defaults
+    profiles: [templates]
+    build: ../../services/_templates/go
+    environment:
+      PORT: "8101"
+      DATABASE_URL: postgres://template_go:template_go@postgres:5432/template_go?sslmode=disable
+      MIGRATE_ON_START: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_IN_DOCKER:-}
+    ports: ["127.0.0.1:8101:8101"]
+
+  template-py:
+    <<: *service-defaults
+    profiles: [templates]
+    build: ../../services/_templates/python
+    environment:
+      PORT: "8102"
+      DATABASE_URL: postgresql+psycopg://template_py:template_py@postgres:5432/template_py
+      MIGRATE_ON_START: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_IN_DOCKER:-}
+    ports: ["127.0.0.1:8102:8102"]
+
+  template-java:
+    <<: *service-defaults
+    profiles: [templates]
+    build: ../../services/_templates/java
+    environment:
+      PORT: "8103"
+      DATABASE_URL: jdbc:postgresql://postgres:5432/template_java
+      DATABASE_USER: template_java
+      DATABASE_PASSWORD: template_java
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_IN_DOCKER:-}
+    ports: ["127.0.0.1:8103:8103"]
+
+  # ---- observability
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.165.0
+    profiles: [obs]
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes: ["./obs/otel-collector.yaml:/etc/otel/config.yaml:ro"]
+    ports: ["127.0.0.1:4317:4317", "127.0.0.1:4318:4318"]
+
+  jaeger:
+    image: jaegertracing/jaeger:2.23.0
+    profiles: [obs]
+    ports: ["127.0.0.1:${JAEGER_UI_PORT}:16686"]
+
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    profiles: [obs]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    volumes: ["./obs/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    ports: ["127.0.0.1:${PROMETHEUS_PORT}:9090"]
+
+  grafana:
+    image: grafana/grafana:13.3.2
+    profiles: [obs]
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes: ["./obs/grafana/datasources.yaml:/etc/grafana/provisioning/datasources/rg.yaml:ro"]
+    ports: ["127.0.0.1:${GRAFANA_PORT}:3000"]
+
+volumes:
+  pgdata:
