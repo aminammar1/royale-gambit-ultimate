@@ -27,12 +27,12 @@ Milestone status: P1 ☐ · P2 ☐ · M0 ☐ · M1 ☐ · M2 ☐ · M3 ☐ · M4
 # Platform
 
 ## P1: Monorepo, contracts, templates, local stack
-- Layout from `ARCHITECTURE.md`. Root `Makefile`: `up`, `down`, `logs`, `infra`, `infra-down`, `dev S=<name>`, `check`, `check-svc S=`, `check-desktop`. `docs/SETUP.md` lists the toolchain.
-- `infra/compose`: PostgreSQL (one database per service via init scripts), Redis, RabbitMQ with the `rg.events` exchange, MailHog, all published on localhost ports so natively running services can reach them (ADR-18). Profiles: `infra` (those four only), `full` (infra + every service container), and optional `obs` with OpenTelemetry collector, Jaeger, Prometheus, Grafana.
+- Layout from `ARCHITECTURE.md`. Root `Makefile`: `up`, `down`, `logs`, `watch`, `infra`, `check`, `check-svc S=`, `check-desktop`, `smoke`; service checks run inside each service's Docker `toolchain` stage (ADR-18). `docs/SETUP.md` lists the toolchain.
+- `infra/compose`: PostgreSQL (one database per service via init scripts), Redis, RabbitMQ with the `rg.events` exchange, MailHog, published on localhost for inspection tools. Profiles: `infra` (those four only), `full` (infra + every service container), and optional `obs` with OpenTelemetry collector, Jaeger, Prometheus, Grafana.
 - `contracts/`: the event envelope schema, an example contract for each template, the first fixtures (perft FENs, two PGNs). A real service contract is written in the milestone that creates the service.
 - Three **template services**, each with health endpoints, JSON logs, trace propagation, problem+json errors, Dockerfile, migrations, one real test and a README: Go + Gin (used for `gateway` in P2, then `analysis`, `puzzles`, `games`, `learn`), FastAPI (`review` in M5), Spring Boot (`auth-profile` in P2). Templates live in `services/_templates/` and are copied, not shared as a library.
 - GitHub Actions: change detection per path, per-service check, image build, compose smoke test.
-**Accept:** `make infra` starts only the four infrastructure containers and prints healthy; `make up` starts everything; a template runs both in a container and natively with `make dev` using only environment variables; `make check` runs every template's tests; CI is green on a no-op change; a change under `services/x` only runs x's job.
+**Accept:** `make infra` starts only the four infrastructure containers and prints healthy; `make up` starts everything; every template builds, runs and passes its checks with only Docker on the host; `make check` runs every template's tests; CI is green on a no-op change; a change under `services/x` only runs x's job.
 
 ## P2: Gateway and auth-profile
 - `gateway` (Go, from the Go template, no database): JWT validation with cached JWKS, rate limit (Redis), CORS, request id, routing table per service, 429 and 401 problem+json.

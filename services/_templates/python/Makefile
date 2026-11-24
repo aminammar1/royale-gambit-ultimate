@@ -1,11 +1,5 @@
-.PHONY: run check lint test fmt image
-ENV_FILE := $(if $(wildcard .env),.env,.env.example)
-
-## run     native run with config from .env (or .env.example)
-run:
-	set -a && . ./$(ENV_FILE) && set +a && uv run serve
-
-## check   lint, types, tests (integration tests need Docker)
+.PHONY: check lint test fmt image
+## check   lint, types, tests (run through `make check-svc` at the root; needs the Docker socket)
 check: lint test
 
 lint:

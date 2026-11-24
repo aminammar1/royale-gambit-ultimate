@@ -1,7 +1,13 @@
 # syntax=docker/dockerfile:1
-FROM python:3.15.2-slim-trixie AS build
-COPY --from=ghcr.io/astral-sh/uv:0.13.9 /uv /usr/local/bin/uv
-ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
+# toolchain: used by `make check-svc` (tests run here) and as the build base.
+FROM python:3.15.2-slim-trixie AS toolchain
+RUN pip install --no-cache-dir --root-user-action=ignore uv==0.13.9
+RUN apt-get update && apt-get install -y --no-install-recommends make && rm -rf /var/lib/apt/lists/*
+ENV UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
+WORKDIR /src
+
+FROM toolchain AS build
+ENV UV_COMPILE_BYTECODE=1
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev --no-install-project

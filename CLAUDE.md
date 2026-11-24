@@ -19,9 +19,10 @@ Always the latest stable release of every tool and library when you start (lates
 `apps/desktop` (client) · `services/<name>` · `contracts/` (OpenAPI, event schemas, golden fixtures) · `infra/` (compose, db init) · `design/` · `docs/`. The git repository root is this folder (`royale-gambit-ultimate`).
 
 ## Commands (created in P1 and M0; keep this list true)
-- `make up` / `make down` / `make logs S=<service>`: everything in Docker Compose.
-- `make infra` / `make infra-down`: only Postgres, Redis, RabbitMQ and MailHog in Docker. Then `make dev S=<service>` runs one service natively (less RAM). Config is env vars in both modes (ADR-18).
-- `make check` = everything. `make check-svc S=<name>` = one service. `make check-desktop` = the client.
+- Everything runs in Docker (ADR-18); the host needs no Go, Java or Python.
+- `make up` / `make down` / `make logs S=<service>` / `make watch` (rebuild on change) / `make infra` (backing stores only).
+- `make check-svc S=<name>` runs that service's checks inside its Docker `toolchain` stage; templates are `S=go|python|java`.
+- `make check` = everything. `make smoke` = templates in Docker + contract check. `make check-svc S=<name>` = one service. `make check-desktop` = the client.
 - Client (in `apps/desktop`): `pnpm tauri:dev`, `pnpm check` (typecheck + lint + vitest + `cargo test` + `cargo clippy -- -D warnings`).
 - **Run the check for what you changed before saying a task is done.**
 

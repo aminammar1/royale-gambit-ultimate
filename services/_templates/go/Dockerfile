@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1
-FROM golang:1.27.4-trixie AS build
+# toolchain: used by `make check-svc` (tests run here) and as the build base.
+FROM golang:1.27.4-trixie AS toolchain
 WORKDIR /src
+
+FROM toolchain AS build
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY . .

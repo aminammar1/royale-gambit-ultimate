@@ -1,11 +1,5 @@
-.PHONY: run check fmt lint test sqlc image
-ENV_FILE := $(if $(wildcard .env),.env,.env.example)
-
-## run     native run with hot config from .env (or .env.example)
-run:
-	set -a && . ./$(ENV_FILE) && set +a && go run ./cmd/server
-
-## check   format, vet, tests (integration tests need Docker)
+.PHONY: check fmt lint test sqlc image
+## check   format, vet, tests (run through `make check-svc` at the root; needs the Docker socket)
 check: lint test
 
 lint:

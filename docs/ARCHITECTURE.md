@@ -69,7 +69,7 @@ One process; requests are serialized (new request sends `stop`, waits for `bestm
 - Redis only holds data that can be rebuilt. No MongoDB.
 
 ## Local development and delivery
-Two modes (ADR-18). `make up` runs infra and every service in Docker Compose. `make infra` runs only Postgres, Redis, RabbitMQ and MailHog in Docker, and you run the services you work on natively with `make dev S=<name>` (less RAM); each service takes its port, database URL and upstream URLs from environment variables, so the gateway can point at containers or at `localhost`. The desktop app always runs natively with `pnpm tauri:dev` against `http://localhost:8080`. CI runs per service on changed paths: lint, unit tests, contract check, image build, then a compose smoke test. Deployment (staging then production) arrives in M16. See `diagrams/12-dev-and-deploy.md`.
+Everything backend runs in Docker (ADR-18): `make up` starts infra and every service, `make watch` rebuilds a service on change, and `make check-svc S=<name>` runs its tests inside the service's `toolchain` image, so the host needs no Go, Java or Python. The desktop app runs natively with `pnpm tauri:dev` against `http://localhost:8080`. CI runs per service on changed paths: lint, unit tests, contract check, image build, then a compose smoke test. Deployment (staging then production) arrives in M16. See `diagrams/12-dev-and-deploy.md`.
 
 ## Performance budgets
 - Board interaction stays at 60 fps while the engine runs. Engine work never runs on the UI thread.

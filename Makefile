@@ -6,7 +6,7 @@ SERVICES := $(patsubst %/Makefile,%,$(wildcard services/*/Makefile services/_tem
 # S=<name> resolves to services/<name>, or services/_templates/<name> for templates (S=go|python|java).
 svc = $(firstword $(wildcard services/$(S) services/_templates/$(S)))
 
-.PHONY: help env infra infra-down up down logs dev check check-svc check-desktop smoke obs ps
+.PHONY: help env infra up watch down logs check check-svc check-desktop smoke ps
 
 help:
 	@grep -E '^## ' Makefile | sed 's/## //'
@@ -16,19 +16,19 @@ env: .env
 .env:
 	cp .env.example .env
 
-## infra          only postgres, redis, rabbitmq, mailpit in Docker (then: make dev S=<svc>)
+## infra          only postgres, redis, rabbitmq, mailpit (no services)
 infra: .env
 	$(COMPOSE) up -d --wait
-
-## infra-down     stop infra (data volume kept)
-infra-down: .env
-	$(COMPOSE) down
 
 ## up             infra + every service in Docker (PROFILES="full obs" to add observability)
 PROFILES ?= full
 up: .env
 	$(COMPOSE) $(addprefix --profile ,$(PROFILES)) up -d --build --wait
 	@$(COMPOSE) ps --format 'table {{.Service}}\t{{.Status}}'
+
+## watch          like up, and rebuild a service container when its files change
+watch: .env
+	$(COMPOSE) $(addprefix --profile ,$(PROFILES)) watch
 
 ## down           stop everything
 down: .env
@@ -42,26 +42,38 @@ logs: .env
 ps: .env
 	$(COMPOSE) --profile '*' ps
 
-## dev S=<svc>    run one service natively against `make infra` (less RAM)
-dev:
-	@test -n "$(svc)" || { echo "unknown service S=$(S)"; exit 1; }
-	$(MAKE) -C $(svc) run
-
 ## check          every check (all services + desktop)
 check: $(addprefix check-,$(SERVICES)) check-desktop
 check-services/%:
-	$(MAKE) -C services/$* check
+	@$(MAKE) --no-print-directory in-toolchain DIR=services/$*
 
 ## check-svc S=<svc>   one service's checks
 check-svc:
 	@test -n "$(svc)" || { echo "unknown service S=$(S)"; exit 1; }
-	$(MAKE) -C $(svc) check
+	@$(MAKE) --no-print-directory in-toolchain DIR=$(svc)
+
+# Runs `make check` for DIR inside the `toolchain` stage of its Dockerfile (ADR-18): source
+# mounted, your uid, the Docker socket shared so Testcontainers can start databases, and one
+# cache volume for Go modules, uv and Maven.
+TOOLCHAIN_IMAGE = rg-toolchain/$(subst _,,$(subst /,-,$(subst services/,,$(DIR))))
+DOCKER_GID := $(shell stat -c %g /var/run/docker.sock 2>/dev/null)
+in-toolchain:
+	docker build -q --target toolchain -t $(TOOLCHAIN_IMAGE) $(DIR) >/dev/null
+	docker run --rm -u 0 -v rg-cache:/cache $(TOOLCHAIN_IMAGE) sh -c 'mkdir -p /cache/home && chown -R $(shell id -u):$(shell id -g) /cache/home /cache' 
+	docker run --rm -u $(shell id -u):$(shell id -g) --group-add $(DOCKER_GID) \
+	  -v $(abspath $(DIR)):/src -w /src -v rg-cache:/cache \
+	  -v /var/run/docker.sock:/var/run/docker.sock --add-host host.docker.internal:host-gateway \
+	  -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal \
+	  -e HOME=/cache/home -e GOMODCACHE=/cache/go/mod -e GOCACHE=/cache/go/build \
+	  -e UV_CACHE_DIR=/cache/uv -e UV_PROJECT_ENVIRONMENT=/cache/venv/$(notdir $(TOOLCHAIN_IMAGE)) \
+	  -e MAVEN_USER_HOME=/cache/home/.m2 -e MAVEN_OPTS=-Duser.home=/cache/home \
+	  $(TOOLCHAIN_IMAGE) make check
 
 ## check-desktop  the client checks (from M0)
 check-desktop:
 	@if [ -f apps/desktop/package.json ]; then cd apps/desktop && pnpm check; else echo "apps/desktop not created yet (M0): skipped"; fi
 
-## smoke          start infra + templates in Docker, check health and the contract, stop
+## smoke          start infra + templates in Docker, check health and the contract, then stop
 smoke: .env
 	$(COMPOSE) --profile templates up -d --build --wait
-	./scripts/smoke.sh
+	./scripts/smoke.sh; status=$$?; $(COMPOSE) --profile templates down; exit $$status

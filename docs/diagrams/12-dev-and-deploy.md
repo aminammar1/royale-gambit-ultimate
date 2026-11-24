@@ -1,6 +1,6 @@
 # Local development and delivery
 
-How the system runs on your machine (Docker Compose) and how a change reaches production (v2.0). Two modes: `make up` runs everything in Docker; `make infra` runs only Postgres, Redis, RabbitMQ and MailHog in Docker and you start the services you need on the host with `make dev S=<name>` (less RAM). Both read the same `.env`; the gateway reaches services through `UPSTREAM_<SERVICE>_URL`.
+How the system runs on your machine (Docker Compose) and how a change reaches production (v2.0). Everything backend runs in Docker: `make up` starts infra and services, `make watch` rebuilds on change, `make check-svc S=<name>` tests inside the service's toolchain image. Only the desktop app runs on the host.
 
 ```mermaid
 flowchart TB

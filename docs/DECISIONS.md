@@ -60,5 +60,8 @@ Local actions write to SQLite first; an outbox syncs in the background. Features
 ## ADR-17: Versions
 Use the latest **stable** release of every tool, runtime and library when its milestone starts; for Java use the latest LTS. Pin exact versions in lockfiles, `pom.xml`, `go.mod`, `Cargo.lock` and `pnpm-lock.yaml`, and record the toolchain in `docs/SETUP.md`. Version numbers written elsewhere in the docs are examples, not requirements. Look up current APIs with Context7.
 
-## ADR-18: Two ways to run the stack
-`make up` runs everything in Docker Compose (closest to production, uses more RAM). `make infra` runs **only** the infrastructure containers (Postgres, Redis, RabbitMQ, MailHog) and you run the services you are working on natively with `make dev S=<name>` (less RAM, faster edit loop). Both modes use the same `.env` and the same service code: every service reads its own port, database URL and its upstream URLs (for the gateway: `UPSTREAM_<SERVICE>_URL`) from environment variables, so a service can sit in a container or on the host without code changes. The `obs` profile is optional in both modes.
+## ADR-18: Everything runs in Docker (amended 2026-11-25, Amine's decision)
+Services run **only** in Docker; nobody installs Go, Java or Python on the host to run or test them. The host needs Docker, git and make (plus Node, pnpm and Rust for the desktop app from M0).
+- `make up` starts infrastructure and every service (`--profile full`); `make watch` rebuilds a service's container when its files change (Compose watch). `make infra` starts only Postgres, Redis, RabbitMQ and Mailpit, for when you need the backing stores and nothing else.
+- Checks run in containers too: each service Dockerfile has a `toolchain` stage, and `make check-svc S=<name>` runs the service's `make check` inside that image with the source mounted and the Docker socket shared, so Testcontainers works. The same image versions are used to build, test and run.
+- Config is environment variables only (port, database URL and, for the gateway, `UPSTREAM_<SERVICE>_URL`), so the same image runs in Compose, CI and production.

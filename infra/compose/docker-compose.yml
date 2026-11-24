@@ -1,5 +1,6 @@
 # Profiles (ADR-18):
 #   (none)     infrastructure only: postgres, redis, rabbitmq, mailpit   -> make infra
+# Every service runs in Docker (ADR-18); ports are published on localhost for inspection only.
 #   full       + every real service container                           -> make up
 #   templates  + the three template services (P1 checks, CI smoke test)
 #   obs        + OpenTelemetry collector, Jaeger, Prometheus, Grafana
@@ -63,6 +64,9 @@ services:
     <<: *service-defaults
     profiles: [templates]
     build: ../../services/_templates/go
+    develop:
+      watch:
+        - { action: rebuild, path: ../../services/_templates/go }
     environment:
       PORT: "8101"
       DATABASE_URL: postgres://template_go:template_go@postgres:5432/template_go?sslmode=disable
@@ -74,6 +78,9 @@ services:
     <<: *service-defaults
     profiles: [templates]
     build: ../../services/_templates/python
+    develop:
+      watch:
+        - { action: rebuild, path: ../../services/_templates/python }
     environment:
       PORT: "8102"
       DATABASE_URL: postgresql+psycopg://template_py:template_py@postgres:5432/template_py
@@ -85,12 +92,16 @@ services:
     <<: *service-defaults
     profiles: [templates]
     build: ../../services/_templates/java
+    develop:
+      watch:
+        - { action: rebuild, path: ../../services/_templates/java }
     environment:
       PORT: "8103"
       DATABASE_URL: jdbc:postgresql://postgres:5432/template_java
       DATABASE_USER: template_java
       DATABASE_PASSWORD: template_java
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_IN_DOCKER:-}
+      MIGRATE_ON_START: "true"
+      MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: ${OTEL_IN_DOCKER:+${OTEL_IN_DOCKER}/v1/traces}
     ports: ["127.0.0.1:8103:8103"]
 
   # ---- observability

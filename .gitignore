@@ -23,3 +23,6 @@ data/raw/
 
 # private design boards (local only, never published)
 design/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

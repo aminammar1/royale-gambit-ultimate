@@ -10,9 +10,9 @@ Copy this folder to create a Python service (`review`, `bots`, `coach`). It impl
 3. Replace `service/items.py` and `migrations/versions/` with the service's own.
 4. Add it to `infra/compose/docker-compose.yml` (profile `full`), its database to `SERVICE_DATABASES`, and its path to CI.
 
-## Run
-- Native: `make infra` at the root, then `make dev S=python` (reads `.env`, else `.env.example`).
-- Docker: `make smoke` at the root.
+## Run (Docker only)
+- `make up PROFILES=templates` at the root starts it with Postgres; `make smoke` also checks the contract.
+- `make check-svc S=python` runs the checks inside the `toolchain` stage of the Dockerfile.
 
 ## Env vars
 | Var | Default | |
@@ -24,4 +24,4 @@ Copy this folder to create a Python service (`review`, `bots`, `coach`). It impl
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | unset | export spans over OTLP/HTTP when set |
 
 ## Test
-`make check`: ruff format and lint, mypy strict, pytest (Docker needed for Testcontainers).
+`make check-svc S=python` (root) runs `make check`: ruff format and lint, mypy strict, pytest (Docker needed for Testcontainers).
