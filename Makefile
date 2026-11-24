@@ -75,5 +75,7 @@ check-desktop:
 
 ## smoke          start infra + templates in Docker, check health and the contract, then stop
 smoke: .env
-	$(COMPOSE) --profile templates up -d --build --wait
+	$(COMPOSE) --profile templates up -d --build --wait || { \
+	  $(COMPOSE) --profile templates ps; $(COMPOSE) --profile templates logs --tail 40; \
+	  $(COMPOSE) --profile templates down; exit 1; }
 	./scripts/smoke.sh; status=$$?; $(COMPOSE) --profile templates down; exit $$status

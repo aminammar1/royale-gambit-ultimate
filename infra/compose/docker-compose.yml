@@ -101,7 +101,9 @@ services:
       DATABASE_USER: template_java
       DATABASE_PASSWORD: template_java
       MIGRATE_ON_START: "true"
-      MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: ${OTEL_IN_DOCKER:+${OTEL_IN_DOCKER}/v1/traces}
+      # Spring starts the OTLP exporter as soon as this variable exists, even empty, and then fails
+      # on a null endpoint. Uncomment it only while the obs profile runs.
+      # MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
     ports: ["127.0.0.1:8103:8103"]
 
   # ---- observability
