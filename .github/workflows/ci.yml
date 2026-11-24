@@ -1,0 +1,57 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.list.outputs.services }}
+      any: ${{ steps.filter.outputs.changes != '[]' }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          # One filter per service folder; add a line when a service is created.
+          filters: |
+            go: ['services/_templates/go/**']
+            python: ['services/_templates/python/**']
+            java: ['services/_templates/java/**']
+            infra: ['infra/**', 'contracts/**', 'Makefile', 'scripts/**', '.github/workflows/**']
+      - id: list
+        run: echo "services=$(jq -c 'map(select(. != "infra"))' <<< '${{ steps.filter.outputs.changes }}')" >> "$GITHUB_OUTPUT"
+
+  check:
+    needs: changes
+    if: ${{ needs.changes.outputs.services != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.changes.outputs.services) }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Checks inside the service toolchain image (ADR-18)
+        run: make check-svc S=${{ matrix.service }}
+      - name: Build the runtime image
+        run: docker build -t rg/${{ matrix.service }}:ci services/_templates/${{ matrix.service }}
+
+  smoke:
+    needs: [changes, check]
+    if: ${{ always() && !failure() && !cancelled() && needs.changes.outputs.any == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Compose smoke test and contract check
+        run: make smoke
