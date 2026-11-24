@@ -1,0 +1,14 @@
+"""Alembic environment: plain SQL migrations, sync psycopg connection."""
+
+from alembic import context
+from sqlalchemy import create_engine, pool
+
+url = context.config.get_main_option("sqlalchemy.url")
+if not url:
+    raise RuntimeError("sqlalchemy.url is not set; run migrations through service.db.migrate")
+
+engine = create_engine(url, poolclass=pool.NullPool)
+with engine.connect() as connection:
+    context.configure(connection=connection, target_metadata=None)
+    with context.begin_transaction():
+        context.run_migrations()
