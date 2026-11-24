@@ -1,0 +1,11 @@
+[Event "Rules fixture"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Fixture"]
+[Black "Fixture"]
+[Result "*"]
+[Annotator "Exercises en passant, kingside and queenside castling, and underpromotion to a knight"]
+
+1. e4 Nf6 2. e5 d5 3. exd6 Nc6 4. dxc7 e5 5. Nf3 Bd6 6. Bc4 O-O 7. cxd8=N Rxd8
+8. d3 h6 9. Be3 a6 10. Nc3 b5 11. Qd2 bxc4 12. O-O-O *

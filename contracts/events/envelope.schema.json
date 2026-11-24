@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://royal-gambit.dev/contracts/events/envelope.schema.json",
+  "title": "Event envelope",
+  "description": "Every message on the rg.events topic exchange. Routing key = type. `data` is validated against contracts/events/<type>.schema.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "type", "occurred_at", "trace_id", "data"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid", "description": "UUIDv7; consumers store it to stay idempotent" },
+    "type": { "type": "string", "pattern": "^[a-z]+(\\.[a-z_]+)+$", "examples": ["user.registered"] },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "data": { "type": "object" }
+  }
+}
