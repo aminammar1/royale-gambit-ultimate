@@ -1,0 +1,22 @@
+# secrets and local config
+.env
+.env.*
+!.env.example
+.claude/settings.local.json
+# build output
+node_modules/
+dist/
+target/
+build/
+bin/
+.venv/
+__pycache__/
+*.class
+# data
+data/raw/
+*.db
+*.sqlite
+# editors and OS
+.idea/
+.vscode/
+.DS_Store
