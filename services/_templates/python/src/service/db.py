@@ -1,12 +1,15 @@
 """Database engine and migrations (Alembic)."""
 
+import os
 from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
-ROOT = Path(__file__).resolve().parents[2]
+# alembic.ini and migrations/ sit in the service root: /app in the image, the project folder in
+# tests. The installed package lives in site-packages, so its own path cannot be used.
+ROOT = Path(os.environ.get("SERVICE_ROOT", Path.cwd()))
 
 
 def make_engine(url: str) -> AsyncEngine:
