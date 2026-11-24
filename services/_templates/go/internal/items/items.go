@@ -7,7 +7,9 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
@@ -57,6 +59,9 @@ func ParseNewItem(body []byte) (string, error) {
 	}
 	if !utf8.ValidString(*in.Name) {
 		return "", errors.New("name must be valid UTF-8")
+	}
+	if strings.ContainsFunc(*in.Name, unicode.IsControl) {
+		return "", errors.New("name must not contain control characters")
 	}
 	return *in.Name, nil
 }

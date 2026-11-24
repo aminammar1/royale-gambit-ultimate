@@ -18,6 +18,8 @@ def test_valid_names(name: str) -> None:
         '{"name": "a", "x": 1}',
         '{"name": 5}',
         "[]",
+        '{"name": "a\\u0000b"}',
+        '{"name": "tab\\there"}',
     ],
 )
 def test_invalid_bodies(body: str) -> None:

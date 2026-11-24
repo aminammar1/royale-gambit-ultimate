@@ -59,7 +59,12 @@ components:
       additionalProperties: false
       required: [name]
       properties:
-        name: { type: string, minLength: 1, maxLength: 100 }
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          # No control characters (Postgres text cannot hold NUL; the others are never meant).
+          pattern: "^[^\\u0000-\\u001F\\u007F-\\u009F]*$"
     Item:
       type: object
       required: [id, name, created_at]

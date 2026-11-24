@@ -21,6 +21,8 @@ func TestParseNewItem(t *testing.T) {
 		{`[]`, false},
 		{`{"name":"a"}{"name":"b"}`, false},
 		{``, false},
+		{`{"name":"a\u0000b"}`, false},
+		{`{"name":"tab\there"}`, false},
 	}
 	for _, c := range cases {
 		_, err := ParseNewItem([]byte(c.body))

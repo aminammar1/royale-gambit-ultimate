@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /** Every error leaves as RFC 9457 application/problem+json with the trace_id. */
@@ -29,6 +30,16 @@ class ProblemHandler extends ResponseEntityExceptionHandler {
 
 	ProblemHandler(Tracer tracer) {
 		this.tracer = tracer;
+	}
+
+	/**
+	 * A malformed multipart body (for example no boundary) is the client's mistake, not a
+	 * 500.
+	 */
+	@ExceptionHandler(MultipartException.class)
+	ResponseEntity<Object> malformedMultipart(MultipartException ex, WebRequest request) {
+		ProblemDetail body = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "malformed multipart request");
+		return handleExceptionInternal(ex, body, new HttpHeaders(), HttpStatus.BAD_REQUEST, request);
 	}
 
 	@ExceptionHandler(Exception.class)

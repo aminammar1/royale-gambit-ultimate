@@ -12,7 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 class NewItem(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
-    name: Annotated[str, Field(min_length=1, max_length=100)]
+    # No control characters: Postgres text cannot hold NUL, and the others are never meant.
+    name: Annotated[str, Field(min_length=1, max_length=100, pattern=r"^[^\x00-\x1f\x7f-\x9f]*$")]
 
 
 class Item(BaseModel):
