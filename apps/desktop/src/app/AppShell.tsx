@@ -1,11 +1,13 @@
 import { motion, useReducedMotion } from "motion/react";
 import { Outlet, useLocation } from "react-router";
+import { useSessionStart } from "../features/account/identities";
 import { SideNav } from "../ui/SideNav";
 import { useApplyEdition } from "./edition";
 
 /** Nav on the left, the routed page in the newspaper column on the right; pages settle in like paper. */
 export function AppShell() {
   useApplyEdition();
+  useSessionStart();
   const { pathname } = useLocation();
   const reduce = useReducedMotion();
   return (
