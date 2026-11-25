@@ -33,6 +33,9 @@ final class AuthRequests {
 
 	}
 
+	record RefreshRequest(@NotBlank @Size(max = 200) String refreshToken) {
+	}
+
 	private static String strip(String value) {
 		return (value != null) ? value.strip() : null;
 	}

@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 
 import dev.royalgambit.authprofile.auth.AuthRequests.EmailStart;
 import dev.royalgambit.authprofile.auth.AuthRequests.EmailVerify;
+import dev.royalgambit.authprofile.auth.AuthRequests.RefreshRequest;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.http.HttpStatus;
@@ -42,6 +43,17 @@ class AuthController {
 	@PostMapping("/email/verify")
 	TokenPair verifyEmail(@Valid @RequestBody EmailVerify body) {
 		return this.emailSignIn.verify(body.email(), body.code());
+	}
+
+	@PostMapping("/refresh")
+	TokenPair refresh(@Valid @RequestBody RefreshRequest body) {
+		return this.sessions.refresh(body.refreshToken());
+	}
+
+	@PostMapping("/logout")
+	ResponseEntity<Void> logout(@Valid @RequestBody RefreshRequest body) {
+		this.sessions.close(body.refreshToken());
+		return ResponseEntity.noContent().build();
 	}
 
 }
