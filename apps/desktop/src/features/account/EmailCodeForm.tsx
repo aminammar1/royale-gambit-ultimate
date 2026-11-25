@@ -115,6 +115,12 @@ export function EmailCodeForm({ submitLabel, onDone, onCancel }: Props) {
         </Button>
       </div>
       <Notice error={error}>{note}</Notice>
+      {/* The dev backend hands every mail to Mailpit, not to a real inbox (docs/SETUP.md). */}
+      {import.meta.env.DEV && state.step === "code" && !error ? (
+        <p className="mt-1 font-body text-[length:var(--text-sm)] text-ink-2 italic">
+          Development build: the mail is in Mailpit at localhost:8025, not in your inbox.
+        </p>
+      ) : null}
       <div className="mt-3 flex flex-wrap gap-2 [&>button]:whitespace-nowrap">
         {state.step === "code" ? (
           <Button variant={spent ? "secondary" : "ghost"} disabled={busy} onClick={() => void sendCode(state.email)}>

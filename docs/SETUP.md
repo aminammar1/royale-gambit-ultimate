@@ -13,3 +13,18 @@ Latest stable of everything (ADR-17); Java uses the latest LTS. Exact versions a
 Toolchains pinned in Dockerfiles (latest stable on 2026-11-25): Go 1.27.4, Python 3.15.2 with uv 0.13.9, Temurin JDK 25 LTS; infra images Postgres 19, Redis 8.8, RabbitMQ 4.4, Mailpit 1.34.
 
 Compose profiles: none (infra only), `full` (all services), `templates` (the three templates, for `make smoke` and CI), `obs` (OpenTelemetry collector, Jaeger, Prometheus, Grafana).
+
+## Real email in dev
+
+Sign-in codes go to **Mailpit** by default: open http://localhost:8025 to read them. Nothing reaches a real inbox. To send real mail from your machine, put an SMTP server in `.env` (never in `.env.example`), then `make up`:
+
+```
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_STARTTLS=true
+MAIL_USER=you@gmail.com
+MAIL_PASSWORD=<a Gmail app password: Google account → Security → App passwords>
+MAIL_FROM=Royal Gambit <you@gmail.com>
+```
+
+Remove those lines to go back to Mailpit.
