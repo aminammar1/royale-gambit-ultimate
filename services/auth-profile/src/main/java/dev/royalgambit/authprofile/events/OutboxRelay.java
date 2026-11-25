@@ -1,7 +1,6 @@
 package dev.royalgambit.authprofile.events;
 
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -91,9 +90,9 @@ public class OutboxRelay {
 				published.add(row.id());
 			}
 			catch (AmqpException ex) {
-				// Keep the order: stop here and let the next run retry from this row. No
-				// stack
-				// trace: while the broker is down this repeats every poll.
+				// Keep the order: stop here and let the next run retry from
+				// this row. No stack trace: while the broker is down this
+				// repeats every poll.
 				log.warn("event {} not published yet, will retry: {}", row.id(), ex.getMessage());
 				break;
 			}
@@ -121,7 +120,7 @@ public class OutboxRelay {
 		ObjectNode envelope = this.json.createObjectNode();
 		envelope.put("id", row.id().toString());
 		envelope.put("type", row.type());
-		envelope.put("occurred_at", row.occurredAt().withOffsetSameInstant(ZoneOffset.UTC).toString());
+		envelope.put("occurred_at", row.occurredAt().toInstant().toString());
 		envelope.put("trace_id", row.traceId());
 		envelope.set("data", this.json.readTree(row.data()));
 		return envelope;

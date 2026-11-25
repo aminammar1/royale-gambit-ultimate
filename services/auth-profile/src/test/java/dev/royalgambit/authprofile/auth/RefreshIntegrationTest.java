@@ -82,8 +82,8 @@ class RefreshIntegrationTest {
 
 		// Someone replays the old token: that is the theft signal.
 		assertThat(type(refresh(token(first)))).isEqualTo(REUSED);
-		// The legitimate holder's newest token dies with it, so the thief gets nothing
-		// either.
+		// The legitimate holder's newest token dies with it, so the thief gets
+		// nothing either.
 		assertThat(type(refresh(token(second)))).isEqualTo(INVALID);
 	}
 
@@ -118,21 +118,26 @@ class RefreshIntegrationTest {
 		String shared = token(this.auth.guest());
 		int callers = 10;
 		CountDownLatch start = new CountDownLatch(1);
-		List<Future<Integer>> results = new ArrayList<>();
+		List<Future<HttpResponse<String>>> results = new ArrayList<>();
 		try (ExecutorService pool = Executors.newFixedThreadPool(callers)) {
 			for (int i = 0; i < callers; i++) {
 				results.add(pool.submit(() -> {
 					start.await();
-					return refresh(shared).statusCode();
+					return refresh(shared);
 				}));
 			}
 			start.countDown();
-			List<Integer> statuses = new ArrayList<>();
-			for (Future<Integer> result : results) {
-				statuses.add(result.get());
+			List<HttpResponse<String>> responses = new ArrayList<>();
+			for (Future<HttpResponse<String>> result : results) {
+				responses.add(result.get());
 			}
-			assertThat(statuses).containsOnly(200, 401);
-			assertThat(statuses).filteredOn((status) -> status == 200).hasSize(1);
+			List<HttpResponse<String>> winners = responses.stream().filter((r) -> r.statusCode() == 200).toList();
+			assertThat(winners).hasSize(1);
+			List<String> loserTypes = responses.stream().filter((r) -> r.statusCode() != 200).map(this::type).toList();
+			assertThat(loserTypes).hasSize(callers - 1).containsOnly(REUSED, INVALID).contains(REUSED);
+			// Reuse means "someone copied the token": the winner's fresh token
+			// dies too.
+			assertThat(type(refresh(token(this.http.body(winners.getFirst()))))).isEqualTo(INVALID);
 		}
 	}
 

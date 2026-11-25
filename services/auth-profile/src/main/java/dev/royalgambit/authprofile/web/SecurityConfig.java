@@ -52,9 +52,9 @@ class SecurityConfig {
 	@Bean
 	SecurityFilterChain api(HttpSecurity http,
 			@Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver) {
-		// Hand 401 and 403 to ProblemHandler so they look like every other error,
-		// trace_id
-		// included, instead of Spring Security's bare status codes.
+		// Hand 401 and 403 to ProblemHandler so they look like every other
+		// error, trace_id included, instead of Spring Security's bare status
+		// codes.
 		AuthenticationEntryPoint unauthenticated = (request, response, ex) -> resolver.resolveException(request,
 				response, null, ex);
 		AccessDeniedHandler denied = (request, response, ex) -> resolver.resolveException(request, response, null, ex);
@@ -63,8 +63,8 @@ class SecurityConfig {
 			.sessionManagement((session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.requestCache((cache) -> cache.disable())
 			.authorizeHttpRequests((requests) -> requests
-				// Before the public /v1/auth/** rule: changing identities needs a
-				// signed-in user.
+				// Before the public /v1/auth/** rule: changing identities needs
+				// a signed-in user.
 				.requestMatchers("/v1/auth/identities/**")
 				.hasRole(Role.USER.name())
 				.requestMatchers(PUBLIC)
@@ -74,8 +74,8 @@ class SecurityConfig {
 				.hasRole(Role.USER.name())
 				.anyRequest()
 				.authenticated())
-			// Our own tokens, checked with the JwtDecoder from JwtConfig (in-memory
-			// public key).
+			// Our own tokens, checked with the JwtDecoder from JwtConfig
+			// (in-memory public key).
 			.oauth2ResourceServer((server) -> server.authenticationEntryPoint(unauthenticated)
 				.accessDeniedHandler(denied)
 				.jwt((jwt) -> jwt.jwtAuthenticationConverter(roleFromClaim())))

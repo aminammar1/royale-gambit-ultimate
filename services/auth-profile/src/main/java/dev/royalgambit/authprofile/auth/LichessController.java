@@ -27,9 +27,9 @@ class LichessController {
 	 * Loopback only (127.0.0.1, [::1], localhost) with an explicit port. A redirect to
 	 * any other host would let someone else's page collect a player's code.
 	 */
-	record Start(
-			@NotNull @Size(max = 200) @Pattern(regexp = "http://(127\\.0\\.0\\.1|\\[::1\\]|localhost):[0-9]{1,5}(/.*)?",
-					message = "must be a loopback URL such as http://127.0.0.1:53682/callback") String redirectUri) {
+	record Start(@NotNull @Size(max = 200) @Pattern(
+			regexp = "http://(127\\.0\\.0\\.1|\\[::1\\]|localhost):[0-9]{1,5}(/[A-Za-z0-9._~/-]*)?",
+			message = "must be a loopback URL such as http://127.0.0.1:53682/callback") String redirectUri) {
 	}
 
 	record Complete(@NotBlank @Size(max = 500) String code, @NotBlank @Size(max = 200) String state) {

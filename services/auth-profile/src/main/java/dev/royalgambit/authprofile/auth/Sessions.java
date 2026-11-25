@@ -83,7 +83,8 @@ public class Sessions {
 	}
 
 	private Role roleOf(UUID userId) {
-		// Read fresh on every refresh, so a guest who signs up gets the new role at once.
+		// Read on every refresh instead of copied into the session, so a role
+		// change reaches the next token. Nothing changes roles yet.
 		return this.accounts.roleOf(userId).orElseThrow(AuthProblem::refreshInvalid);
 	}
 

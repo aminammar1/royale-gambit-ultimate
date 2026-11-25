@@ -1,5 +1,6 @@
 package dev.royalgambit.authprofile.profile;
 
+import java.net.URI;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,20 +36,32 @@ class ProfileService {
 	 */
 	@Transactional
 	public Profile put(UUID userId, ProfileWrite write) {
-		boolean changed;
+		Optional<Profile> before = this.profiles.find(userId);
+		boolean saved;
 		try {
-			changed = this.profiles.saveIfNewer(userId, write);
+			saved = this.profiles.saveIfNewer(userId, write);
 		}
 		catch (DuplicateKeyException ex) {
-			throw new ErrorResponseException(HttpStatus.CONFLICT,
-					ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "that username is taken"), ex);
+			throw usernameTaken(ex);
 		}
 		Profile stored = this.profiles.find(userId).orElseThrow();
-		if (changed) {
+		// The event carries name and country only; a settings tweak would tell
+		// consumers nothing, and theme toggles would flood them.
+		boolean publicChange = before
+			.map((old) -> !old.username().equals(stored.username()) || !old.country().equals(stored.country()))
+			.orElse(true);
+		if (saved && publicChange) {
 			this.outbox.append(ProfileUpdated.TYPE,
 					new ProfileUpdated(stored.userId(), stored.username(), stored.country(), stored.updatedAt()));
 		}
 		return stored;
+	}
+
+	private static ErrorResponseException usernameTaken(DuplicateKeyException cause) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "that username is taken");
+		problem.setType(URI.create("https://royal-gambit.dev/problems/username-taken"));
+		problem.setTitle("Username taken");
+		return new ErrorResponseException(HttpStatus.CONFLICT, problem, cause);
 	}
 
 }

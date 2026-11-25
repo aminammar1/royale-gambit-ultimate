@@ -92,6 +92,25 @@ class OutboxRelayIntegrationTest {
 	}
 
 	@Test
+	void occurredAtIsRfc3339EvenOnAWholeMinute() {
+		String userId = UUID.randomUUID().toString();
+		this.jdbc.sql("""
+				INSERT INTO outbox (id, type, trace_id, data, occurred_at)
+				VALUES (:id, 'user.registered', :trace, :data::jsonb, '2026-01-01T10:00:00Z')
+				""")
+			.param("id", UUID.randomUUID())
+			.param("trace", "0".repeat(32))
+			.param("data", "{\"user_id\":\"" + userId + "\",\"registered_at\":\"2026-01-01T10:00:00Z\"}")
+			.update();
+		this.relay.publishPending();
+
+		JsonNode envelope = this.json.readTree(receiveFor(userId).getBody());
+		// OffsetDateTime.toString() would say "2026-01-01T10:00Z", which is not
+		// RFC 3339.
+		assertThat(envelope.get("occurred_at").asString()).isEqualTo("2026-01-01T10:00:00Z");
+	}
+
+	@Test
 	void eventsWaitWhileTheBrokerIsDownAndLeaveOnceItIsBack() {
 		String userId = this.auth.signIn(AuthSteps.freshEmail()).get("user_id").asString();
 		CachingConnectionFactory nowhere = new CachingConnectionFactory("localhost", 1);

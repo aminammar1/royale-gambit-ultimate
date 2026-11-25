@@ -86,7 +86,10 @@ class LichessSignInIntegrationTest {
 	@ParameterizedTest
 	@ValueSource(strings = { "https://evil.example/callback", "http://evil.example:80/cb",
 			"http://127.0.0.1.evil.example:80/", "http://localhost.evil.example:1/", "ftp://127.0.0.1:21/",
-			"http://127.0.0.1/no-port", "" })
+			"http://127.0.0.1/no-port", "",
+			// Lichess appends code and state itself; a query here would break
+			// that URL.
+			"http://127.0.0.1:1/cb?x=1&y=2", "http://127.0.0.1:1/cb#fragment" })
 	void onlyLoopbackRedirectsAreAccepted(String redirect) {
 		this.http.problem(this.http.post("/v1/auth/lichess/start", "{\"redirect_uri\":\"" + redirect + "\"}"), 400);
 	}
@@ -104,7 +107,8 @@ class LichessSignInIntegrationTest {
 
 		assertThat(tokens.get("role").asString()).isEqualTo("user");
 		assertThat(registrations(tokens.get("user_id").asString())).isEqualTo(1);
-		// The same Lichess player next time: same account, no second registration.
+		// The same Lichess player next time: same account, no second
+		// registration.
 		JsonNode again = this.http.body(signIn(name));
 		assertThat(again.get("user_id")).isEqualTo(tokens.get("user_id"));
 		assertThat(registrations(tokens.get("user_id").asString())).isEqualTo(1);
@@ -207,9 +211,8 @@ class LichessSignInIntegrationTest {
 
 	@Test
 	void aSignInFlowCannotBeTurnedIntoALinkOnSomeoneElsesAccount() {
-		// The attacker approves with their own Lichess and gets a victim's app to post
-		// the
-		// code and state with the victim's token.
+		// The attacker approves with their own Lichess and gets a victim's app
+		// to post the code and state with the victim's token.
 		JsonNode victim = this.auth.signIn(AuthSteps.freshEmail());
 		JsonNode started = start(REDIRECT);
 		String attackerLichess = lichessName();
@@ -217,7 +220,8 @@ class LichessSignInIntegrationTest {
 
 		assertThat(type(complete(code, started.get("state").asString(), victim.get("access_token").asString()), 401))
 			.isEqualTo(PROBLEMS + "oauth-state-invalid");
-		// Nothing got linked: the attacker's Lichess still opens a separate, new account.
+		// Nothing got linked: the attacker's Lichess still opens a separate,
+		// new account.
 		assertThat(this.http.body(signIn(attackerLichess)).get("user_id")).isNotEqualTo(victim.get("user_id"));
 	}
 

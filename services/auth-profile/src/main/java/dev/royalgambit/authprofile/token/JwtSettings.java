@@ -14,10 +14,12 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param issuer the {@code iss} claim
  * @param accessTtl access token lifetime
  * @param refreshTtl refresh token lifetime
+ * @param retiredPublicKeys public halves (PEM) of keys we signed with before the current
+ * one; published and trusted until their tokens have expired
  */
 @ConfigurationProperties("auth.jwt")
 public record JwtSettings(@DefaultValue("") String privateKey, @DefaultValue("false") boolean ephemeralKey,
 		@DefaultValue("royal-gambit") String issuer, @DefaultValue("15m") Duration accessTtl,
-		@DefaultValue("30d") Duration refreshTtl) {
+		@DefaultValue("30d") Duration refreshTtl, @DefaultValue("") String retiredPublicKeys) {
 
 }

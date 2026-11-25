@@ -41,8 +41,8 @@ public class TokenIssuer {
 			.claim("role", role.claim())
 			.claim("scope", role.scope())
 			.build();
-		// Name the key in the header so verifiers can pick it out of the JWKS during a
-		// rotation.
+		// Name the key in the header so verifiers can pick it out of the JWKS
+		// during a rotation.
 		JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256).keyId(this.keyId).build();
 		String token = this.encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
 		return new AccessToken(token, this.settings.accessTtl().toSeconds());

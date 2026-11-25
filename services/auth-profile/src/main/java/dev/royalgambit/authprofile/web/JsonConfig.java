@@ -25,8 +25,9 @@ class JsonConfig {
 					config -> config.setCoercion(CoercionInputShape.Integer, CoercionAction.Fail)
 						.setCoercion(CoercionInputShape.Float, CoercionAction.Fail)
 						.setCoercion(CoercionInputShape.Boolean, CoercionAction.Fail))
-			// The contract's date-times are strings; 0 is not "1970-01-01T00:00:00Z". The
-			// stock Instant reader takes numbers whatever the coercion settings say.
+			// The contract's date-times are strings; 0 is not
+			// "1970-01-01T00:00:00Z". The stock Instant reader takes numbers
+			// whatever the coercion settings say.
 			.addModule(
 					new SimpleModule("strict-dates").addDeserializer(Instant.class, new StrictInstantDeserializer()));
 	}

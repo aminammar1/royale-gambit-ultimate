@@ -24,8 +24,10 @@ Code is split by feature: `auth/` (ways to sign in, sessions), `token/` (keys, J
 | `JWT_PRIVATE_KEY` | (required) | RSA private key, PKCS#8 PEM. Make one: `openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048` |
 | `JWT_EPHEMERAL_KEY` | `false` | `true` signs with a throwaway key (dev and tests only) |
 | `JWT_ISSUER` | `royal-gambit` | `iss` claim |
+| `JWT_RETIRED_PUBLIC_KEYS` | empty | key rotation: the old key's public PEM, kept for 15 min after switching `JWT_PRIVATE_KEY` |
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASSWORD`, `MAIL_FROM` | `localhost`, `1025`, none | SMTP for sign-in codes |
 | `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD` | `localhost`, `5672`, `guest` | event broker |
 | `OUTBOX_POLL` | `PT1S` | how often the relay looks for events |
+| `HOUSEKEEPING_INTERVAL` | `PT1H` | how often expired codes, flows, sessions and abandoned guests are deleted |
 | `LICHESS_URL`, `LICHESS_CLIENT_ID` | `https://lichess.org`, `royal-gambit` | Lichess needs no app registration for PKCE |
 | `MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT` | unset | e.g. `http://otel-collector:4318/v1/traces` |

@@ -75,8 +75,9 @@ public class EmailSignIn {
 		if (this.codes.sentWithin(email, this.settings.resendCooldown())) {
 			return;
 		}
-		// Without a cap, five guesses a minute add up: about one account in five over a
-		// month. The cap also stops this endpoint from mailing someone all day long.
+		// Without a cap, five guesses a minute add up: about one account in
+		// five over a month. The cap also stops this endpoint from mailing
+		// someone all day long.
 		EmailCodes.SentCounts sent = this.codes.sentCounts(email);
 		if (sent.lastDay() >= this.settings.maxPerDay()) {
 			throw AuthProblem.tooManyCodes(Duration.ofDays(1));
@@ -91,8 +92,8 @@ public class EmailSignIn {
 			this.mailer.send(email, code);
 		}
 		catch (MailException ex) {
-			// The player never got this code; retire it so the cooldown does not block a
-			// retry.
+			// The player never got this code; retire it so the cooldown does
+			// not block a retry.
 			this.codes.consume(id);
 			log.warn("sign-in code could not be mailed", ex);
 			throw AuthProblem.mailUnavailable();
@@ -101,10 +102,9 @@ public class EmailSignIn {
 
 	public TokenPair verify(String rawEmail, String code) {
 		String email = normalize(rawEmail);
-		// The wrong-guess counter must be saved even though we answer with an error, so
-		// the
-		// outcome is decided in the transaction and the exception thrown after it
-		// commits.
+		// The wrong-guess counter must be saved even though we answer with an
+		// error, so the outcome is decided in the transaction and the exception
+		// thrown after it commits.
 		Outcome outcome = this.transaction.execute((status) -> check(email, code));
 		return switch (outcome) {
 			case Outcome.Accepted accepted -> this.sessions.open(accepted.userId(), Role.USER);

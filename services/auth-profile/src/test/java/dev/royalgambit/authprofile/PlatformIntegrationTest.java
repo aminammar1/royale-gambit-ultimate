@@ -48,22 +48,22 @@ class PlatformIntegrationTest {
 
 	@Test
 	void unknownRouteIsAProblemNotALoginPage() {
-		// Deny by default: a route nobody declared asks for a token instead of leaking a
-		// 404 map.
+		// Deny by default: a route nobody declared asks for a token instead of
+		// leaking a 404 map.
 		this.http.problem(this.http.get("/v1/nowhere"), 401);
 	}
 
 	@Test
 	void anHttpMethodNobodyServesIsA405Problem() {
-		// QUERY is a real (new) HTTP method; the firewall must not turn it into a bare
-		// 400.
+		// QUERY is a real (new) HTTP method; the firewall must not turn it into
+		// a bare 400.
 		this.http.problem(this.http.send("QUERY", "/health/live", null, null), 405);
 	}
 
 	@Test
 	void aRequestTheFirewallRejectsIsStillAProblem() {
-		// An encoded "." in the path is a classic traversal trick; refused, but as
-		// problem+json.
+		// An encoded "." in the path is a classic traversal trick; refused, but
+		// as problem+json.
 		this.http.problem(this.http.get("/v1/auth/%2e%2e/guest"), 400);
 	}
 

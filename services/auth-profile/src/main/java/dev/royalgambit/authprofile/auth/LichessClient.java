@@ -5,6 +5,8 @@ import java.time.Instant;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -14,6 +16,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 /**
  * The two Lichess calls a sign-in needs: trade the code for a token, then ask whose token
@@ -22,6 +25,8 @@ import org.springframework.web.client.RestClientException;
  */
 @Component
 class LichessClient {
+
+	private static final Logger log = LoggerFactory.getLogger(LichessClient.class);
 
 	/** The Lichess player behind a token. {@code id} is the lowercase, stable name. */
 	record LichessAccount(String id, String username) {
@@ -64,7 +69,8 @@ class LichessClient {
 			.contentType(MediaType.APPLICATION_FORM_URLENCODED)
 			.body(form)
 			.retrieve()
-			// A 4xx here means the code (or verifier) is wrong, not that Lichess is down.
+			// A 4xx here means the code (or verifier) is wrong, not that
+			// Lichess is down.
 			.onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
 				throw AuthProblem.lichessCodeInvalid();
 			})
@@ -101,8 +107,11 @@ class LichessClient {
 			throw problem;
 		}
 		catch (RestClientException ex) {
-			// Timeouts, refused connections, 5xx, unreadable bodies: all "try again
-			// later".
+			// Timeouts, refused connections, 5xx, unreadable bodies: all "try
+			// later". Log the kind of failure only: a body could echo the token
+			// back.
+			log.warn("Lichess call failed: {}", (ex instanceof RestClientResponseException response)
+					? "HTTP " + response.getStatusCode().value() : ex.getClass().getSimpleName());
 			throw AuthProblem.lichessUnavailable();
 		}
 	}

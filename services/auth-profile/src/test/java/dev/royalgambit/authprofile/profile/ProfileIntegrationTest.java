@@ -114,7 +114,9 @@ class ProfileIntegrationTest {
 		String name = uniqueName();
 		put(player(), name, "FR", "{}", "2026-11-20T10:00:00Z");
 
-		this.http.problem(put(player(), name.toUpperCase(), "FR", "{}", "2026-11-20T10:00:00Z"), 409);
+		assertThat(this.http.problem(put(player(), name.toUpperCase(), "FR", "{}", "2026-11-20T10:00:00Z"), 409)
+			.get("type")
+			.asString()).isEqualTo("https://royal-gambit.dev/problems/username-taken");
 	}
 
 	@Test
@@ -173,6 +175,21 @@ class ProfileIntegrationTest {
 		assertThat(events(userId)).hasSize(2);
 	}
 
+	@Test
+	void aSettingsOnlyChangeIsSavedButNotAnnounced() {
+		String token = player();
+		String name = uniqueName();
+		String userId = this.http.body(put(token, name, "MA", "{\"board\":\"walnut\"}", "2026-11-20T10:00:00Z"))
+			.get("user_id")
+			.asString();
+		JsonNode saved = this.http.body(put(token, name, "MA", "{\"board\":\"slate\"}", "2026-11-20T11:00:00Z"));
+
+		assertThat(saved.get("settings").get("board").asString()).isEqualTo("slate");
+		// The event carries no settings, so announcing this would tell
+		// consumers nothing.
+		assertThat(events(userId)).hasSize(1);
+	}
+
 	@ParameterizedTest
 	@ValueSource(strings = {
 			"{\"username\":\"ab\",\"country\":\"FR\",\"settings\":{},\"updated_at\":\"2026-11-20T10:00:00Z\"}",
@@ -187,6 +204,13 @@ class ProfileIntegrationTest {
 			"{\"username\":\"okname\",\"country\":\"FR\",\"settings\":{},\"updated_at\":\"2026-11-20T10:00:00Z\",\"x\":1}" })
 	void badProfilesAre400(String body) {
 		this.http.problem(this.http.put("/v1/profile", body, player()), 400);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { "{\"\\u0000\":null}", "{\"a\":\"x\\u0000y\"}", "{\"a\":{\"b\":[\"\\u0000\"]}}" })
+	void settingsWithANulCharacterAre400NotACrash(String settings) {
+		// Postgres jsonb cannot hold U+0000 anywhere, keys included.
+		this.http.problem(put(player(), uniqueName(), "FR", settings, "2026-11-20T10:00:00Z"), 400);
 	}
 
 	@Test

@@ -150,8 +150,8 @@ class EmailSignInIntegrationTest {
 		String email = freshEmail();
 		for (int i = 0; i < 10; i++) {
 			if (i == 5) {
-				// The first five are now two hours old: out of the hourly window, still
-				// today.
+				// The first five are now two hours old: out of the hourly
+				// window, still today.
 				this.jdbc
 					.sql("UPDATE email_codes SET created_at = created_at - interval '2 hours' WHERE email = :email")
 					.param("email", email)
@@ -163,6 +163,24 @@ class EmailSignInIntegrationTest {
 
 		this.http.problem(this.auth.requestCode(email), 429);
 		assertThat(this.mailbox.subjectsFor(email)).hasSize(10);
+	}
+
+	@Test
+	void aCodeThatCouldNotBeMailedDoesNotBlockTheRetry() {
+		String email = freshEmail();
+		var docker = this.mailpit.getDockerClient();
+		docker.pauseContainerCmd(this.mailpit.getContainerId()).exec();
+		try {
+			assertThat(this.http.problem(this.auth.requestCode(email), 503).get("type").asString())
+				.isEqualTo("https://royal-gambit.dev/problems/mail-unavailable");
+		}
+		finally {
+			docker.unpauseContainerCmd(this.mailpit.getContainerId()).exec();
+		}
+		// Straight away, inside what would be the cooldown: the lost code does
+		// not count.
+		assertThat(this.auth.requestCode(email).statusCode()).isEqualTo(202);
+		assertThat(this.mailbox.subjectsFor(email)).hasSize(1);
 	}
 
 	@Test

@@ -47,8 +47,8 @@ class ProblemHandler extends ResponseEntityExceptionHandler {
 
 	@ExceptionHandler(RequestRejectedException.class)
 	ResponseEntity<Object> rejected(RequestRejectedException ex, WebRequest request) {
-		// The reason names the rule that tripped; useful in our logs, not in the client's
-		// hands.
+		// The reason names the rule that tripped; useful in our logs, not in
+		// the client's hands.
 		log.info("request rejected by the firewall: {}", ex.getMessage());
 		ProblemDetail body = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "malformed request");
 		return handleExceptionInternal(ex, body, new HttpHeaders(), HttpStatus.BAD_REQUEST, request);

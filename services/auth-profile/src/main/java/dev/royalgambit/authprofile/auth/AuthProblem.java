@@ -69,7 +69,7 @@ public final class AuthProblem extends ErrorResponseException {
 
 	static AuthProblem lichessUnavailable() {
 		return new AuthProblem(HttpStatus.SERVICE_UNAVAILABLE, "lichess-unavailable", "Lichess unavailable",
-				"Lichess did not answer properly; try again in a moment");
+				"Lichess did not answer properly; start the sign-in again in a moment");
 	}
 
 	static AuthProblem identityTaken() {

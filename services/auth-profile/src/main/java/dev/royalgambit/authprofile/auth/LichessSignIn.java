@@ -92,8 +92,8 @@ public class LichessSignIn {
 	public TokenPair complete(String code, String state, Optional<UUID> caller) {
 		OAuthStates.Flow flow = this.states.consume(Secrets.sha256(state), Provider.LICHESS, caller.orElse(null))
 			.orElseThrow(AuthProblem::oauthStateInvalid);
-		// No transaction around the network calls: no row locks held while Lichess
-		// thinks.
+		// No transaction around the network calls: no row locks held while
+		// Lichess thinks.
 		LichessToken token = this.lichess.exchange(code, flow.verifier(), flow.redirectUri());
 		LichessAccount account = this.lichess.account(token.accessToken());
 		ProviderToken kept = new ProviderToken(token.accessToken(), token.expiresAt());
@@ -120,8 +120,8 @@ public class LichessSignIn {
 			return this.transaction.execute((status) -> attachOnce(account, token, linkTo));
 		}
 		catch (DuplicateKeyException firstSignInRace) {
-			// Two first sign-ins of one Lichess player at once: the other request just
-			// created the account, so this time we find it.
+			// Two first sign-ins of one Lichess player at once: the other
+			// request just created the account, so this time we find it.
 			return this.transaction.execute((status) -> attachOnce(account, token, linkTo));
 		}
 	}
@@ -134,7 +134,8 @@ public class LichessSignIn {
 			}
 			Optional<String> current = this.accounts.subjectOf(linkTo.get(), Provider.LICHESS);
 			if (current.isPresent() && !current.get().equals(account.id())) {
-				// One Lichess user per account: the player unlinks the old one first.
+				// One Lichess user per account: the player unlinks the old one
+				// first.
 				throw AuthProblem.identityTaken();
 			}
 			if (owner.isEmpty()) {
@@ -143,7 +144,8 @@ public class LichessSignIn {
 			}
 		}
 		if (owner.isPresent()) {
-			// Keep the newest token: the explorer will use it on the player's behalf.
+			// Keep the newest token: the explorer will use it on the player's
+			// behalf.
 			this.accounts.updateToken(Provider.LICHESS, account.id(), token);
 			return owner.get();
 		}

@@ -19,8 +19,8 @@ import org.springframework.context.annotation.Import;
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT,
 		properties = { "spring.flyway.enabled=true", "auth.jwt.ephemeral-key=true",
-				// Tests run the relay by hand, so a timer never races them for outbox
-				// rows.
+				// Tests run the relay by hand, so a timer never races them for
+				// outbox rows.
 				"auth.outbox.poll=PT1H" })
 // Spring tests turn metric export off by default; the contract needs /metrics.
 @AutoConfigureMetrics

@@ -7,10 +7,16 @@ import java.security.interfaces.RSAPrivateCrtKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPublicKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.KeyUse;
 import com.nimbusds.jose.jwk.RSAKey;
@@ -28,7 +34,12 @@ public class SigningKeys {
 
 	private static final Logger log = LoggerFactory.getLogger(SigningKeys.class);
 
+	private static final Pattern PUBLIC_PEM = Pattern
+		.compile("-----BEGIN PUBLIC KEY-----([A-Za-z0-9+/=\\s]+)-----END PUBLIC KEY-----");
+
 	private final RSAKey active;
+
+	private final List<RSAKey> retired;
 
 	public SigningKeys(JwtSettings settings) {
 		if (!settings.privateKey().isBlank()) {
@@ -42,6 +53,7 @@ public class SigningKeys {
 			throw new IllegalStateException(
 					"JWT_PRIVATE_KEY is not set. Set it to a PKCS#8 PEM RSA key, or JWT_EPHEMERAL_KEY=true for local dev.");
 		}
+		this.retired = retiredFromPem(settings.retiredPublicKeys());
 	}
 
 	/** Public and private halves, for signing. */
@@ -49,9 +61,16 @@ public class SigningKeys {
 		return this.active;
 	}
 
-	/** What the gateway may see: public halves only. */
+	/**
+	 * What the gateway may see and what we verify with: the public half of the active key
+	 * and of each retired one. A rotation is: new JWT_PRIVATE_KEY, old key's public half
+	 * in JWT_RETIRED_PUBLIC_KEYS until its last token expires (15 minutes), then drop it.
+	 */
 	public JWKSet publicSet() {
-		return new JWKSet(this.active.toPublicJWK());
+		List<JWK> keys = new ArrayList<>();
+		keys.add(this.active.toPublicJWK());
+		keys.addAll(this.retired);
+		return new JWKSet(keys);
 	}
 
 	private static RSAKey describe(RSAPrivateCrtKey privateKey) {
@@ -68,6 +87,28 @@ public class SigningKeys {
 		catch (GeneralSecurityException | JOSEException ex) {
 			throw new IllegalStateException("cannot derive the public signing key", ex);
 		}
+	}
+
+	private static List<RSAKey> retiredFromPem(String pems) {
+		Matcher blocks = PUBLIC_PEM.matcher(pems);
+		List<RSAKey> keys = new ArrayList<>();
+		while (blocks.find()) {
+			try {
+				byte[] der = Base64.getDecoder().decode(blocks.group(1).replaceAll("\\s", ""));
+				RSAPublicKey key = (RSAPublicKey) KeyFactory.getInstance("RSA")
+					.generatePublic(new X509EncodedKeySpec(der));
+				RSAKey unnamed = new RSAKey.Builder(key).build();
+				keys.add(new RSAKey.Builder(key).keyUse(KeyUse.SIGNATURE)
+					.algorithm(JWSAlgorithm.RS256)
+					.keyID(unnamed.computeThumbprint().toString())
+					.build());
+			}
+			catch (IllegalArgumentException | GeneralSecurityException | ClassCastException | JOSEException ex) {
+				throw new IllegalStateException("JWT_RETIRED_PUBLIC_KEYS holds something that is not an RSA public key",
+						ex);
+			}
+		}
+		return List.copyOf(keys);
 	}
 
 	private static RSAPrivateCrtKey fromPem(String pem) {

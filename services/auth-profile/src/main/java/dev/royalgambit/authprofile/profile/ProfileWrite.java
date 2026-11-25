@@ -35,4 +35,13 @@ record ProfileWrite(
 				&& this.settings.toString().getBytes(StandardCharsets.UTF_8).length <= MAX_SETTINGS_BYTES);
 	}
 
+	/**
+	 * Postgres jsonb refuses U+0000 anywhere, keys included. Serialized JSON writes it as
+	 * a backslash-u-0000 escape, so one look at the text finds it at any depth.
+	 */
+	@AssertTrue(message = "must not contain the NUL character")
+	boolean isSettingsFreeOfNul() {
+		return this.settings == null || !this.settings.toString().contains("\\u0000");
+	}
+
 }

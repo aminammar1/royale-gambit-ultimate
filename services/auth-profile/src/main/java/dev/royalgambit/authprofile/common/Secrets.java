@@ -64,7 +64,8 @@ public final class Secrets {
 			return MessageDigest.getInstance("SHA-256");
 		}
 		catch (NoSuchAlgorithmException ex) {
-			// Every JVM must ship SHA-256; if it is missing the runtime itself is broken.
+			// Every JVM must ship SHA-256; if it is missing the runtime itself
+			// is broken.
 			throw new IllegalStateException("SHA-256 is not available", ex);
 		}
 	}
