@@ -182,6 +182,8 @@ class ProfileIntegrationTest {
 			"{\"username\":\"okname\",\"country\":\"FR\",\"settings\":[1],\"updated_at\":\"2026-11-20T10:00:00Z\"}",
 			"{\"username\":\"okname\",\"country\":\"FR\",\"settings\":{},\"updated_at\":\"yesterday\"}",
 			"{\"username\":\"okname\",\"country\":\"FR\",\"settings\":{}}",
+			// A number is not a date-time, even if it looks like epoch seconds.
+			"{\"username\":\"okname\",\"country\":\"FR\",\"settings\":{},\"updated_at\":0}",
 			"{\"username\":\"okname\",\"country\":\"FR\",\"settings\":{},\"updated_at\":\"2026-11-20T10:00:00Z\",\"x\":1}" })
 	void badProfilesAre400(String body) {
 		this.http.problem(this.http.put("/v1/profile", body, player()), 400);

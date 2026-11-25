@@ -14,6 +14,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.firewall.RequestRejectedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -41,6 +42,15 @@ class ProblemHandler extends ResponseEntityExceptionHandler {
 	@ExceptionHandler(MultipartException.class)
 	ResponseEntity<Object> malformedMultipart(MultipartException ex, WebRequest request) {
 		ProblemDetail body = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "malformed multipart request");
+		return handleExceptionInternal(ex, body, new HttpHeaders(), HttpStatus.BAD_REQUEST, request);
+	}
+
+	@ExceptionHandler(RequestRejectedException.class)
+	ResponseEntity<Object> rejected(RequestRejectedException ex, WebRequest request) {
+		// The reason names the rule that tripped; useful in our logs, not in the client's
+		// hands.
+		log.info("request rejected by the firewall: {}", ex.getMessage());
+		ProblemDetail body = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "malformed request");
 		return handleExceptionInternal(ex, body, new HttpHeaders(), HttpStatus.BAD_REQUEST, request);
 	}
 

@@ -14,6 +14,9 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.firewall.HttpFirewall;
+import org.springframework.security.web.firewall.RequestRejectedHandler;
+import org.springframework.security.web.firewall.StrictHttpFirewall;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 /**
@@ -26,6 +29,25 @@ class SecurityConfig {
 
 	private static final String[] PUBLIC = { "/health/**", "/metrics", "/.well-known/jwks.json", "/v1/auth/**",
 			"/error" };
+
+	/**
+	 * The default firewall answers unknown HTTP methods (QUERY, for one) with a bare 400.
+	 * Letting QUERY through means Spring MVC replies with a proper 405 problem instead.
+	 */
+	@Bean
+	HttpFirewall firewall() {
+		StrictHttpFirewall firewall = new StrictHttpFirewall();
+		firewall.setAllowedHttpMethods(List.of("DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT", "QUERY"));
+		return firewall;
+	}
+
+	/**
+	 * Whatever the firewall still refuses leaves as problem+json, like every other error.
+	 */
+	@Bean
+	RequestRejectedHandler requestRejected(@Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver) {
+		return (request, response, ex) -> resolver.resolveException(request, response, null, ex);
+	}
 
 	@Bean
 	SecurityFilterChain api(HttpSecurity http,
