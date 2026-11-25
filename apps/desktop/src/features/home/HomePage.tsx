@@ -69,14 +69,18 @@ export function HomePage() {
         }
       />
       <ChampionQuote />
-      <div className="grid grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)_minmax(0,0.95fr)] py-8 max-[1279px]:grid-cols-2">
-        <section aria-labelledby="headlines" className="@container pr-8">
+      <div className="grid grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)_minmax(0,0.95fr)] py-8 max-[1599px]:grid-cols-2">
+        <section
+          aria-labelledby="headlines"
+          className="@container pr-8 max-[1599px]:col-span-2 max-[1599px]:border-b max-[1599px]:border-rule max-[1599px]:pr-0 max-[1599px]:pb-8"
+        >
           <Kicker>
             <span id="headlines">Today’s headlines</span>
           </Kicker>
           {/* Tiles that open their page, sized by this column (a container query), not by the window:
-              a 2 × 2 grid when the column is wide enough, one stack when it is not. */}
-          <ul className="mt-5 grid gap-3 @xl:grid-cols-2">
+              a 2 × 2 grid when the column is wide enough, one stack when it is not. Below 1600 px the
+              headlines take the full width, the column and recent games share the row beneath. */}
+          <ul className="mt-5 grid gap-3 @min-[30rem]:grid-cols-2">
             {HEADLINES.map((h) => (
               <li key={h.title} className="flex">
                 <Link
@@ -84,7 +88,7 @@ export function HomePage() {
                   className="group flex w-full flex-col rounded-[var(--radius)] border border-ink-2 px-5 py-4 transition-colors duration-150 hover:border-ink hover:bg-paper-2 active:bg-paper-2"
                 >
                   <p className="label text-ink-2">{h.kicker}</p>
-                  <h2 className="mt-1 font-masthead text-[1.625rem] leading-[1.1] font-bold @xl:text-[1.75rem]">
+                  <h2 className="mt-1 font-masthead text-[1.625rem] leading-[1.1] font-bold @min-[30rem]:text-[1.75rem]">
                     {h.title}
                   </h2>
                   <p className="mt-2 mb-4 font-label text-[length:var(--text-sm)] text-ink-2">{h.text}</p>
@@ -98,12 +102,15 @@ export function HomePage() {
           </ul>
         </section>
 
-        <section aria-labelledby="column" className="border-l border-rule px-8">
+        <section
+          aria-labelledby="column"
+          className="border-l border-rule px-8 max-[1599px]:border-l-0 max-[1599px]:pt-8 max-[1599px]:pl-0"
+        >
           <Kicker aside="No. —">
             <span id="column">The chess column</span>
           </Kicker>
           <h2 className="mt-4 font-masthead text-[length:var(--text-3xl)] font-bold">Daily puzzle</h2>
-          <div className="mt-4 max-w-[26rem]">
+          <div className="mt-4 max-w-[26rem] max-[1599px]:max-w-[20rem]">
             <BoardPlaceholder label="The daily puzzle board, printed from M6" />
           </div>
           <p className="mt-4 font-body text-[length:var(--text-xl)] font-semibold">
@@ -114,7 +121,7 @@ export function HomePage() {
           </p>
         </section>
 
-        <div className="border-l border-rule pl-8 max-[1279px]:col-span-2 max-[1279px]:mt-10 max-[1279px]:border-l-0 max-[1279px]:pl-0">
+        <div className="border-l border-rule pl-8 max-[1599px]:pt-8">
           <section aria-labelledby="recent">
             <Kicker aside={<span className="label">All results</span>}>
               <span id="recent">Recent games</span>
