@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "format": "prettier --write src",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "check": "pnpm typecheck && pnpm lint && pnpm test && cd src-tauri && cargo test && cargo clippy -- -D warnings"
+    "check": "pnpm typecheck && pnpm lint && pnpm test && cd src-tauri && cargo test && cargo clippy -- -D warnings",
+    "gen:api": "openapi-typescript ../../contracts/openapi/auth-profile.yaml -o src/api/generated/auth-profile.ts"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.3.0",
@@ -38,6 +39,7 @@
     "eslint": "^10.15.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.14.0",
+    "openapi-typescript": "^7.13.0",
     "prettier": "^3.10.1",
     "tailwindcss": "^4.3.5",
     "typescript": "~6.0.3",
