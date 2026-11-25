@@ -2,7 +2,7 @@ import { Moon, Sun } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useServer } from "../../api";
-import { auth, useSession } from "../../api/auth/session";
+import { auth } from "../../api/auth/session";
 import { toApiError, type ApiError } from "../../api/problem";
 import { CHAMPIONS } from "../../app/champions";
 import { useEdition, useEditionStore } from "../../app/edition";
@@ -50,28 +50,15 @@ export function SignInPage() {
   const [lichess, setLichess] = useState<"idle" | "waiting">("idle");
   const [lichessError, setLichessError] = useState<ApiError>();
   const card = useProfile((s) => s.card);
-  const [mismatch, setMismatch] = useState(false);
 
-  // The card's owner, when it has one: the page says which way in leads back to it.
-  const owner = card?.ownerId ? { label: card.ownerLabel ?? undefined } : undefined;
+  // The last account signed in here: the page says how, and starts from that way in.
+  const owner = card?.ownerId && card.ownerLabel ? { label: card.ownerLabel } : undefined;
   const ownerEmail = card?.ownerLabel?.startsWith("Email · ") ? card.ownerLabel.slice("Email · ".length) : undefined;
   const ownerUsesLichess = card?.ownerLabel?.startsWith("Lichess · ") ?? false;
 
-  // A machine without a card registers one next; the gate sends a signed-in player there too.
-  // Signing in as someone other than the card's owner stops here, so it is never a surprise.
-  const enter = () => {
-    const userId = useSession.getState().account?.userId;
-    if (card?.ownerId && userId && userId !== card.ownerId) {
-      setMismatch(true);
-      return;
-    }
-    navigate(firstRun ? "/welcome" : "/", { replace: true });
-  };
-
-  const signOutAgain = async () => {
-    await auth.signOut().catch(() => undefined);
-    setMismatch(false);
-  };
+  // Every account has its own card (on the server). After sign-in the card sync brings it here,
+  // or the gate sends the player to the Welcome page to make one (app/cardSync.ts).
+  const enter = () => navigate(firstRun ? "/welcome" : "/", { replace: true });
 
   const withLichess = async () => {
     setLichess("waiting");
@@ -111,10 +98,6 @@ export function SignInPage() {
         <p className="mt-5 max-w-[38rem] border-t border-rule pt-3 font-body text-[length:var(--text-sm)] text-ink-2">
           Every undisputed world champion, from Steinitz in 1886 to Gukesh in 2024.
         </p>
-        <p className="mt-2 font-body text-[length:var(--text-xs)] text-ink-2">
-          Photos via Wikimedia Commons, CC BY-SA 3.0: Kasparov by Owen Williams, The Kasparov Agency; Kramnik by
-          Vladimir Barskij.
-        </p>
       </section>
 
       <section className="flex flex-col border-l border-rule px-10 py-8 max-[1279px]:px-8 max-[899px]:border-l-0">
@@ -146,69 +129,46 @@ export function SignInPage() {
           </p>
         ) : null}
 
-        {card && owner && !mismatch ? (
+        {card && owner ? (
           <div className="mt-5 flex items-center gap-4 border border-ink px-4 py-3">
             <Flag code={card.country} className="text-[1.75rem]" />
             <p className="min-w-0 font-body text-[length:var(--text-md)]">
-              <span className="font-semibold">This machine’s card: {card.username}.</span>{" "}
-              <span className="text-ink-2">
-                {owner.label
-                  ? `Sign in with ${owner.label} to use it.`
-                  : "Sign in with the account you registered it with to use it."}
-              </span>
+              <span className="font-semibold">Welcome back, {card.username}.</span>{" "}
+              <span className="text-ink-2">Last time you signed in with {owner.label}.</span>
             </p>
           </div>
         ) : null}
 
-        {mismatch && card ? (
-          <div role="alert" className="mt-6 border border-ink px-5 py-4">
-            <h3 className="font-masthead text-[length:var(--text-xl)] font-bold">Not this card’s account</h3>
-            <p className="mt-2 font-body text-[length:var(--text-md)] text-ink-2">
-              You are signed in, but {card.username}’s card on this machine belongs to{" "}
-              {owner?.label ? `the account you reach with ${owner.label}` : "another account"}. Email and Lichess
-              sign-ins are separate accounts until you link one to the other in Settings.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Button variant="primary" onClick={() => void signOutAgain()}>
-                Sign out and try again
-              </Button>
-              <Button onClick={() => navigate("/", { replace: true })}>Continue with this account</Button>
-            </div>
-          </div>
+        <div className="mt-6">
+          <EmailCodeForm submitLabel="Sign in" onDone={enter} initialEmail={ownerEmail} />
+        </div>
+
+        <div className="my-6 flex items-center gap-4" aria-hidden>
+          <span className="flex-1 border-t border-rule" />
+          <span className="font-body text-ink-2 italic">or</span>
+          <span className="flex-1 border-t border-rule" />
+        </div>
+
+        <Button
+          variant={ownerUsesLichess ? "primary" : "secondary"}
+          className="flex w-full items-center justify-center gap-3 py-3"
+          disabled={lichess === "waiting"}
+          onClick={() => void withLichess()}
+        >
+          <BrandMark brand="lichess" size={18} />
+          {lichess === "waiting" ? "Waiting for lichess.org…" : "Sign in with Lichess"}
+        </Button>
+        {lichess === "waiting" ? (
+          <Notice>Finish on lichess.org in your browser. This page waits up to 5 minutes.</Notice>
         ) : (
-          <>
-            <div className="mt-6">
-              <EmailCodeForm submitLabel="Sign in" onDone={enter} initialEmail={ownerEmail} />
-            </div>
-
-            <div className="my-6 flex items-center gap-4" aria-hidden>
-              <span className="flex-1 border-t border-rule" />
-              <span className="font-body text-ink-2 italic">or</span>
-              <span className="flex-1 border-t border-rule" />
-            </div>
-
-            <Button
-              variant={ownerUsesLichess ? "primary" : "secondary"}
-              className="flex w-full items-center justify-center gap-3 py-3"
-              disabled={lichess === "waiting"}
-              onClick={() => void withLichess()}
-            >
-              <BrandMark brand="lichess" size={18} />
-              {lichess === "waiting" ? "Waiting for lichess.org…" : "Sign in with Lichess"}
-            </Button>
-            {lichess === "waiting" ? (
-              <Notice>Finish on lichess.org in your browser. This page waits up to 5 minutes.</Notice>
-            ) : (
-              <Notice error={lichessError} />
-            )}
-            <Button disabled className="mt-3 flex w-full items-center justify-center gap-3 py-3">
-              <BrandMark brand="chesscom" size={18} />
-              Chess.com · in a later edition
-            </Button>
-          </>
+          <Notice error={lichessError} />
         )}
+        <Button disabled className="mt-3 flex w-full items-center justify-center gap-3 py-3">
+          <BrandMark brand="chesscom" size={18} />
+          Chess.com · in a later edition
+        </Button>
 
-        <div className={`mt-12 ${mismatch ? "hidden" : ""}`}>
+        <div className="mt-12">
           <div className="border-t-[3px] border-double border-ink pt-5">
             <h3 className="font-masthead text-[length:var(--text-xl)] font-bold">Play without an account</h3>
             <p className="mt-2 font-body text-[length:var(--text-md)] text-ink-2">

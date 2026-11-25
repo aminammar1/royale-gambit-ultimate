@@ -1,6 +1,10 @@
 import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { useSession } from "../../api/auth/session";
+import { toApiError } from "../../api/problem";
+import { registerForAccount } from "../../app/cardSync";
+import { signInLabel } from "../account/cards";
+import { useIdentities } from "../account/identities";
 import { editionDate } from "../../app/editionDate";
 import { useEdition } from "../../app/edition";
 import { profileDb, type DbError } from "../../db/profile";
@@ -109,11 +113,17 @@ export function WelcomePage() {
   const edition = useEdition();
   const navigate = useNavigate();
   const [country, setCountry] = useState<Country>();
-  const [username, setUsername] = useState("");
+  // Undefined until the player types: a Lichess player starts from their Lichess name.
+  const [typed, setTyped] = useState<string>();
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<DbError>();
   const signedIn = useSession((s) => s.status === "signedIn" || s.status === "offline");
+  const userId = useSession((s) => s.account?.userId);
+  const identities = useIdentities((s) => s.list);
+  const lichessName = identities?.find((i) => i.provider === "lichess")?.label;
+  const username = typed ?? lichessName ?? "";
+  const setUsername = setTyped;
 
   const problem = usernameProblem(username);
   const reason = !country ? "Pick a country first." : problem ? "Choose a username." : undefined;
@@ -125,10 +135,25 @@ export function WelcomePage() {
     setBusy(true);
     setFailure(undefined);
     try {
-      await profileDb.register(username.trim(), country.code);
+      if (userId) {
+        // Signed in: the card belongs to the account and goes to the server with it.
+        await registerForAccount(username.trim(), country.code, userId, signInLabel(identities) ?? "your account");
+      } else {
+        await profileDb.register(username.trim(), country.code);
+      }
       navigate("/welcome/keep", { replace: true });
     } catch (error) {
-      setFailure(error as DbError);
+      const api = toApiError(error);
+      if (api.kind === "problem" && api.status === 409) {
+        setFailure({ kind: "invalid", field: "username", message: "That username is taken. Try another." });
+      } else if (
+        "kind" in (error as object) &&
+        ["invalid", "alreadyRegistered", "storage"].includes((error as DbError).kind)
+      ) {
+        setFailure(error as DbError);
+      } else {
+        setFailure({ kind: "storage", message: "The card could not be saved. Try again." });
+      }
     } finally {
       setBusy(false);
     }
@@ -150,8 +175,9 @@ export function WelcomePage() {
         dateline={[
           `${edition} edition`,
           editionDate(new Date()),
-          "No email · no password",
-          "Your profile stays on this machine",
+          ...(signedIn
+            ? ["Signed in", "Your card is saved to your account"]
+            : ["No email · no password", "Your profile stays on this machine"]),
         ]}
       />
       <div className="grid h-[calc(100vh-11.5rem)] min-h-[34rem] grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)] pt-6 pb-4 max-[1279px]:h-auto max-[1279px]:grid-cols-2">
@@ -188,7 +214,9 @@ export function WelcomePage() {
             </p>
           ) : null}
           <p className="mt-6 font-body text-[length:var(--text-lg)] text-ink-2">
-            The federation keeps one card per machine. You can link Lichess or an email later in Settings.
+            {signedIn
+              ? "Your card is saved to your account, so it follows you to any machine you sign in on."
+              : "Your card stays on this machine. Sign in later and it follows your account."}
           </p>
           <div className="mt-auto border-t border-rule pt-6">
             {/* Not the shared Button: the board draws the waiting state as a pale box, not a faded one. */}
@@ -232,7 +260,7 @@ export function WelcomePage() {
           <img src={logo} alt="" className="mx-auto block w-40 max-[1279px]:hidden" />
           <p className="label mt-4 border-b border-ink pb-2 text-ink-2">Your player card · fills in as you go</p>
           <div className="mt-4">
-            <PlayerCard username={username.trim()} country={country} issuedAt={new Date()} draft />
+            <PlayerCard username={username.trim()} country={country} issuedAt={new Date()} draft saved={signedIn} />
           </div>
           <ul className="mt-4 space-y-1 font-body text-[length:var(--text-md)]">
             <li className={country ? "text-ink" : "text-ink-2"}>

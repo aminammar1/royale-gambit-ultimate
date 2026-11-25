@@ -8,7 +8,7 @@ import { useSessionStart } from "../features/account/identities";
 import { useProfileLoad } from "../features/welcome/useProfileLoad";
 import { useApplyEdition } from "./edition";
 import { gate, startPage } from "./gate";
-import { useClaimCard } from "./player";
+import { useCardSync } from "./cardSync";
 import { StartScreen } from "./StartScreen";
 
 let serverChecked = false;
@@ -22,7 +22,7 @@ export function Root() {
   useApplyEdition();
   useSessionStart();
   useProfileLoad();
-  useClaimCard();
+  useCardSync();
   useEffect(() => {
     if (serverChecked) return;
     serverChecked = true;

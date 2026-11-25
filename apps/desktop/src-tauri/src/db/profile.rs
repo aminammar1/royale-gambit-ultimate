@@ -4,7 +4,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{OptionalExtension, params};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::{Database, DbError, Result};
 
@@ -22,6 +22,23 @@ pub struct Card {
     pub owner_id: Option<String>,
     /// How the owner signs in, for the sign-in page: "Lichess · amineammar".
     pub owner_label: Option<String>,
+    /// Unix milliseconds of the last edit; the server keeps the newest (last write wins).
+    pub updated_at: i64,
+    /// The server holds this very edit.
+    pub synced: bool,
+}
+
+/// A card for a signed-in account: taken from the server (`synced`), or registered for the
+/// account on this machine and still to be sent.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Adopt {
+    pub username: String,
+    pub country: String,
+    pub owner_id: String,
+    pub owner_label: String,
+    pub updated_at: i64,
+    pub synced: bool,
 }
 
 /// Where the machine stands on first run.
@@ -39,7 +56,9 @@ pub fn status(db: &Database) -> Result<Welcome> {
     let conn = db.conn()?;
     let card = conn
         .query_row(
-            "SELECT card_no, username, country, registered_at, owner_user_id, owner_label FROM profile WHERE id = 1",
+            "SELECT card_no, username, country, registered_at, owner_user_id, owner_label, updated_at,
+                    synced_at IS NOT NULL AND synced_at >= updated_at
+             FROM profile WHERE id = 1",
             [],
             |row| {
                 Ok(Card {
@@ -49,6 +68,8 @@ pub fn status(db: &Database) -> Result<Welcome> {
                     registered_at: row.get(3)?,
                     owner_id: row.get(4)?,
                     owner_label: row.get(5)?,
+                    updated_at: row.get(6)?,
+                    synced: row.get(7)?,
                 })
             },
         )
@@ -72,22 +93,17 @@ pub fn status(db: &Database) -> Result<Welcome> {
 
 pub fn register(db: &Database, username: &str, country: &str) -> Result<Card> {
     let username = username.trim();
-    if !valid_username(username) {
-        return Err(invalid(
-            "username",
-            "3 to 20 characters: letters, digits, _ and - only",
-        ));
-    }
-    if !(country.len() == 2 && country.bytes().all(|b| b.is_ascii_uppercase())) {
-        return Err(invalid("country", "pick a country from the list"));
-    }
+    check(username, country)?;
+    let now = now_ms();
     let card = Card {
         card_no: card_number()?,
         username: username.to_owned(),
         country: country.to_owned(),
-        registered_at: now_ms(),
+        registered_at: now,
         owner_id: None,
         owner_label: None,
+        updated_at: now,
+        synced: false,
     };
     let conn = db.conn()?;
     // The id = 1 check makes a second card a constraint error rather than a race.
@@ -114,6 +130,89 @@ pub fn continue_as_guest(db: &Database) -> Result<Welcome> {
         [],
     )?;
     // A card already registered stays the answer: guest only means "no card yet".
+    status(db)
+}
+
+/// The profile contract's rules for a card's name and country.
+fn check(username: &str, country: &str) -> Result<()> {
+    if !valid_username(username) {
+        return Err(invalid(
+            "username",
+            "3 to 20 characters: letters, digits, _ and - only",
+        ));
+    }
+    if !(country.len() == 2 && country.bytes().all(|b| b.is_ascii_uppercase())) {
+        return Err(invalid("country", "pick a country from the list"));
+    }
+    Ok(())
+}
+
+/// Puts a signed-in account's card on this machine. The same owner keeps the card number and
+/// registration date; any other card (a guest's, another account's) gives way to a new one,
+/// since the server holds every account's card and gives it back on sign-in.
+pub fn adopt(db: &Database, card: &Adopt) -> Result<Card> {
+    let username = card.username.trim();
+    check(username, &card.country)?;
+    let synced_at = card.synced.then_some(card.updated_at);
+    let conn = db.conn()?;
+    let same_owner = conn
+        .query_row(
+            "SELECT 1 FROM profile WHERE id = 1 AND owner_user_id = ?1",
+            params![card.owner_id],
+            |_| Ok(()),
+        )
+        .optional()?
+        .is_some();
+    if same_owner {
+        conn.execute(
+            "UPDATE profile SET username = ?1, country = ?2, owner_label = ?3, updated_at = ?4,
+                    synced_at = ?5
+             WHERE id = 1",
+            params![
+                username,
+                card.country,
+                card.owner_label,
+                card.updated_at,
+                synced_at
+            ],
+        )?;
+    } else {
+        conn.execute(
+            "INSERT INTO profile (id, card_no, username, country, registered_at, updated_at,
+                                  owner_user_id, owner_label, synced_at)
+             VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+             ON CONFLICT (id) DO UPDATE SET
+                card_no = excluded.card_no, username = excluded.username,
+                country = excluded.country, registered_at = excluded.registered_at,
+                updated_at = excluded.updated_at, owner_user_id = excluded.owner_user_id,
+                owner_label = excluded.owner_label, synced_at = excluded.synced_at",
+            params![
+                card_number()?,
+                username,
+                card.country,
+                now_ms(),
+                card.updated_at,
+                card.owner_id,
+                card.owner_label,
+                synced_at
+            ],
+        )?;
+    }
+    drop(conn);
+    match status(db)? {
+        Welcome::Registered(stored) => Ok(stored),
+        _ => Err(DbError::Storage {
+            message: "the card was not stored".into(),
+        }),
+    }
+}
+
+/// Records that the server holds the owner's card as edited at `updated_at`.
+pub fn mark_synced(db: &Database, owner_id: &str, updated_at: i64) -> Result<Welcome> {
+    db.conn()?.execute(
+        "UPDATE profile SET synced_at = ?2 WHERE id = 1 AND owner_user_id = ?1",
+        params![owner_id, updated_at],
+    )?;
     status(db)
 }
 
@@ -315,6 +414,91 @@ mod tests {
             claim(&db, "user-1", "Lichess · amineammar").expect("claim"),
             Welcome::New
         );
+    }
+
+    fn adopt_for(db: &Database, owner: &str, name: &str, at: i64, synced: bool) -> Card {
+        adopt(
+            db,
+            &Adopt {
+                username: name.into(),
+                country: "TN".into(),
+                owner_id: owner.into(),
+                owner_label: format!("Lichess · {name}"),
+                updated_at: at,
+                synced,
+            },
+        )
+        .expect("adopted")
+    }
+
+    #[test]
+    fn adopting_fills_an_empty_machine_with_the_accounts_card() {
+        let db = Database::in_memory();
+        let card = adopt_for(&db, "user-1", "amineammar", 1_000, true);
+
+        assert_eq!(card.username, "amineammar");
+        assert_eq!(card.owner_id.as_deref(), Some("user-1"));
+        assert_eq!(card.updated_at, 1_000);
+        assert!(card.synced);
+        assert_eq!(status(&db).expect("status"), Welcome::Registered(card));
+    }
+
+    #[test]
+    fn the_same_owner_keeps_the_card_number_when_the_card_changes() {
+        let db = Database::in_memory();
+        let first = adopt_for(&db, "user-1", "amineammar", 1_000, true);
+        let second = adopt_for(&db, "user-1", "amine_ammar", 2_000, false);
+
+        assert_eq!(second.card_no, first.card_no);
+        assert_eq!(second.registered_at, first.registered_at);
+        assert_eq!(second.username, "amine_ammar");
+        assert!(!second.synced, "a local edit waits for the server");
+    }
+
+    #[test]
+    fn another_account_gets_a_card_of_its_own() {
+        let db = Database::in_memory();
+        register(&db, "guest_card", "FR").expect("registered");
+        claim(&db, "user-1", "Email · a@example.com").expect("claimed");
+
+        let card = adopt_for(&db, "user-2", "other_player", 5_000, true);
+        assert_eq!(card.owner_id.as_deref(), Some("user-2"));
+        assert_eq!(card.username, "other_player");
+    }
+
+    #[test]
+    fn adopting_checks_the_same_rules_as_registering() {
+        let db = Database::in_memory();
+        let result = adopt(
+            &db,
+            &Adopt {
+                username: "no spaces".into(),
+                country: "TN".into(),
+                owner_id: "user-1".into(),
+                owner_label: "Lichess · x".into(),
+                updated_at: 1,
+                synced: true,
+            },
+        );
+        assert_eq!(invalid_field(result), "username");
+    }
+
+    #[test]
+    fn a_card_is_synced_once_the_server_has_its_latest_edit() {
+        let db = Database::in_memory();
+        register(&db, "kingside_tal", "TN").expect("registered");
+        let Welcome::Registered(claimed) = claim(&db, "user-1", "Lichess · tal").expect("claimed")
+        else {
+            panic!("expected the card");
+        };
+        assert!(!claimed.synced);
+
+        let Welcome::Registered(card) =
+            mark_synced(&db, "user-1", claimed.updated_at).expect("synced")
+        else {
+            panic!("expected the card");
+        };
+        assert!(card.synced);
     }
 
     #[test]

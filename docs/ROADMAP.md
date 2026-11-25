@@ -83,6 +83,8 @@ Milestone status: P1 ☑ · P2 ☐ · M0 ☐ · M1 ☐ · M2 ☐ · M3 ☐ · M4
 
 ## M7: Sign-in, Home, Profile, packaging → v1.0
 - First run: country with flag, username, player card badge (local profile); then optional email sign-in against `auth-profile`; guest stays available. Token in the OS keychain. Profile sync through the outbox.
+
+*Pulled forward (2026-11-25, Amine works out of order):* the Start screen, sign-in page (email and Lichess), Welcome and step 2, and the card's sync with `GET/PUT /v1/profile`: each account's card lives on the server and comes back on any machine; a guest card is uploaded when its player signs in; registering while signed in saves to the server first (409 username-taken shows on the field). Left for M7: the outbox (an unsynced card is retried at the next sign-in, not in the background), settings sync, and the Profile page.
 - Home front page (masthead, quick actions, daily puzzle column, recent games, halftone on mastheads only). Profile page (card, rating chart, results table). The card rating is the puzzle rating from `puzzles`. About screen.
 - Installers for Windows, macOS, Linux via CI; signing steps in `docs/RELEASE.md`.
 **Accept:** clean install on all three OSes → first run → play → review → puzzle; app works as a guest with the backend down (local features), with clear offline states for the rest; v1.0 tag only when Amine says so.

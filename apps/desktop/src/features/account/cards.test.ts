@@ -7,10 +7,10 @@ const email: Identity = { provider: "email", label: "amine@example.com", linked_
 
 describe("credentialCards", () => {
   it("prints the three cards in the board's order", () => {
-    expect(credentialCards([]).map((c) => [c.no, c.title, c.version])).toEqual([
-      [1, "Lichess", "V1.3"],
-      [2, "Email", "V1.0"],
-      [3, "Chess.com", "V1.3"],
+    expect(credentialCards([]).map((c) => [c.no, c.title])).toEqual([
+      [1, "Lichess"],
+      [2, "Email"],
+      [3, "Chess.com"],
     ]);
   });
 

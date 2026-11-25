@@ -22,7 +22,12 @@ export function KeepYourCardPage() {
       <Masthead
         kicker="Federation registration · Step 2 of 2"
         title="Keep your card"
-        dateline={[`${edition} edition`, editionDate(new Date()), "Optional", "Your profile stays on this machine"]}
+        dateline={[
+          `${edition} edition`,
+          editionDate(new Date()),
+          "Optional",
+          card?.ownerId ? "Saved to your account" : "Your profile stays on this machine",
+        ]}
       />
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] py-8 max-[1099px]:grid-cols-1 max-[1099px]:gap-10">
         <section className="pr-8 max-[1099px]:pr-0">
@@ -34,6 +39,7 @@ export function KeepYourCardPage() {
                 username={card.username}
                 country={country}
                 issuedAt={new Date(card.registeredAt)}
+                saved={Boolean(card.ownerId)}
               />
             </div>
           ) : null}

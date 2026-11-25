@@ -7,8 +7,6 @@ export type CredentialCard = {
   no: number;
   provider: "lichess" | "email" | "chesscom";
   title: string;
-  /** The edition the link arrives in (design/README.md has the current tags). */
-  version: string;
   linked: boolean;
   detail: string;
   action: CardAction;
@@ -31,7 +29,6 @@ export function credentialCards(identities: Identity[] | undefined): CredentialC
       no: 1,
       provider: "lichess",
       title: "Lichess",
-      version: "V1.3",
       linked: Boolean(lichess),
       detail: lichess ? linkedAs(lichess) : "Not linked · sign in with Lichess",
       action: lichess ? "unlink" : "link",
@@ -40,7 +37,6 @@ export function credentialCards(identities: Identity[] | undefined): CredentialC
       no: 2,
       provider: "email",
       title: "Email",
-      version: "V1.0",
       linked: Boolean(email),
       detail: email ? linkedAs(email) : "Not linked · used only to restore your card",
       // There is no unlinking an address: it is the way back in when Lichess is gone.
@@ -50,7 +46,6 @@ export function credentialCards(identities: Identity[] | undefined): CredentialC
       no: 3,
       provider: "chesscom",
       title: "Chess.com",
-      version: "V1.3",
       linked: false,
       detail: "Coming in a later edition",
       action: "notYet",

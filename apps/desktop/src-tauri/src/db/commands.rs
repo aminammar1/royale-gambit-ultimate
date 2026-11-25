@@ -2,7 +2,7 @@
 
 use tauri::State;
 
-use super::profile::{self, Card, Welcome};
+use super::profile::{self, Adopt, Card, Welcome};
 use super::{Database, Result};
 
 #[tauri::command]
@@ -27,4 +27,18 @@ pub fn profile_continue_as_guest(db: State<'_, Database>) -> Result<Welcome> {
 #[tauri::command]
 pub fn profile_claim(db: State<'_, Database>, user_id: String, label: String) -> Result<Welcome> {
     profile::claim(&db, &user_id, &label)
+}
+
+#[tauri::command]
+pub fn profile_adopt(db: State<'_, Database>, card: Adopt) -> Result<Card> {
+    profile::adopt(&db, &card)
+}
+
+#[tauri::command]
+pub fn profile_mark_synced(
+    db: State<'_, Database>,
+    owner_id: String,
+    updated_at: i64,
+) -> Result<Welcome> {
+    profile::mark_synced(&db, &owner_id, updated_at)
 }

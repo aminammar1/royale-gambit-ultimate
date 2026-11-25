@@ -29,10 +29,7 @@ function Card({ card, children, action }: { card: CredentialCard; children?: Rea
     <li className={`${frame} rounded-[var(--radius)]`}>
       <div className="flex">
         <div className="min-w-0 flex-1 px-5 py-4">
-          <div className="flex items-baseline justify-between gap-4">
-            <span className="label text-ink-2">Credential No. {card.no}</span>
-            <span className="numeric text-[length:var(--text-xs)] text-ink-2">{card.version}</span>
-          </div>
+          <span className="label text-ink-2">Credential No. {card.no}</span>
           <h3
             className={`mt-1 flex items-center gap-3 font-masthead text-[length:var(--text-2xl)] leading-tight font-bold ${card.action === "notYet" ? "text-ink-2" : "text-ink"}`}
           >

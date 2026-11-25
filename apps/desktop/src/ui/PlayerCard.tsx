@@ -8,6 +8,8 @@ type Props = {
   country?: { code: string; name: string; alpha3: string };
   issuedAt: Date;
   draft?: boolean;
+  /** Where the card lives: on this machine, or saved to the player's account. */
+  saved?: boolean;
 };
 
 function Stat({ label, value, note }: { label: string; value: string; note: string }) {
@@ -21,7 +23,7 @@ function Stat({ label, value, note }: { label: string; value: string; note: stri
 }
 
 /** The federation player card: drafted on the Welcome page, then the player's badge. */
-export function PlayerCard({ cardNo, username, country, issuedAt, draft = false }: Props) {
+export function PlayerCard({ cardNo, username, country, issuedAt, draft = false, saved = false }: Props) {
   return (
     <div className="border-[3px] border-double border-ink p-1">
       <div className="border border-ink px-5 pt-4 pb-3">
@@ -60,7 +62,7 @@ export function PlayerCard({ cardNo, username, country, issuedAt, draft = false 
         </div>
         <div className="label flex justify-between pt-3 text-ink-2">
           <span>Issued {shortDate(issuedAt)}</span>
-          <span>Held on this machine</span>
+          <span>{saved ? "Saved to your account" : "Held on this machine"}</span>
         </div>
       </div>
     </div>

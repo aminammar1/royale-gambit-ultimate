@@ -1,8 +1,7 @@
-import { useEffect } from "react";
 import { useSession } from "../api/auth/session";
-import { playerName, signInLabel } from "../features/account/cards";
+import { playerName } from "../features/account/cards";
 import { useIdentities } from "../features/account/identities";
-import { profileDb, useProfile, type Card } from "../db/profile";
+import { useProfile, type Card } from "../db/profile";
 import { visibleCard } from "./gate";
 
 /** The card to print for whoever is at the keyboard; undefined after its owner signs out. */
@@ -24,23 +23,4 @@ export function usePlayerName(): string | undefined {
   const signedIn = useSession((s) => s.status === "signedIn" || s.status === "offline");
   const account = useIdentities((s) => playerName(s.list));
   return card?.username ?? (signedIn ? account : undefined);
-}
-
-/**
- * The first time someone is signed in while an unclaimed card exists, the card becomes theirs,
- * with how they sign in. When the owner signs in again, the label follows their newest way in.
- */
-export function useClaimCard(): void {
-  const card = useProfile((s) => s.card);
-  const userId = useSession((s) => (s.status === "signedIn" ? s.account?.userId : undefined));
-  const label = useIdentities((s) => signInLabel(s.list));
-  const due =
-    card !== undefined &&
-    userId !== undefined &&
-    label !== undefined &&
-    (!card.ownerId || (card.ownerId === userId && card.ownerLabel !== label));
-  useEffect(() => {
-    if (!due || !userId || !label) return;
-    profileDb.claim(userId, label).catch((error: unknown) => console.warn("could not claim the card", error));
-  }, [due, userId, label]);
 }

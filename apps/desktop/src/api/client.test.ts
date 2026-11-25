@@ -116,3 +116,24 @@ describe("reachable", () => {
     await expect(client(hang, undefined).api.reachable(20)).resolves.toBe(false);
   });
 });
+
+describe("put", () => {
+  it("sends the body as JSON with the token, and renews once on a 401", async () => {
+    const seen: { method?: string; body?: string; type: string | null; auth: string | null }[] = [];
+    const responses = [unauthorized(), json({ username: "tal" })];
+    const fetch = vi.fn(async (_: RequestInfo | URL, init?: RequestInit) => {
+      const headers = new Headers(init?.headers);
+      seen.push({
+        method: init?.method,
+        body: init?.body as string,
+        type: headers.get("content-type"),
+        auth: headers.get("authorization"),
+      });
+      return responses.shift() as Response;
+    });
+    const { api } = client(fetch, "old");
+    await expect(api.put("/v1/profile", { username: "tal" })).resolves.toEqual({ username: "tal" });
+    expect(seen.map((s) => s.auth)).toEqual(["Bearer old", "Bearer fresh"]);
+    expect(seen[1]).toMatchObject({ method: "PUT", body: '{"username":"tal"}', type: "application/json" });
+  });
+});

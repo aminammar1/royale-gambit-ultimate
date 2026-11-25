@@ -14,6 +14,20 @@ export type Card = {
   ownerId: string | null;
   /** How the owner signs in, "Lichess · kingside_tal"; shown on the sign-in page. */
   ownerLabel: string | null;
+  /** Unix milliseconds of the last edit; the server keeps the newest. */
+  updatedAt: number;
+  /** The server holds this very edit. */
+  synced: boolean;
+};
+
+/** A signed-in account's card, from the server or registered for it here (src-tauri `Adopt`). */
+export type Adopt = {
+  username: string;
+  country: string;
+  ownerId: string;
+  ownerLabel: string;
+  updatedAt: number;
+  synced: boolean;
 };
 
 export type Welcome = { state: "new" } | { state: "guest" } | ({ state: "registered" } & Card);
@@ -46,10 +60,10 @@ async function call<T>(command: string, args?: Record<string, unknown>): Promise
 
 function apply(welcome: Welcome) {
   if (welcome.state === "registered") {
-    const { cardNo, username, country, registeredAt, ownerId, ownerLabel } = welcome;
+    const { cardNo, username, country, registeredAt, ownerId, ownerLabel, updatedAt, synced } = welcome;
     useProfile.setState({
       status: "registered",
-      card: { cardNo, username, country, registeredAt, ownerId, ownerLabel },
+      card: { cardNo, username, country, registeredAt, ownerId, ownerLabel, updatedAt, synced },
     });
   } else {
     useProfile.setState({ status: welcome.state, card: undefined });
@@ -67,4 +81,12 @@ export const profileDb = {
   continueAsGuest: async () => apply(await call<Welcome>("profile_continue_as_guest")),
   /** Ties an unclaimed card to the signed-in account; a claimed card keeps its first owner. */
   claim: async (userId: string, label: string) => apply(await call<Welcome>("profile_claim", { userId, label })),
+  /** Puts the signed-in account's card on this machine (cardSync.ts). */
+  adopt: async (card: Adopt) => {
+    const stored = await call<Card>("profile_adopt", { card });
+    useProfile.setState({ status: "registered", card: stored });
+    return stored;
+  },
+  markSynced: async (ownerId: string, updatedAt: number) =>
+    apply(await call<Welcome>("profile_mark_synced", { ownerId, updatedAt })),
 };

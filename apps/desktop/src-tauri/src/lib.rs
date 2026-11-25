@@ -33,6 +33,8 @@ pub fn run() {
             db::commands::profile_register,
             db::commands::profile_continue_as_guest,
             db::commands::profile_claim,
+            db::commands::profile_adopt,
+            db::commands::profile_mark_synced,
         ]);
     if let Err(err) = app.run(tauri::generate_context!()) {
         eprintln!("error while running Royale Gambit Ultimate: {err}");
