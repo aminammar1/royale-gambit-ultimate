@@ -14,7 +14,19 @@ import (
 
 func newGateway(t *testing.T) *httptest.Server {
 	t.Helper()
-	srv := httptest.NewServer(app.New("gateway", slog.New(slog.DiscardHandler)))
+	return startGateway(t, app.Options{})
+}
+
+// startGateway runs the gateway with test defaults filled in.
+func startGateway(t *testing.T, opts app.Options) *httptest.Server {
+	t.Helper()
+	if opts.Service == "" {
+		opts.Service = "gateway"
+	}
+	if opts.Log == nil {
+		opts.Log = slog.New(slog.DiscardHandler)
+	}
+	srv := httptest.NewServer(app.New(opts))
 	t.Cleanup(srv.Close)
 	return srv
 }

@@ -46,7 +46,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           app.New(cfg.ServiceName, log),
+		Handler:           app.New(app.Options{Service: cfg.ServiceName, Log: log}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	errc := make(chan error, 1)
