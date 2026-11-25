@@ -142,12 +142,12 @@ function Card({ card, children, action }: { card: CredentialCard; children?: Rea
   );
 }
 
-/** Settings → Accounts & sync (board: design/newsprint/settings.png). */
-export function AccountsPanel() {
+/** The credential cards with their actions: Settings and the Welcome page's step 2 both show them. */
+export function CredentialList() {
   const status = useSession((s) => s.status);
   const { list, error: listError } = useIdentities();
   const [linkingEmail, setLinkingEmail] = useState(false);
-  const [busy, setBusy] = useState<"lichess" | "unlink" | "signOut">();
+  const [busy, setBusy] = useState<"lichess" | "unlink">();
   const [errors, setErrors] = useState<Partial<Record<CredentialCard["provider"], ApiError>>>({});
 
   const offline = status === "offline";
@@ -165,15 +165,6 @@ export function AccountsPanel() {
       await reloadIdentities();
     } catch (failure) {
       setErrors({ [provider]: toApiError(failure) });
-    } finally {
-      setBusy(undefined);
-    }
-  };
-
-  const signOut = async () => {
-    setBusy("signOut");
-    try {
-      await auth.signOut();
     } finally {
       setBusy(undefined);
     }
@@ -221,19 +212,7 @@ export function AccountsPanel() {
   };
 
   return (
-    <section className="border-l border-rule pl-8">
-      <h2 className="border-b border-ink pb-3 font-masthead text-[length:var(--text-2xl)] font-bold">
-        Accounts &amp; sync
-      </h2>
-      {offline ? (
-        <p className="mt-5 border border-ink-2 px-5 py-3 font-body text-[length:var(--text-lg)] text-ink">
-          Needs connection · you are signed in, but the server cannot be reached.{" "}
-          <button type="button" className="label underline underline-offset-4" onClick={() => void auth.restore()}>
-            Try again
-          </button>
-        </p>
-      ) : null}
-      <p className="label mt-6 text-ink-2">Credentials</p>
+    <>
       <ul className="mt-3 flex flex-col gap-4">
         {cards.map((card) => (
           <Card key={card.provider} card={card} action={actionFor(card)}>
@@ -242,6 +221,39 @@ export function AccountsPanel() {
         ))}
       </ul>
       {listError && status === "signedIn" ? <Notice error={listError} /> : null}
+    </>
+  );
+}
+
+/** Settings → Accounts & sync (board: design/newsprint/settings.png). */
+export function AccountsPanel() {
+  const status = useSession((s) => s.status);
+  const [signingOut, setSigningOut] = useState(false);
+
+  const signOut = async () => {
+    setSigningOut(true);
+    try {
+      await auth.signOut();
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
+  return (
+    <section className="border-l border-rule pl-8">
+      <h2 className="border-b border-ink pb-3 font-masthead text-[length:var(--text-2xl)] font-bold">
+        Accounts &amp; sync
+      </h2>
+      {status === "offline" ? (
+        <p className="mt-5 border border-ink-2 px-5 py-3 font-body text-[length:var(--text-lg)] text-ink">
+          Needs connection · you are signed in, but the server cannot be reached.{" "}
+          <button type="button" className="label underline underline-offset-4" onClick={() => void auth.restore()}>
+            Try again
+          </button>
+        </p>
+      ) : null}
+      <p className="label mt-6 text-ink-2">Credentials</p>
+      <CredentialList />
       <div className="mt-6 flex items-baseline justify-between gap-6">
         <p className="font-body text-[length:var(--text-lg)] text-ink-2">
           {status === "signedIn"
@@ -249,7 +261,7 @@ export function AccountsPanel() {
             : "You are reading as a guest; everything stays on this machine. Link a way in to keep your card."}
         </p>
         {status === "signedIn" ? (
-          <Button variant="ghost" className="shrink-0" disabled={busy !== undefined} onClick={() => void signOut()}>
+          <Button variant="ghost" className="shrink-0" disabled={signingOut} onClick={() => void signOut()}>
             Sign out
           </Button>
         ) : null}

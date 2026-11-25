@@ -1,4 +1,5 @@
 import type { Identity } from "../../api";
+import { shortDate } from "../../app/editionDate";
 
 export type CardAction = "link" | "unlink" | "none" | "notYet";
 
@@ -13,13 +14,8 @@ export type CredentialCard = {
   action: CardAction;
 };
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
 /** "12 Nov 2026", in the player's own time zone. */
-export function since(iso: string): string {
-  const date = new Date(iso);
-  return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
-}
+export const since = (iso: string) => shortDate(new Date(iso));
 
 const find = (identities: Identity[] | undefined, provider: Identity["provider"]) =>
   identities?.find((i) => i.provider === provider);

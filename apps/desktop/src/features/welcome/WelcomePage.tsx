@@ -1,0 +1,244 @@
+import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useNavigate } from "react-router";
+import { editionDate } from "../../app/editionDate";
+import { useEdition } from "../../app/edition";
+import { profileDb, type DbError } from "../../db/profile";
+import { Masthead } from "../../ui/Masthead";
+import { PlayerCard } from "../../ui/PlayerCard";
+import logo from "../../assets/logo.png";
+import { searchCountries, usernameProblem, type Country } from "./countries";
+
+const inputClass =
+  "w-full rounded-[var(--radius)] border border-ink-2 bg-paper px-4 py-2.5 font-body text-[length:var(--text-lg)] text-ink placeholder:text-ink-2 hover:border-ink";
+
+function StepHeading({ no, children }: { no: number; children: string }) {
+  return (
+    <h2 className="flex items-baseline gap-3 border-b border-ink pb-3 font-masthead text-[length:var(--text-xl)] font-bold">
+      <span className="numeric font-masthead">{no}</span>
+      {children}
+    </h2>
+  );
+}
+
+/** Column 1: a searchable list of federations, driven from the search box with the arrow keys. */
+function Federation({ picked, onPick }: { picked?: Country; onPick: (country: Country) => void }) {
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState(0);
+  const listId = useId();
+  const list = useRef<HTMLUListElement>(null);
+  const found = useMemo(() => searchCountries(query), [query]);
+
+  const move = (to: number) => {
+    const next = Math.max(0, Math.min(found.length - 1, to));
+    setActive(next);
+    list.current?.children[next]?.scrollIntoView({ block: "nearest" });
+  };
+
+  const onKey = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown") move(active + 1);
+    else if (event.key === "ArrowUp") move(active - 1);
+    else if (event.key === "Enter" && found[active]) onPick(found[active]);
+    else return;
+    event.preventDefault();
+  };
+
+  return (
+    <section className="flex min-h-0 flex-col pr-7">
+      <StepHeading no={1}>Your federation</StepHeading>
+      <label className="label mt-5 block text-ink-2" htmlFor={`${listId}-search`}>
+        Search countries
+      </label>
+      <input
+        id={`${listId}-search`}
+        className={`${inputClass} mt-2`}
+        placeholder="Type a country"
+        role="combobox"
+        aria-expanded
+        aria-controls={listId}
+        aria-activedescendant={found[active] ? `${listId}-${found[active].code}` : undefined}
+        autoComplete="off"
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setActive(0);
+        }}
+        onKeyDown={onKey}
+      />
+      <ul
+        ref={list}
+        id={listId}
+        role="listbox"
+        aria-label="Countries"
+        className="mt-3 h-[calc(100vh-23rem)] min-h-48 overflow-y-auto border-t border-ink"
+      >
+        {found.map((country, i) => {
+          const selected = picked?.code === country.code;
+          return (
+            <li
+              key={country.code}
+              id={`${listId}-${country.code}`}
+              role="option"
+              aria-selected={selected}
+              onClick={() => onPick(country)}
+              onMouseEnter={() => setActive(i)}
+              className={`flex cursor-pointer items-center gap-4 border-b border-rule px-3 py-2.5 ${
+                selected ? "bg-paper-2 font-semibold" : i === active ? "bg-paper-2/60" : ""
+              }`}
+            >
+              <span
+                aria-hidden
+                className="numeric flex h-8 w-12 shrink-0 items-center justify-center border border-ink-2 text-[length:var(--text-xs)] text-ink-2"
+              >
+                {country.code}
+              </span>
+              <span className="min-w-0 flex-1 truncate font-body text-[length:var(--text-lg)] text-ink">
+                {country.name}
+              </span>
+              <span className="numeric text-[length:var(--text-sm)] text-ink-2">{country.alpha3}</span>
+              {selected ? <span aria-hidden>✓</span> : null}
+            </li>
+          );
+        })}
+        {found.length === 0 ? (
+          <li className="px-3 py-4 font-body text-ink-2">No country by that name. Try its English name or code.</li>
+        ) : null}
+      </ul>
+    </section>
+  );
+}
+
+/** First run (board: design/newsprint/welcome.png): register the player card for this machine. */
+export function WelcomePage() {
+  const edition = useEdition();
+  const navigate = useNavigate();
+  const [country, setCountry] = useState<Country>();
+  const [username, setUsername] = useState("");
+  const [touched, setTouched] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<DbError>();
+
+  const problem = usernameProblem(username);
+  const reason = !country ? "Pick a country first." : problem ? "Choose a username." : undefined;
+  const showProblem = touched && username.length > 0 && problem;
+  const fieldError = failure?.kind === "invalid" ? failure : undefined;
+
+  const register = async () => {
+    if (!country || problem) return;
+    setBusy(true);
+    setFailure(undefined);
+    try {
+      await profileDb.register(username.trim(), country.code);
+      navigate("/welcome/keep", { replace: true });
+    } catch (error) {
+      setFailure(error as DbError);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const asGuest = async () => {
+    try {
+      await profileDb.continueAsGuest();
+    } finally {
+      navigate("/", { replace: true });
+    }
+  };
+
+  return (
+    <div className="flex h-full flex-col">
+      <Masthead
+        kicker="Federation registration · Step 1 of 2"
+        title="Royal Gambit Ultimate"
+        dateline={[
+          `${edition} edition`,
+          editionDate(new Date()),
+          "No email · no password",
+          "Your profile stays on this machine",
+        ]}
+      />
+      <div className="grid h-[calc(100vh-11.5rem)] min-h-[34rem] grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)] pt-6 pb-4">
+        <Federation picked={country} onPick={setCountry} />
+
+        <section className="flex flex-col border-l border-rule px-7">
+          <StepHeading no={2}>Your name on the card</StepHeading>
+          <label className="label mt-5 block text-ink-2" htmlFor="welcome-username">
+            Username
+          </label>
+          <input
+            id="welcome-username"
+            className={`${inputClass} mt-2`}
+            placeholder="e.g. kingside_tal"
+            autoComplete="nickname"
+            spellCheck={false}
+            maxLength={40}
+            value={username}
+            aria-invalid={Boolean(showProblem || fieldError)}
+            aria-describedby="welcome-username-rule"
+            onChange={(e) => setUsername(e.target.value)}
+            onBlur={() => setTouched(true)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void register();
+            }}
+          />
+          <p id="welcome-username-rule" className="mt-3 font-body text-[length:var(--text-md)] text-ink-2">
+            3 to 20 characters. Letters, digits, _ and - only.
+          </p>
+          {showProblem || fieldError ? (
+            <p role="alert" className="mt-1 font-body text-[length:var(--text-md)] text-accent">
+              <span aria-hidden>✗ </span>
+              {fieldError?.message ?? problem}
+            </p>
+          ) : null}
+          <p className="mt-6 font-body text-[length:var(--text-lg)] text-ink-2">
+            The federation keeps one card per machine. You can link Lichess or an email later in Settings.
+          </p>
+          <div className="mt-auto border-t border-rule pt-6">
+            {/* Not the shared Button: the board draws the waiting state as a pale box, not a faded one. */}
+            <button
+              type="button"
+              className={`label w-full rounded-[var(--radius)] border py-3.5 text-[length:var(--text-sm)] transition-colors duration-150 ${
+                reason || busy
+                  ? "cursor-not-allowed border-rule bg-paper-2 text-ink-2"
+                  : "border-ink bg-ink text-paper hover:opacity-90"
+              }`}
+              disabled={Boolean(reason) || busy}
+              onClick={() => void register()}
+            >
+              {busy ? "Registering…" : "Register & continue"}
+            </button>
+            <p className="mt-3 min-h-[1.5em] font-body text-[length:var(--text-md)] text-ink-2">
+              {failure && failure.kind !== "invalid"
+                ? failure.kind === "alreadyRegistered"
+                  ? "This machine already holds a card."
+                  : "The card could not be saved on this machine. Try again."
+                : reason}
+            </p>
+            <button
+              type="button"
+              className="label mt-3 text-[length:var(--text-sm)] text-ink underline underline-offset-4 hover:no-underline"
+              onClick={() => void asGuest()}
+            >
+              Continue as guest
+            </button>
+          </div>
+        </section>
+
+        <section className="overflow-y-auto border-l border-rule pl-7">
+          <img src={logo} alt="" className="mx-auto block w-40 [[data-edition=night]_&]:invert-[0.9]" />
+          <p className="label mt-4 border-b border-ink pb-2 text-ink-2">Your player card · fills in as you go</p>
+          <div className="mt-4">
+            <PlayerCard username={username.trim()} country={country} issuedAt={new Date()} draft />
+          </div>
+          <ul className="mt-4 space-y-1 font-body text-[length:var(--text-md)]">
+            <li className={country ? "text-ink" : "text-ink-2"}>
+              <span aria-hidden>{country ? "✓ " : "· "}</span>Country picked
+            </li>
+            <li className={username && !problem ? "text-ink" : "text-ink-2"}>
+              <span aria-hidden>{username && !problem ? "✓ " : "· "}</span>Username accepted
+            </li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  );
+}

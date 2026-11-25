@@ -1,6 +1,7 @@
 import { motion, useReducedMotion } from "motion/react";
 import { Outlet, useLocation } from "react-router";
 import { useSessionStart } from "../features/account/identities";
+import { useFirstRun } from "../features/welcome/useFirstRun";
 import { SideNav } from "../ui/SideNav";
 import { useApplyEdition } from "./edition";
 
@@ -8,6 +9,7 @@ import { useApplyEdition } from "./edition";
 export function AppShell() {
   useApplyEdition();
   useSessionStart();
+  useFirstRun();
   const { pathname } = useLocation();
   const reduce = useReducedMotion();
   return (
