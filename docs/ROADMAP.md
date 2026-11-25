@@ -120,6 +120,7 @@ Shown on the boards but in no milestone yet: "Train on puzzles from these mistak
 ## M11: Lichess and Chess.com sign-in
 - `auth-profile` OAuth module: Lichess PKCE (system browser, loopback redirect on a random port, unregistered public client), Chess.com OAuth once the application is approved. Linking attaches to the existing account; one account can link several identities; unlink works. Spike Lichess first (prompt 14).
 **Accept:** sign in, link, unlink, expired-token handling; tokens never in logs or the web layer; the app still works as guest.
+*Pulled forward (2026-11-25, Amine's decision):* the server half of Lichess sign-in (start, complete, link, unlink) was built with `auth-profile` in P2. Left for M11: the desktop loopback flow, Chess.com, and revoking the Lichess token on unlink.
 
 ## M12: Opening explorer
 - `games` explorer stats (Lichess database + user games, key = EPD, Redis cache). Explorer panel with three sections: engine best move, top 3 lines (local engine), most played moves (printed opening table with White/draw/Black bars); click a move to play it.
