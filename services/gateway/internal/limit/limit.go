@@ -17,20 +17,37 @@ type Limits struct {
 	User   int // per signed-in account
 }
 
+// Budget is how long a rate-limit check may take before the request goes on without it.
+const Budget = 100 * time.Millisecond
+
 // Limiter is a fixed-window counter. Fixed windows allow a burst of up to twice the limit
 // across a window edge; that is fine for abuse protection and costs one round trip.
 type Limiter struct {
 	rdb *redis.Client
 }
 
-// New wraps a Redis client. Counters are rebuildable data, as ADR-06 wants for Redis.
-func New(rdb *redis.Client) *Limiter {
-	return &Limiter{rdb: rdb}
+// New builds the Redis client itself, with timeouts sized for a check that sits in front
+// of every request: a Redis that is slow or silent must cost milliseconds, not the
+// library's default seconds and retries.
+func New(opts *redis.Options) *Limiter {
+	tuned := *opts
+	tuned.DialTimeout = Budget
+	tuned.ReadTimeout = Budget
+	tuned.WriteTimeout = Budget
+	tuned.PoolTimeout = Budget
+	tuned.MaxRetries = -1 // no retries: the next request is the retry
+	tuned.ContextTimeoutEnabled = true
+	return &Limiter{rdb: redis.NewClient(&tuned)}
 }
+
+// Close releases the connection pool.
+func (l *Limiter) Close() error { return l.rdb.Close() }
 
 // Allow counts one request for key. When the budget is spent it says how long until the
 // window resets. An error means Redis could not be asked; the caller decides what that means.
 func (l *Limiter) Allow(ctx context.Context, key string, limit int) (bool, time.Duration, error) {
+	ctx, cancel := context.WithTimeout(ctx, Budget)
+	defer cancel()
 	now := time.Now()
 	window := now.Unix() / 60
 	counter := "rl:" + key + ":" + strconv.FormatInt(window, 10)

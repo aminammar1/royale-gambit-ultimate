@@ -12,8 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/redis/go-redis/v9"
-
 	"github.com/aminammar1/royale-gambit-ultimate/services/gateway/internal/app"
 	"github.com/aminammar1/royale-gambit-ultimate/services/gateway/internal/auth"
 	"github.com/aminammar1/royale-gambit-ultimate/services/gateway/internal/config"
@@ -53,8 +51,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	rdb := redis.NewClient(cfg.Redis)
-	defer rdb.Close()
+	limiter := limit.New(cfg.Redis)
+	defer limiter.Close()
 
 	srv := &http.Server{
 		Addr: ":" + cfg.Port,
@@ -63,12 +61,15 @@ func run() error {
 			Log:             log,
 			Routes:          routes.P2(cfg.AuthProfile),
 			Verifier:        verifier,
-			Limiter:         limit.New(rdb),
+			Limiter:         limiter,
 			Limits:          cfg.Limits,
 			CORSOrigins:     cfg.CORSOrigins,
 			UpstreamTimeout: cfg.UpstreamTimeout,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
+		// Idle keep-alive connections are closed after a while. No WriteTimeout: server-sent
+		// events stream for as long as the client listens.
+		IdleTimeout: 2 * time.Minute,
 	}
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()
@@ -83,7 +84,11 @@ func run() error {
 		log.Info("shutting down")
 		sctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		return srv.Shutdown(sctx)
+		if err := srv.Shutdown(sctx); err != nil {
+			// Long-lived streams outlast the grace period; cutting them is the plan, not a crash.
+			log.Warn("closing connections that outlived the shutdown grace period", "error", err)
+			return srv.Close()
+		}
 	}
 	return nil
 }

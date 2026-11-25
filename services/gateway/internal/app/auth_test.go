@@ -84,6 +84,15 @@ func claims(role string, expiresIn time.Duration) jwt.MapClaims {
 		"iat": now.Unix(), "exp": now.Add(expiresIn).Unix()}
 }
 
+func mustVerifier(t *testing.T, jwksURL string) *auth.Verifier {
+	t.Helper()
+	v, err := auth.NewVerifier(context.Background(), jwksURL, issuer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v
+}
+
 // guarded starts a gateway in front of up with one optional and one required route.
 func guarded(t *testing.T, jwks *jwksServer, up *upstream) *httptest.Server {
 	t.Helper()

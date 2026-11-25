@@ -23,8 +23,8 @@ var (
 	redisAddr string
 )
 
-// freshRedis gives each test an empty logical database on one shared Redis container.
-func freshRedis(t *testing.T) *redis.Client {
+// freshRedis empties the shared Redis container and returns how to reach it.
+func freshRedis(t *testing.T) *redis.Options {
 	t.Helper()
 	redisOnce.Do(func() {
 		c, err := tcredis.Run(context.Background(), "redis:8.8.4-trixie")
@@ -35,20 +35,21 @@ func freshRedis(t *testing.T) *redis.Client {
 		opts, _ := redis.ParseURL(u)
 		redisAddr = opts.Addr
 	})
-	client := redis.NewClient(&redis.Options{Addr: redisAddr})
+	opts := &redis.Options{Addr: redisAddr}
+	client := redis.NewClient(opts)
+	defer client.Close()
 	if err := client.FlushAll(context.Background()).Err(); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { client.Close() })
-	return client
+	return opts
 }
 
-func limitedGateway(t *testing.T, client *redis.Client, limits limit.Limits, up *upstream, verifier app.TokenVerifier) string {
+func limitedGateway(t *testing.T, redisOpts *redis.Options, limits limit.Limits, up *upstream, verifier app.TokenVerifier) string {
 	t.Helper()
 	u, _ := url.Parse(up.URL)
 	return startGateway(t, app.Options{
 		Verifier: verifier,
-		Limiter:  limit.New(client),
+		Limiter:  limit.New(redisOpts),
 		Limits:   limits,
 		Routes: routes.Table{
 			{Prefix: "/v1/auth", Upstream: u},
@@ -105,7 +106,7 @@ func TestGuestsGetASmallerBudgetThanUsers(t *testing.T) {
 
 func TestRedisBeingDownDoesNotLockEveryoneOut(t *testing.T) {
 	up := newUpstream(t, okJSON)
-	dead := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1", DialTimeout: 100 * time.Millisecond, MaxRetries: -1})
+	dead := &redis.Options{Addr: "127.0.0.1:1"}
 	gw := limitedGateway(t, dead, limit.Limits{IP: 1, SignIn: 1, Guest: 1, User: 1}, up, nil)
 
 	for i := 0; i < 3; i++ {

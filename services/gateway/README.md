@@ -2,7 +2,14 @@
 
 The single public entry (Go + Gin, port 8080). The desktop app talks to `http://localhost:8080` and nothing else. No database and no business logic.
 
-For every request it: refuses non-canonical paths → routes by prefix (`internal/routes`, longest prefix on whole segments; unknown paths are a 404 problem) → checks the bearer token against auth-profile's JWKS (RS256 only, issuer and expiry required; cached, refetched on an unknown `kid`) → spends rate-limit budgets in Redis → forwards with `X-Request-ID`, `X-Forwarded-For` (the real peer, never the client's claim) and W3C trace context. The token is forwarded unchanged, and the service verifies it again.
+Every request goes through these steps, in order (one file each in `internal/app`):
+1. **route:** refuse unknown methods and non-canonical paths (dot segments, `//`, `;`, encoded slashes, backslashes and `%25`), then route by prefix (longest prefix on whole segments; unknown paths get a 404 problem).
+2. **address budget:** per client address, with IPv6 counted per /64, and again on sign-in routes. It runs *before* the token check, so refused tokens still cost the caller.
+3. **token check:** exactly one `Authorization: Bearer` (scheme in any case), verified against auth-profile's JWKS. RS256 only; issuer, subject and expiry required; keys cached and refetched on an unknown `kid`.
+4. **account budget:** per user; guests get less.
+5. **forward:** one reverse proxy per route. It sets `X-Request-ID`, `X-Forwarded-For` (the real peer, never the client's claim) and W3C trace context, drops `X-Forwarded-Host` and `X-Real-IP`, and streams responses. A stream that breaks breaks for the client too.
+
+The token is forwarded unchanged, and the service verifies it again. Redis checks are capped at 100 ms; if Redis is unreachable, requests pass (counted in `gateway_rate_limit_errors_total`, with one warning per 30 s).
 
 | Route | Service | Token |
 | --- | --- | --- |

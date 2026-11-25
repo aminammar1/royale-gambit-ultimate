@@ -23,7 +23,7 @@ func TestAWindowLetsTheLimitThroughThenRefuses(t *testing.T) {
 		t.Fatal(err)
 	}
 	opts, _ := redis.ParseURL(url)
-	l := limit.New(redis.NewClient(opts))
+	l := limit.New(opts)
 
 	for i := 1; i <= 3; i++ {
 		if ok, _, err := l.Allow(ctx, "ip:1.2.3.4", 3); err != nil || !ok {

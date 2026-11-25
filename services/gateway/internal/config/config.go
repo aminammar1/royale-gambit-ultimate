@@ -43,8 +43,15 @@ func Load() (Config, error) {
 	if c.AuthProfile, err = absoluteURL("UPSTREAM_AUTH_PROFILE_URL"); err != nil {
 		errs = append(errs, err)
 	}
-	if c.JWKSURL == "" {
-		errs = append(errs, errors.New("JWKS_URL is required"))
+	if _, err := absoluteURL("JWKS_URL"); err != nil {
+		errs = append(errs, err)
+	}
+	for _, origin := range c.CORSOrigins {
+		// Browsers send origins as scheme://host[:port], never with a path; a stray "/"
+		// would silently never match.
+		if u, err := url.Parse(origin); err != nil || u.Scheme == "" || u.Host == "" || u.Path != "" {
+			errs = append(errs, fmt.Errorf("CORS_ORIGINS: %q is not an origin like http://localhost:1420", origin))
+		}
 	}
 	if c.Redis, err = redis.ParseURL(os.Getenv("REDIS_URL")); err != nil {
 		errs = append(errs, fmt.Errorf("REDIS_URL: %w", err))
@@ -55,8 +62,8 @@ func Load() (Config, error) {
 		Guest:  perMinute("RATE_GUEST_PER_MIN", 60, &errs),
 		User:   perMinute("RATE_USER_PER_MIN", 300, &errs),
 	}
-	if c.UpstreamTimeout, err = time.ParseDuration(getenv("UPSTREAM_TIMEOUT", "10s")); err != nil {
-		errs = append(errs, fmt.Errorf("UPSTREAM_TIMEOUT: %w", err))
+	if c.UpstreamTimeout, err = time.ParseDuration(getenv("UPSTREAM_TIMEOUT", "10s")); err != nil || c.UpstreamTimeout <= 0 {
+		errs = append(errs, errors.New("UPSTREAM_TIMEOUT must be a positive duration such as 10s"))
 	}
 	return c, errors.Join(errs...)
 }
@@ -65,7 +72,7 @@ func absoluteURL(key string) (*url.URL, error) {
 	raw := os.Getenv(key)
 	u, err := url.Parse(raw)
 	if raw == "" || err != nil || u.Scheme == "" || u.Host == "" {
-		return nil, fmt.Errorf("%s must be an absolute URL such as http://auth-profile:8081", key)
+		return nil, fmt.Errorf("%s must be an absolute URL such as http://auth-profile:8081/...", key)
 	}
 	return u, nil
 }
