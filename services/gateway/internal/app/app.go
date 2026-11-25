@@ -4,8 +4,11 @@ package app
 
 import (
 	"log/slog"
+	"math"
 	"net/http"
 	"path"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,6 +18,7 @@ import (
 
 	"github.com/aminammar1/royale-gambit-ultimate/services/gateway/internal/auth"
 	"github.com/aminammar1/royale-gambit-ultimate/services/gateway/internal/httpx"
+	"github.com/aminammar1/royale-gambit-ultimate/services/gateway/internal/limit"
 	"github.com/aminammar1/royale-gambit-ultimate/services/gateway/internal/proxy"
 	"github.com/aminammar1/royale-gambit-ultimate/services/gateway/internal/routes"
 )
@@ -30,6 +34,9 @@ type Options struct {
 	Log             *slog.Logger
 	Routes          routes.Table
 	Verifier        TokenVerifier
+	Limiter         *limit.Limiter // nil: no rate limits (tests that are not about them)
+	Limits          limit.Limits
+	CORSOrigins     []string
 	UpstreamTimeout time.Duration
 }
 
@@ -49,7 +56,8 @@ func New(opts Options) *gin.Engine {
 	// address is the TCP peer. Without this gin would let any caller pick its own IP.
 	_ = r.SetTrustedProxies(nil)
 	r.HandleMethodNotAllowed = true
-	r.Use(otelgin.Middleware(opts.Service), httpx.RequestID(), httpx.Observe(opts.Log), httpx.Recover(opts.Log))
+	r.Use(otelgin.Middleware(opts.Service), httpx.RequestID(), httpx.Observe(opts.Log), httpx.Recover(opts.Log),
+		cors(opts.CORSOrigins))
 
 	ok := func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok"}) }
 	r.GET("/health/live", ok)
@@ -58,7 +66,7 @@ func New(opts Options) *gin.Engine {
 
 	fwd := proxy.New(opts.UpstreamTimeout, opts.Log)
 	// Everything that is not one of our own routes is a candidate for forwarding.
-	r.NoRoute(route(opts.Routes), authenticate(opts.Verifier), func(c *gin.Context) {
+	r.NoRoute(route(opts.Routes), authenticate(opts.Verifier), rateLimit(opts.Limiter, opts.Limits, opts.Log), func(c *gin.Context) {
 		fwd.Forward(c.Writer, c.Request, c.MustGet(routeKey).(routes.Route), c.GetString("request_id"))
 	})
 	r.NoMethod(func(c *gin.Context) {
@@ -120,4 +128,73 @@ func authenticate(verifier TokenVerifier) gin.HandlerFunc {
 func unauthorized(c *gin.Context, detail string) {
 	c.Header("WWW-Authenticate", `Bearer realm="royal-gambit"`)
 	httpx.WriteProblem(c, http.StatusUnauthorized, detail)
+}
+
+// budget is one counter a request spends from, and how much it holds per minute.
+type budget struct {
+	key   string
+	limit int
+}
+
+// rateLimit spends the caller's budgets: per address always, per address again on
+// sign-in routes, and per account when a token came with the request. If Redis cannot be
+// reached the request goes through: locking everyone out of sign-in is worse than a few
+// minutes without limits, and auth-profile caps codes per address on its own.
+func rateLimit(limiter *limit.Limiter, limits limit.Limits, log *slog.Logger) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if limiter == nil {
+			c.Next()
+			return
+		}
+		ip := c.ClientIP()
+		budgets := []budget{{"ip:" + ip, limits.IP}}
+		if c.MustGet(routeKey).(routes.Route).SignIn {
+			budgets = append(budgets, budget{"signin:" + ip, limits.SignIn})
+		}
+		if v, ok := c.Get(claimsKey); ok {
+			claims := v.(auth.Claims)
+			perUser := limits.User
+			if claims.Role == "guest" {
+				perUser = limits.Guest
+			}
+			budgets = append(budgets, budget{"user:" + claims.Subject, perUser})
+		}
+		for _, b := range budgets {
+			allowed, retryAfter, err := limiter.Allow(c.Request.Context(), b.key, b.limit)
+			if err != nil {
+				log.WarnContext(c.Request.Context(), "rate limit unavailable, letting the request through", "error", err)
+				break
+			}
+			if !allowed {
+				c.Header("Retry-After", strconv.Itoa(int(math.Ceil(retryAfter.Seconds()))))
+				httpx.WriteProblem(c, http.StatusTooManyRequests, "too many requests; slow down")
+				return
+			}
+		}
+		c.Next()
+	}
+}
+
+// cors lets the desktop app's web view call us. Only listed origins get the headers; a
+// preflight is answered here and never bothers a service.
+func cors(origins []string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		origin := c.GetHeader("Origin")
+		if origin == "" || !slices.Contains(origins, origin) {
+			c.Next()
+			return
+		}
+		h := c.Writer.Header()
+		h.Set("Access-Control-Allow-Origin", origin)
+		h.Add("Vary", "Origin")
+		h.Set("Access-Control-Expose-Headers", "Retry-After, X-Request-ID, Location")
+		if c.Request.Method == http.MethodOptions && c.GetHeader("Access-Control-Request-Method") != "" {
+			h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE")
+			h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Idempotency-Key")
+			h.Set("Access-Control-Max-Age", "600")
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	}
 }
