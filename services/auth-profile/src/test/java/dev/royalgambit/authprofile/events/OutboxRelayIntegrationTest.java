@@ -9,12 +9,12 @@ import dev.royalgambit.authprofile.support.AuthSteps;
 import dev.royalgambit.authprofile.support.Http;
 import dev.royalgambit.authprofile.support.Mailbox;
 import dev.royalgambit.authprofile.support.MailpitContainer;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-import org.springframework.amqp.core.AnonymousQueue;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.Queue;
@@ -67,13 +67,29 @@ class OutboxRelayIntegrationTest {
 	@BeforeEach
 	void setUp() {
 		this.auth = new AuthSteps(new Http(this.port, this.json), new Mailbox(this.mailpit, this.json));
-		this.listener = new AnonymousQueue();
+		// Not an AnonymousQueue: that one is exclusive to the connection that declared it
+		// and
+		// vanishes when the shared connection is recycled. RabbitMQ 4 has no transient
+		// shared queues, so this one is durable, named per test, and deleted afterwards.
+		this.listener = new Queue("outbox-test-" + UUID.randomUUID(), true, false, false);
 		this.admin.declareQueue(this.listener);
 		this.admin.declareBinding(BindingBuilder.bind(this.listener).to(this.events).with("#"));
 	}
 
+	@AfterEach
+	void dropListener() {
+		this.admin.deleteQueue(this.listener.getName());
+	}
+
 	@Test
 	void userRegisteredLeavesInTheContractEnvelope() {
+		// The exchange is shared: other tests' events (some with no user at all) arrive
+		// on
+		// the same queue, in whatever order the suite happens to run.
+		this.jdbc.sql("INSERT INTO outbox (id, type, trace_id, data) VALUES (:id, 'test.noise', :trace, '{}')")
+			.param("id", UUID.randomUUID())
+			.param("trace", "0".repeat(32))
+			.update();
 		String userId = this.auth.signIn(AuthSteps.freshEmail()).get("user_id").asString();
 		this.relay.publishPending();
 
@@ -143,8 +159,10 @@ class OutboxRelayIntegrationTest {
 		Instant deadline = Instant.now().plus(Duration.ofSeconds(10));
 		while (Instant.now().isBefore(deadline)) {
 			Message message = this.rabbit.receive(this.listener.getName(), 1000);
-			if (message != null
-					&& this.json.readTree(message.getBody()).get("data").get("user_id").asString().equals(userId)) {
+			// path() instead of get(): an event about something else may have no user_id.
+			JsonNode about = (message != null) ? this.json.readTree(message.getBody()).path("data").path("user_id")
+					: null;
+			if (about != null && about.isString() && about.asString().equals(userId)) {
 				return message;
 			}
 		}
