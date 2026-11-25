@@ -16,7 +16,6 @@ const HEADLINES: ReadonlyArray<{
   action: string;
   text: string;
   to: string;
-  size: string;
 }> = [
   {
     kicker: "Play · two at one board",
@@ -24,7 +23,6 @@ const HEADLINES: ReadonlyArray<{
     action: "Start a game",
     text: "Clocks, auto-flip and a score sheet that keeps itself.",
     to: "/play",
-    size: "text-[2.75rem] max-[1279px]:text-[2.25rem]",
   },
   {
     kicker: "Analysis",
@@ -32,7 +30,6 @@ const HEADLINES: ReadonlyArray<{
     action: "Open the board",
     text: "Engine best move, top three lines, eval bar.",
     to: "/analyze",
-    size: "text-[2.125rem] max-[1279px]:text-[1.75rem]",
   },
   {
     kicker: "Training",
@@ -40,7 +37,6 @@ const HEADLINES: ReadonlyArray<{
     action: "Solve a puzzle",
     text: "One position a day, more on request.",
     to: "/puzzles",
-    size: "text-[2.125rem] max-[1279px]:text-[1.75rem]",
   },
   {
     kicker: "Review",
@@ -48,7 +44,6 @@ const HEADLINES: ReadonlyArray<{
     action: "Review a game",
     text: "Accuracy, eval graph and the moments that mattered.",
     to: "/review",
-    size: "text-[2.125rem] max-[1279px]:text-[1.75rem]",
   },
 ];
 
@@ -61,7 +56,7 @@ export function HomePage() {
     <>
       <Masthead
         kicker="Front page"
-        title="Royal Gambit Ultimate"
+        title="Royale Gambit Ultimate"
         dateline={[`${edition} edition`, editionDate(now), "No. 1", `${greeting(now)}, ${username ?? "Guest"}`]}
         actions={
           <ul aria-label="Today’s champions" className="flex gap-2">
@@ -75,24 +70,27 @@ export function HomePage() {
       />
       <ChampionQuote />
       <div className="grid grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)_minmax(0,0.95fr)] py-8 max-[1279px]:grid-cols-2">
-        <section aria-labelledby="headlines" className="pr-8">
+        <section aria-labelledby="headlines" className="@container pr-8">
           <Kicker>
             <span id="headlines">Today’s headlines</span>
           </Kicker>
-          {/* Each headline is a tile that opens its page, with the action spelled out as its button. */}
-          <ul className="mt-5 flex flex-col gap-3">
+          {/* Tiles that open their page, sized by this column (a container query), not by the window:
+              a 2 × 2 grid when the column is wide enough, one stack when it is not. */}
+          <ul className="mt-5 grid gap-3 @xl:grid-cols-2">
             {HEADLINES.map((h) => (
-              <li key={h.title}>
+              <li key={h.title} className="flex">
                 <Link
                   to={h.to}
-                  className="group block rounded-[var(--radius)] border border-ink-2 px-6 pt-5 pb-5 transition-colors duration-150 hover:border-ink hover:bg-paper-2 active:bg-paper-2"
+                  className="group flex w-full flex-col rounded-[var(--radius)] border border-ink-2 px-5 py-4 transition-colors duration-150 hover:border-ink hover:bg-paper-2 active:bg-paper-2"
                 >
                   <p className="label text-ink-2">{h.kicker}</p>
-                  <h2 className={`mt-1 font-masthead ${h.size} leading-[1.1] font-bold`}>{h.title}</h2>
-                  <p className="mt-2 font-label text-[length:var(--text-md)] text-ink-2">{h.text}</p>
-                  <span className="label mt-4 inline-flex items-center gap-2 rounded-[var(--radius)] border border-ink px-4 py-2 text-[length:var(--text-sm)] text-ink transition-colors duration-150 group-hover:bg-ink group-hover:text-paper">
+                  <h2 className="mt-1 font-masthead text-[1.625rem] leading-[1.1] font-bold @xl:text-[1.75rem]">
+                    {h.title}
+                  </h2>
+                  <p className="mt-2 mb-4 font-label text-[length:var(--text-sm)] text-ink-2">{h.text}</p>
+                  <span className="label mt-auto inline-flex items-center gap-2 self-start rounded-[var(--radius)] border border-ink px-3 py-1.5 text-[length:var(--text-xs)] text-ink transition-colors duration-150 group-hover:bg-ink group-hover:text-paper">
                     {h.action}
-                    <ChevronRight aria-hidden size={14} strokeWidth={1.75} />
+                    <ChevronRight aria-hidden size={13} strokeWidth={1.75} />
                   </span>
                 </Link>
               </li>

@@ -96,7 +96,7 @@ export function SignInPage() {
           <div className="flex items-center gap-5">
             <img src={logo} alt="" className="w-24 shrink-0 max-[1279px]:w-16" draggable={false} />
             <h1 className="font-masthead text-[length:var(--text-masthead)] leading-[1.02] font-black tracking-[-0.01em] max-[1279px]:text-[2.5rem]">
-              Royal Gambit Ultimate
+              Royale Gambit Ultimate
             </h1>
           </div>
           <div className="mt-4 border-t border-ink" />
@@ -112,7 +112,8 @@ export function SignInPage() {
           Every undisputed world champion, from Steinitz in 1886 to Gukesh in 2024.
         </p>
         <p className="mt-2 font-body text-[length:var(--text-xs)] text-ink-2">
-          Kramnik: photo by Vladimir Barskij, CC BY-SA 3.0, via Wikimedia Commons.
+          Photos via Wikimedia Commons, CC BY-SA 3.0: Kasparov by Owen Williams, The Kasparov Agency; Kramnik by
+          Vladimir Barskij.
         </p>
       </section>
 
@@ -140,7 +141,7 @@ export function SignInPage() {
 
         {unreachable ? (
           <p role="status" className="mt-5 border border-ink-2 px-4 py-3 font-body text-[length:var(--text-md)]">
-            The Royal Gambit server cannot be reached, so signing in will fail for now. Everything else works on this
+            The Royale Gambit server cannot be reached, so signing in will fail for now. Everything else works on this
             machine.
           </p>
         ) : null}

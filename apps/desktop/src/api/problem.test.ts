@@ -22,7 +22,7 @@ describe("describeError", () => {
 
   it("explains the refusals a player can act on", () => {
     expect(describeError(problem("identity-taken", { status: 409 }))).toBe(
-      "Already linked to another Royal Gambit card",
+      "Already linked to another Royale Gambit card",
     );
     expect(describeError(problem("last-identity", { status: 409 }))).toBe(
       "Link an email first: Lichess is your only way in",

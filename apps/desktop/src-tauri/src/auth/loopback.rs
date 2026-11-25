@@ -80,7 +80,7 @@ async fn answer(mut stream: TcpStream, expected_state: &str) -> Option<Result<St
         respond(
             &mut stream,
             400,
-            "This sign-in link was not started by Royal Gambit on this machine.",
+            "This sign-in link was not started by Royale Gambit on this machine.",
         )
         .await;
         return None;
@@ -89,7 +89,7 @@ async fn answer(mut stream: TcpStream, expected_state: &str) -> Option<Result<St
         respond(
             &mut stream,
             200,
-            "Sign-in cancelled. You can close this tab and return to Royal Gambit.",
+            "Sign-in cancelled. You can close this tab and return to Royale Gambit.",
         )
         .await;
         return Some(Err(AuthError::Cancelled));
@@ -98,7 +98,7 @@ async fn answer(mut stream: TcpStream, expected_state: &str) -> Option<Result<St
         respond(
             &mut stream,
             400,
-            "Lichess sent no code. Start the sign-in again from Royal Gambit.",
+            "Lichess sent no code. Start the sign-in again from Royale Gambit.",
         )
         .await;
         return None;
@@ -106,7 +106,7 @@ async fn answer(mut stream: TcpStream, expected_state: &str) -> Option<Result<St
     respond(
         &mut stream,
         200,
-        "Signed in. You can close this tab and return to Royal Gambit.",
+        "Signed in. You can close this tab and return to Royale Gambit.",
     )
     .await;
     Some(Ok(code))
@@ -146,7 +146,7 @@ async fn respond(stream: &mut TcpStream, status: u16, message: &str) {
         _ => "Bad Request",
     };
     let body = format!(
-        "<!doctype html><meta charset=utf-8><title>Royal Gambit</title>\
+        "<!doctype html><meta charset=utf-8><title>Royale Gambit</title>\
          <body style=\"font:18px Georgia,serif;margin:4rem;color:#1b1a17;background:#f2eee6\">\
          <p>{message}</p></body>"
     );

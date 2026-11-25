@@ -75,7 +75,7 @@ public final class AuthProblem extends ErrorResponseException {
 	static AuthProblem identityTaken(Provider provider) {
 		String what = (provider == Provider.EMAIL) ? "email address" : "Lichess account";
 		return new AuthProblem(HttpStatus.CONFLICT, "identity-taken", "Already linked", "this " + what
-				+ " belongs to another Royal Gambit account, or yours already has a different one; unlink that first");
+				+ " belongs to another Royale Gambit account, or yours already has a different one; unlink that first");
 	}
 
 	static AuthProblem lastIdentity() {

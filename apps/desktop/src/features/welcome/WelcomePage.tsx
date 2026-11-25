@@ -146,7 +146,7 @@ export function WelcomePage() {
     <div className="flex min-h-full flex-col px-14 max-[1279px]:px-8">
       <Masthead
         kicker="Federation registration · Step 1 of 2"
-        title="Royal Gambit Ultimate"
+        title="Royale Gambit Ultimate"
         dateline={[
           `${edition} edition`,
           editionDate(new Date()),

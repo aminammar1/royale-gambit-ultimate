@@ -24,7 +24,7 @@ MAIL_PORT=587
 MAIL_STARTTLS=true
 MAIL_USER=you@gmail.com
 MAIL_PASSWORD=<a Gmail app password: Google account → Security → App passwords>
-MAIL_FROM=Royal Gambit <you@gmail.com>
+MAIL_FROM=Royale Gambit <you@gmail.com>
 ```
 
 Remove those lines to go back to Mailpit.

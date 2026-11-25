@@ -121,7 +121,7 @@ services:
       MAIL_USER: ${MAIL_USER:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_STARTTLS: ${MAIL_STARTTLS:-false}
-      MAIL_FROM: ${MAIL_FROM:-Royal Gambit <no-reply@royal-gambit.dev>}
+      MAIL_FROM: ${MAIL_FROM:-Royale Gambit <no-reply@royal-gambit.dev>}
       # Dev only: a fresh signing key per start, so tokens die with the container. Real
       # environments set JWT_PRIVATE_KEY from a secret instead.
       JWT_EPHEMERAL_KEY: "true"

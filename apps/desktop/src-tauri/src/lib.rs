@@ -35,7 +35,7 @@ pub fn run() {
             db::commands::profile_claim,
         ]);
     if let Err(err) = app.run(tauri::generate_context!()) {
-        eprintln!("error while running Royal Gambit Ultimate: {err}");
+        eprintln!("error while running Royale Gambit Ultimate: {err}");
         std::process::exit(1);
     }
 }

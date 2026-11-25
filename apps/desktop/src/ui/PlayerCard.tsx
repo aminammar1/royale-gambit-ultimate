@@ -26,7 +26,7 @@ export function PlayerCard({ cardNo, username, country, issuedAt, draft = false 
     <div className="border-[3px] border-double border-ink p-1">
       <div className="border border-ink px-5 pt-4 pb-3">
         <div className="flex items-baseline justify-between gap-4 border-b-[3px] border-double border-ink pb-2">
-          <span className="label truncate text-ink">Royal Gambit Federation · Player</span>
+          <span className="label truncate text-ink">Royale Gambit Federation · Player</span>
           <span className="numeric shrink-0 text-ink">No. {cardNo ?? "—"}</span>
         </div>
         <div className="flex items-center gap-5 py-5">

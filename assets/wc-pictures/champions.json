@@ -95,14 +95,7 @@
     ],
     "size": 0.65
   },
-  "phpDzqHgr.jpeg": {
-    "no": 13,
-    "focus": [
-      0.6,
-      0.38
-    ],
-    "size": 0.65
-  },
+  "phpDzqHgr.jpeg": null,
   "phpFMy4uQ.jpeg": {
     "no": 15,
     "focus": [
@@ -142,5 +135,13 @@
       0.34
     ],
     "size": 0.72
+  },
+  "kasparov-23.jpg": {
+    "no": 13,
+    "focus": [
+      0.5,
+      0.36
+    ],
+    "size": 0.95
   }
 }

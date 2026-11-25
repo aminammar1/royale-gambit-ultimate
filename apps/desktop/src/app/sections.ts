@@ -23,7 +23,7 @@ export type Section = {
 };
 
 export const SECTIONS: readonly Section[] = [
-  { icon: Newspaper, path: "/", label: "Home", kicker: "Front page", title: "Royal Gambit Ultimate" },
+  { icon: Newspaper, path: "/", label: "Home", kicker: "Front page", title: "Royale Gambit Ultimate" },
   {
     icon: ChessPawn,
     board: true,

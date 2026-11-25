@@ -148,7 +148,7 @@ function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) 
           <div className="border border-ink px-10 pt-8 pb-7 max-[899px]:px-6">
             <img src={logo} alt="" className="mx-auto block w-28" draggable={false} />
             <h1 className="mt-4 text-center font-masthead text-[length:var(--text-masthead)] leading-none font-black tracking-[-0.01em] max-[899px]:text-[2.5rem]">
-              Royal Gambit Ultimate
+              Royale Gambit Ultimate
             </h1>
             <motion.div
               className="rule-double mt-4 origin-center"
@@ -194,7 +194,7 @@ function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) 
 
             {offline ? (
               <p role="status" className="mt-4 text-center font-body text-[length:var(--text-sm)] text-ink-2">
-                The Royal Gambit server cannot be reached. You can still play on this machine.
+                The Royale Gambit server cannot be reached. You can still play on this machine.
               </p>
             ) : null}
           </div>

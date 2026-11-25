@@ -88,7 +88,7 @@ function describeProblem(error: Extract<ApiError, { kind: "problem" }>): string 
     case "mail-unavailable":
       return "The code could not be mailed · try again soon";
     case "identity-taken":
-      return "Already linked to another Royal Gambit card";
+      return "Already linked to another Royale Gambit card";
     case "last-identity":
       return "Link an email first: Lichess is your only way in";
     case "oauth-state-invalid":

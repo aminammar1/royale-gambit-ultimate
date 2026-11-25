@@ -1,6 +1,6 @@
 # Product
 
-**Royal Gambit Ultimate** is a desktop chess training app for Windows, macOS and Linux. Players use it to play over-the-board games locally, analyze positions with an engine, review their games for mistakes, and train with puzzles. The board, local games and local analysis work offline; features that need a service (review, puzzles, bots, library) use the backend.
+**Royale Gambit Ultimate** is a desktop chess training app for Windows, macOS and Linux. Players use it to play over-the-board games locally, analyze positions with an engine, review their games for mistakes, and train with puzzles. The board, local games and local analysis work offline; features that need a service (review, puzzles, bots, library) use the backend.
 
 **Feel:** like a tournament bulletin from the golden age of chess printed on newsprint. Black ink, warm paper, serif headlines, score-sheet notation, one editor's-red pen mark. Serious, calm and cultured, the opposite of the bright, gamified look of other chess platforms.
 

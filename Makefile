@@ -1,4 +1,4 @@
-# Royal Gambit Ultimate: root tasks. See CLAUDE.md and ADR-18.
+# Royale Gambit Ultimate: root tasks. See CLAUDE.md and ADR-18.
 SHELL := /bin/bash
 COMPOSE := docker compose --env-file .env -f infra/compose/docker-compose.yml
 # Every service folder that has a Makefile: real services and the language templates.
