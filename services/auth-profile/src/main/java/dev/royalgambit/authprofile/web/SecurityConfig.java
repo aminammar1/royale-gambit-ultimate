@@ -1,11 +1,19 @@
 package dev.royalgambit.authprofile.web;
 
+import java.util.List;
+
+import dev.royalgambit.authprofile.token.Role;
+
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 /**
@@ -22,19 +30,52 @@ class SecurityConfig {
 	@Bean
 	SecurityFilterChain api(HttpSecurity http,
 			@Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver) {
+		// Hand 401 and 403 to ProblemHandler so they look like every other error,
+		// trace_id
+		// included, instead of Spring Security's bare status codes.
+		AuthenticationEntryPoint unauthenticated = (request, response, ex) -> resolver.resolveException(request,
+				response, null, ex);
+		AccessDeniedHandler denied = (request, response, ex) -> resolver.resolveException(request, response, null, ex);
+
 		http.csrf((csrf) -> csrf.disable())
 			.sessionManagement((session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.requestCache((cache) -> cache.disable())
-			.authorizeHttpRequests(
-					(requests) -> requests.requestMatchers(PUBLIC).permitAll().anyRequest().authenticated())
-			// Hand 401 and 403 to ProblemHandler so they look like every other error,
-			// trace_id included, instead of Spring Security's bare status codes.
-			.exceptionHandling((errors) -> errors
-				.authenticationEntryPoint(
-						(request, response, ex) -> resolver.resolveException(request, response, null, ex))
-				.accessDeniedHandler(
-						(request, response, ex) -> resolver.resolveException(request, response, null, ex)));
+			.authorizeHttpRequests((requests) -> requests.requestMatchers(PUBLIC)
+				.permitAll()
+				// Guests keep their profile on the device (ADR-15).
+				.requestMatchers("/v1/profile")
+				.hasRole(Role.USER.name())
+				.anyRequest()
+				.authenticated())
+			// Our own tokens, checked with the JwtDecoder from JwtConfig (in-memory
+			// public key).
+			.oauth2ResourceServer((server) -> server.authenticationEntryPoint(unauthenticated)
+				.accessDeniedHandler(denied)
+				.jwt((jwt) -> jwt.jwtAuthenticationConverter(roleFromClaim())))
+			.exceptionHandling(
+					(errors) -> errors.authenticationEntryPoint(unauthenticated).accessDeniedHandler(denied));
 		return http.build();
+	}
+
+	/**
+	 * The {@code role} claim becomes the one authority we authorize on: ROLE_USER or
+	 * ROLE_GUEST.
+	 */
+	private static JwtAuthenticationConverter roleFromClaim() {
+		JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+		converter.setJwtGrantedAuthoritiesConverter((jwt) -> {
+			String role = jwt.getClaimAsString("role");
+			if (role == null) {
+				return List.of();
+			}
+			try {
+				return List.of(new SimpleGrantedAuthority("ROLE_" + Role.fromClaim(role).name()));
+			}
+			catch (IllegalArgumentException unknownRole) {
+				return List.of();
+			}
+		});
+		return converter;
 	}
 
 }

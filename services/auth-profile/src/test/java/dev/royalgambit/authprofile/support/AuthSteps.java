@@ -1,6 +1,7 @@
 package dev.royalgambit.authprofile.support;
 
 import java.net.http.HttpResponse;
+import java.util.UUID;
 
 import tools.jackson.databind.JsonNode;
 
@@ -16,6 +17,11 @@ public final class AuthSteps {
 	public AuthSteps(Http http, Mailbox mailbox) {
 		this.http = http;
 		this.mailbox = mailbox;
+	}
+
+	/** Every test gets its own address, so tests never see each other's mail or codes. */
+	public static String freshEmail() {
+		return "player-" + UUID.randomUUID() + "@example.com";
 	}
 
 	public HttpResponse<String> requestCode(String email) {

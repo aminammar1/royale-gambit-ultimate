@@ -56,7 +56,7 @@ class RefreshIntegrationTest {
 
 	@Test
 	void rotationHandsOutANewPairForTheSameUser() {
-		JsonNode first = this.auth.signIn(EmailSignInIntegrationTest.freshEmail());
+		JsonNode first = this.auth.signIn(AuthSteps.freshEmail());
 		JsonNode second = this.http.body(refresh(token(first)));
 
 		assertThat(second.get("refresh_token").asString()).isNotEqualTo(token(first));

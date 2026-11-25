@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
+import static dev.royalgambit.authprofile.support.AuthSteps.freshEmail;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ServiceIntegrationTest
@@ -51,11 +52,6 @@ class EmailSignInIntegrationTest {
 		this.http = new Http(this.port, this.json);
 		this.mailbox = new Mailbox(this.mailpit, this.json);
 		this.auth = new AuthSteps(this.http, this.mailbox);
-	}
-
-	/** Every test gets its own address, so tests never see each other's mail or codes. */
-	static String freshEmail() {
-		return "player-" + UUID.randomUUID() + "@example.com";
 	}
 
 	@Test
