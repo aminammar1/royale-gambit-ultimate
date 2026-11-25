@@ -9,7 +9,7 @@ export function Portrait({ champion, className = "" }: { champion: Champion; cla
           src={champion.portrait}
           alt=""
           draggable={false}
-          className="size-full object-cover grayscale [[data-edition=night]_&]:brightness-90"
+          className="size-full object-cover grayscale [[data-edition=night]_&]:brightness-[0.82] [[data-edition=night]_&]:contrast-[0.92]"
         />
       ) : (
         <span

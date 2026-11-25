@@ -21,16 +21,24 @@
   --ink-2: #57534a;
   --rule: #bdb5a6;
   --accent: #9e2a2b;
+  /* Board presets (Newsprint default: ink dark squares, hatched paper light squares). */
+  --board-light: #e9e1cc;
+  --board-dark: #1b1a17;
   color-scheme: light;
 }
 
+/* Night is tuned for long sessions at the board, not for drama: a warm charcoal rather than
+   near-black, text at about 11:1 instead of 14:1 (bright text on black blooms and tires the eye),
+   and a board with mid-tone squares so the largest thing on screen is not the brightest. */
 [data-edition="night"] {
-  --paper: #191815;
-  --paper-2: #2a2723;
-  --ink: #e9e2d3;
-  --ink-2: #b1a999;
-  --rule: #575147;
-  --accent: #e0605a;
+  --paper: #1f1d1a;
+  --paper-2: #2b2824;
+  --ink: #d9d1c1;
+  --ink-2: #a39b8c;
+  --rule: #5f5950;
+  --accent: #d8736b;
+  --board-light: #a89f8a;
+  --board-dark: #4a453c;
   color-scheme: dark;
 }
 
@@ -38,9 +46,6 @@
   /* Focus is ink, not red: red is kept for mistakes, and a focused field is not one. */
   --focus: var(--ink);
 
-  /* Board presets (Newsprint default: ink dark squares, hatched paper light squares) */
-  --board-light: #e9e1cc;
-  --board-dark: #1b1a17;
 
   --font-masthead: "Playfair Display", "Times New Roman", serif;
   --font-body: "Source Serif 4", Georgia, serif;

@@ -131,7 +131,7 @@ function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) 
     >
       <div
         aria-hidden
-        className="absolute inset-0 flex flex-col justify-center gap-4 opacity-[0.16] grayscale [[data-edition=night]_&]:opacity-[0.2]"
+        className="absolute inset-0 flex flex-col justify-center gap-4 opacity-[0.16] grayscale [[data-edition=night]_&]:opacity-[0.13]"
       >
         <Row champions={CHAMPIONS} seconds={110} />
         <Row champions={[...CHAMPIONS.slice(third), ...CHAMPIONS.slice(0, third)]} seconds={90} reverse />
