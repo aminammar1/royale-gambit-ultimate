@@ -26,10 +26,10 @@
 
 [data-edition="night"] {
   --paper: #191815;
-  --paper-2: #23211d;
-  --ink: #ece5d6;
-  --ink-2: #a79f90;
-  --rule: #3e3a33;
+  --paper-2: #2a2723;
+  --ink: #e9e2d3;
+  --ink-2: #b1a999;
+  --rule: #575147;
   --accent: #e0605a;
   color-scheme: dark;
 }

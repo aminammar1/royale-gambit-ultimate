@@ -4,6 +4,7 @@ import { editionDate } from "../../app/editionDate";
 import { useEdition } from "../../app/edition";
 import { profileDb, type DbError } from "../../db/profile";
 import { Masthead } from "../../ui/Masthead";
+import { Flag } from "../../ui/Flag";
 import { PlayerCard } from "../../ui/PlayerCard";
 import logo from "../../assets/logo.png";
 import { searchCountries, usernameProblem, type Country } from "./countries";
@@ -85,12 +86,7 @@ function Federation({ picked, onPick }: { picked?: Country; onPick: (country: Co
                 selected ? "bg-paper-2 font-semibold" : i === active ? "bg-paper-2/60" : ""
               }`}
             >
-              <span
-                aria-hidden
-                className="numeric flex h-8 w-12 shrink-0 items-center justify-center border border-ink-2 text-[length:var(--text-xs)] text-ink-2"
-              >
-                {country.code}
-              </span>
+              <Flag code={country.code} className="text-[1.5rem]" />
               <span className="min-w-0 flex-1 truncate font-body text-[length:var(--text-lg)] text-ink">
                 {country.name}
               </span>
@@ -224,11 +220,7 @@ export function WelcomePage() {
         </section>
 
         <section className="overflow-y-auto border-l border-rule pl-7 max-[1279px]:col-span-2 max-[1279px]:mt-8 max-[1279px]:border-t max-[1279px]:border-l-0 max-[1279px]:pt-6 max-[1279px]:pl-0">
-          <img
-            src={logo}
-            alt=""
-            className="mx-auto block w-40 max-[1279px]:hidden [[data-edition=night]_&]:invert-[0.9]"
-          />
+          <img src={logo} alt="" className="mx-auto block w-40 max-[1279px]:hidden" />
           <p className="label mt-4 border-b border-ink pb-2 text-ink-2">Your player card · fills in as you go</p>
           <div className="mt-4">
             <PlayerCard username={username.trim()} country={country} issuedAt={new Date()} draft />

@@ -19,10 +19,21 @@ export function HallOfChampions() {
       <div className="mt-3 flex gap-3" aria-live="polite">
         <div className="size-16 shrink-0 border border-ink bg-paper-2">
           {champion.portrait ? (
-            <img src={champion.portrait} alt="" className="size-full object-cover grayscale" />
+            <img
+              src={champion.portrait}
+              alt=""
+              className="size-full object-cover grayscale [[data-edition=night]_&]:brightness-90"
+            />
           ) : (
-            <span className="label flex size-full items-center justify-center text-[0.625rem] text-ink-2">
-              Portrait
+            <span
+              aria-hidden
+              className="flex size-full items-center justify-center font-masthead text-[length:var(--text-xl)] font-bold text-ink-2"
+            >
+              {champion.name
+                .split(" ")
+                .map((part) => part[0])
+                .join("")
+                .slice(0, 2)}
             </span>
           )}
         </div>

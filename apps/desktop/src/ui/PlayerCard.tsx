@@ -1,10 +1,11 @@
 import { shortDate } from "../app/editionDate";
+import { Flag } from "./Flag";
 
 type Props = {
   /** Six digits once registered; a draft card shows dashes. */
   cardNo?: string;
   username?: string;
-  country?: { name: string; alpha3: string };
+  country?: { code: string; name: string; alpha3: string };
   issuedAt: Date;
   draft?: boolean;
 };
@@ -31,10 +32,14 @@ export function PlayerCard({ cardNo, username, country, issuedAt, draft = false 
         <div className="flex items-center gap-5 py-5">
           <div
             aria-hidden
-            className="flex h-16 w-24 shrink-0 flex-col items-center justify-center border border-ink-2 bg-paper-2"
+            className="flex h-20 w-24 shrink-0 flex-col items-center justify-center border border-ink-2 bg-paper-2"
           >
-            <span className="label text-ink-2">Flag</span>
-            <span className="numeric mt-1 text-ink">{country?.alpha3 ?? "—"}</span>
+            {country ? (
+              <Flag code={country.code} className="text-[2rem]" />
+            ) : (
+              <span className="label text-ink-2">Flag</span>
+            )}
+            <span className="numeric mt-1 text-[length:var(--text-xs)] text-ink">{country?.alpha3 ?? "—"}</span>
           </div>
           <div className="min-w-0">
             <p className="label text-ink-2">{draft ? "Registration in progress" : "Registered player"}</p>

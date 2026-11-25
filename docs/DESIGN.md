@@ -6,14 +6,16 @@ Chess history printed on newspaper. Written summary of the Claude Design boards 
 | Token | Day Edition | Night Edition | Use |
 | --- | --- | --- | --- |
 | `--paper` | `#F3EFE6` | `#191815` | app background |
-| `--paper-2` | `#E9E3D6` | `#23211D` | panels, sunken areas |
-| `--ink` | `#1B1A17` | `#ECE5D6` | primary text, icons |
-| `--ink-2` | `#57534A` | `#A79F90` | secondary text, captions |
-| `--rule` | `#BDB5A6` | `#3E3A33` | 1px column rules, borders |
+| `--paper-2` | `#E9E3D6` | `#2A2723` | panels, sunken areas |
+| `--ink` | `#1B1A17` | `#E9E2D3` | primary text, icons |
+| `--ink-2` | `#57534A` | `#B1A999` | secondary text, captions |
+| `--rule` | `#BDB5A6` | `#575147` | 1px column rules, borders |
 | `--accent` | `#9E2A2B` | `#E0605A` | the editor's red: mistakes, blunders, critical marks, focus |
 | `--focus` | `= --accent` | `= --accent` | 2px focus outline, offset 2px |
 
-No other hues in UI chrome. Engine arrows use `--ink` at 70% (best move) and `--ink-2` (other lines). Mistake arrows use `--accent`.
+Night values were raised on 2026-11-25 after use on a real screen: rules, sunken panels and dashed cards were too close to the paper to see, and the brightest ink glared in long reading.
+
+No other hues in UI chrome; country flags (flag-icons) are content, always printed beside the country's name. Engine arrows use `--ink` at 70% (best move) and `--ink-2` (other lines). Mistake arrows use `--accent`.
 
 ### Board presets (square light / dark)
 | Preset | Light | Dark | Notes |
@@ -40,7 +42,7 @@ Type scale (rem): 0.75 · 0.875 · 1 · 1.125 · 1.375 · 1.75 · 2.25 · 3 (mas
 - 4px spacing grid. Columns are separated by vertical rules, like a newspaper page.
 - **Logo:** `design/newsprint/logo.jpg` is a fixed bitmap (chrome queen, drawn gradient). It is the one allowed exception to the no-gradient, no-shadow rule and is never recreated in CSS.
 - Paper grain: a static, subtle SVG-noise PNG at ≤ 6% opacity on `--paper`. Never put it over text panels.
-- Halftone portraits: **pre-processed offline** into halftone PNG/WebP assets, not live CSS filters. Opacity 8–15% (Day) and 6–10% (Night). Used only on Welcome, Home and Profile mastheads, plus the small framed thumbnail in the nav's **Hall of Champions** widget (shown on every page, full contrast, 40px, cycles with the two arrow buttons). No other place gets a portrait.
+- Halftone portraits: **pre-processed offline** into halftone PNG/WebP assets, not live CSS filters. Opacity 8–15% (Day) and 6–10% (Night). Used only on Welcome, Home and Profile mastheads, plus the small framed thumbnail in the nav's **Hall of Champions** widget (shown on every page, full contrast, 64px, cycles with the two arrow buttons). That thumbnail is a grey photo crop, not dots: at 64px a halftone loses the face. A champion without a photo shows initials. No other place gets a portrait.
 
 ## Motion
 - Durations 120–240 ms, `ease-out` or `cubic-bezier(0.2, 0, 0, 1)`. No springs with overshoot, no bounce, no scale-pop.
