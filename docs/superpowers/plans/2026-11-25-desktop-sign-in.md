@@ -1,0 +1,18 @@
+# Desktop sign-in through the gateway (M7 and M11 client slice, pulled forward)
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans.
+
+**Goal:** In Settings → Accounts & sync (board `design/newsprint/settings.png`), a player links an email (code by mail) or Lichess, sees what is linked, unlinks, and signs out. The session survives restarts. Every call goes through the gateway on `http://localhost:8080`.
+
+**Architecture:** The refresh token never enters the web layer (ARCHITECTURE.md § Authentication). So the **Rust core** makes every call that sends or receives one (verify, Lichess complete, refresh, sign out) and keeps it in the OS keychain (`keyring`). The web layer gets only the short-lived access token and the account summary, through `src/api/auth` (the only TS module allowed to `invoke`). Calls that carry no refresh token (`/email/start`, `/v1/profile`, the identities list) go through a small typed `fetch` client in `src/api/` with the access token, and refresh once on a 401. Lichess runs entirely in Rust: bind a loopback listener on `127.0.0.1:0`, `/lichess/start` with that redirect, open the system browser from Rust (`tauri-plugin-opener` Rust API; no web-layer permission), wait for the redirect, **check `state`**, then `/lichess/complete`.
+
+**Backend addition (contract first):** `GET /v1/auth/identities` (user token) → `[{provider, label, linked_at}]`, with `label` the email address or the Lichess username. That needs the Lichess username stored at link time (V6 `identities.display_name`). The gateway route is already covered by `/v1/auth/identities` (token required).
+
+**Out of scope:** the Welcome page and the local player card (M7; it needs local SQLite from M1), profile sync, games sync, Chess.com.
+
+## Tasks
+1. **auth-profile:** contract, then `GET /v1/auth/identities` with `display_name`. Integration tests: list after email sign-in, after a Lichess link, after an unlink; guest 403.
+2. **Rust `auth` module:** `Keychain` trait (OS keychain, and an in-memory one for tests), `GatewayClient` (reqwest + rustls, base URL from `RG_GATEWAY_URL`, default `http://localhost:8080`, problem+json mapped to a typed error), `loopback::await_redirect` (one request, then `code`/`state` parsed and checked, a small "you can close this tab" page, 5-minute timeout). Commands: `auth_restore`, `auth_email_start`, `auth_email_verify`, `auth_lichess`, `auth_unlink_lichess`, `auth_sign_out`. Tests: `wiremock` for the gateway calls (rotation stores the new token, reuse or invalid clears the keychain), loopback parsing with a wrong state refused; `cargo clippy -D warnings`.
+3. **TS `src/api`:** problem type, `apiFetch` with one refresh-and-retry on 401, `src/api/auth/session.ts` (zustand: guest | signed-in { userId, role, accessToken, expiresAt }), invoke wrappers. Vitest: retry-once logic, problem mapping to the copy on the board.
+4. **Settings → Accounts & sync**, as on the board: credential cards (No. 1 Lichess: Link or Unlink; No. 2 Email: Link email opens an inline form with the address, then the code, showing attempts left or "ask for a new code"; No. 3 Chess.com "Not yet"), dateline "Signed in · Lichess" or "Guest", sign-out link, offline state ("needs connection"). PlayerSlot shows the signed-in label. Red only for mistakes, always with text.
+5. **End to end:** `make up` + `pnpm tauri:dev`: email sign-in with the code from Mailpit, restart (session restored), unlink refused as the last way in, sign out. Lichess with a real lichess.org account (Amine signs in in the browser). Screenshots in Day and Night next to `settings.png`. `pnpm check` green.

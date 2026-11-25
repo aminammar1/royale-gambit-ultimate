@@ -62,4 +62,27 @@ curl -fsS -X PUT -H "Authorization: Bearer $token" -H 'Content-Type: application
 check_metrics "$base"
 contract_check auth-profile.yaml "$base" --header "Authorization: Bearer $token"
 
+# The real path from the desktop app: everything through the gateway.
+gw=http://localhost:8080
+echo "== gateway $gw"
+curl -fsS "$gw/health/ready" >/dev/null
+email="via-gateway-$(date +%s)-$RANDOM@example.com"
+curl -fsS -X POST -H 'Content-Type: application/json' -d "{\"email\":\"$email\"}" "$gw/v1/auth/email/start"
+sleep 1
+code=$(curl -fsS "$MAILPIT/api/v1/messages?limit=200" | python3 -c "
+import json, re, sys
+for m in json.load(sys.stdin)['messages']:
+    if m['To'][0]['Address'] == '$email':
+        print(re.search(r'\d{6}', m['Subject']).group()); break")
+token=$(curl -fsS -X POST -H 'Content-Type: application/json' -d "{\"email\":\"$email\",\"code\":\"$code\"}" \
+  "$gw/v1/auth/email/verify" | json_field access_token)
+status=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $token" "$gw/v1/profile")
+[[ $status == 404 ]] || { echo "   GET /v1/profile through the gateway: $status, want 404 (no profile yet)"; fail=1; }
+status=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer not.a.token" "$gw/v1/profile")
+[[ $status == 401 ]] || { echo "   a bad token got $status at the gateway, want 401"; fail=1; }
+status=$(curl -s -o /dev/null -w '%{http_code}' "$gw/.well-known/jwks.json")
+[[ $status == 404 ]] || { echo "   the JWKS is public through the gateway ($status)"; fail=1; }
+check_metrics "$gw"
+echo "   email sign-in, profile and token check through the gateway ok"
+
 exit $fail

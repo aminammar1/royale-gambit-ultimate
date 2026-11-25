@@ -73,6 +73,27 @@ services:
       retries: 20
 
   # ---- services
+  # The only public entry: the desktop app talks to http://localhost:8080 and nothing else.
+  gateway:
+    restart: unless-stopped
+    profiles: [full]
+    build: ../../services/gateway
+    depends_on:
+      auth-profile: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    develop:
+      watch:
+        - { action: rebuild, path: ../../services/gateway }
+    environment:
+      PORT: "8080"
+      UPSTREAM_AUTH_PROFILE_URL: http://auth-profile:8081
+      JWKS_URL: http://auth-profile:8081/.well-known/jwks.json
+      REDIS_URL: redis://redis:6379/0
+      # Vite dev server, then the packaged app's origins (macOS/Linux, Windows).
+      CORS_ORIGINS: http://localhost:1420,tauri://localhost,http://tauri.localhost
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_IN_DOCKER:-}
+    ports: ["127.0.0.1:8080:8080"]
+
   auth-profile:
     <<: *service-defaults
     profiles: [full]
