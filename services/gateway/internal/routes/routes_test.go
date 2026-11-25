@@ -31,3 +31,29 @@ func TestLongestPrefixWinsOnSegmentBoundaries(t *testing.T) {
 		}
 	}
 }
+
+func TestTheP2TableGuardsWhatNeedsGuarding(t *testing.T) {
+	authProfile, _ := url.Parse("http://auth-profile:8081")
+	table := routes.P2(authProfile)
+	cases := []struct {
+		path   string
+		auth   routes.Auth
+		signIn bool
+	}{
+		{"/v1/auth/guest", routes.Optional, true},
+		{"/v1/auth/email/start", routes.Optional, true},
+		{"/v1/auth/lichess/complete", routes.Optional, true},
+		{"/v1/auth/refresh", routes.Optional, false},
+		{"/v1/auth/identities/lichess", routes.Required, false},
+		{"/v1/profile", routes.Required, false},
+	}
+	for _, c := range cases {
+		r, ok := table.Match(c.path)
+		if !ok || r.Auth != c.auth || r.SignIn != c.signIn || r.Upstream != authProfile {
+			t.Errorf("%s: got %+v (found %v), want auth %v sign-in %v", c.path, r, ok, c.auth, c.signIn)
+		}
+	}
+	if _, ok := table.Match("/.well-known/jwks.json"); ok {
+		t.Error("the JWKS is for services, not for the public")
+	}
+}

@@ -28,6 +28,7 @@ jobs:
             go: ['services/_templates/go/**']
             python: ['services/_templates/python/**']
             auth-profile: ['services/auth-profile/**', 'contracts/openapi/auth-profile.yaml', 'contracts/events/**']
+            gateway: ['services/gateway/**']
             infra: ['infra/**', 'contracts/**', 'Makefile', 'scripts/**', '.github/workflows/**']
       - id: list
         run: echo "services=$(jq -c 'map(select(. != "infra"))' <<< '${{ steps.filter.outputs.changes }}')" >> "$GITHUB_OUTPUT"

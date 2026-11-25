@@ -1,27 +1,29 @@
-# Go service template (Go + Gin)
+# gateway
 
-Copy this folder to create a Go service (`gateway`, `puzzles`, `learn`, `games`, `analysis`). It implements `contracts/openapi/_template.yaml`.
+The single public entry (Go + Gin, port 8080). The desktop app talks to `http://localhost:8080` and nothing else. No database and no business logic.
 
-**What you get:** `/health/live`, `/health/ready` (pings Postgres), `/metrics` (Prometheus), JSON logs (`log/slog`) with `trace_id`, W3C trace propagation (OpenTelemetry, OTLP export when configured), RFC 9457 problems, pgx + sqlc, golang-migrate (embedded), distroless non-root image with a health check, and an integration test on real Postgres (Testcontainers).
+For every request it: refuses non-canonical paths → routes by prefix (`internal/routes`, longest prefix on whole segments; unknown paths are a 404 problem) → checks the bearer token against auth-profile's JWKS (RS256 only, issuer and expiry required; cached, refetched on an unknown `kid`) → spends rate-limit budgets in Redis → forwards with `X-Request-ID`, `X-Forwarded-For` (the real peer, never the client's claim) and W3C trace context. The token is forwarded unchanged, and the service verifies it again.
 
-## Create a service from it
-1. Write `contracts/openapi/<name>.yaml` first.
-2. `cp -r services/gateway services/<name>`; change the module path in `go.mod` and imports; set `SERVICE_NAME` and `PORT`.
-3. Replace `internal/items`, `queries/` and `migrations/` with the service's own; run `make sqlc`.
-4. Add it to `infra/compose/docker-compose.yml` (profile `full`), its database to `SERVICE_DATABASES`, and its path to CI.
+| Route | Service | Token |
+| --- | --- | --- |
+| `/v1/auth/guest`, `/v1/auth/email/*`, `/v1/auth/lichess/*` | auth-profile | optional, sign-in rate limit |
+| `/v1/auth/*` (refresh, logout) | auth-profile | optional (checked when sent) |
+| `/v1/auth/identities/*`, `/v1/profile` | auth-profile | required |
 
-## Run (Docker only)
-- `make up PROFILES=templates` at the root starts it with Postgres; `make smoke` also checks the contract.
-- `make check-svc S=go` runs the checks inside the `toolchain` stage of the Dockerfile.
+## Run and test (Docker only)
+- `make up` at the root starts it in front of auth-profile.
+- `make check-svc S=gateway` runs gofmt, vet, and tests (Redis through Testcontainers).
+- `make smoke` signs in by email through it.
 
 ## Env vars
 | Var | Default | |
 | --- | --- | --- |
-| `SERVICE_NAME` | `template-go` | log and trace name |
-| `PORT` | `8101` | |
-| `DATABASE_URL` | (required) | `postgres://…` |
-| `MIGRATE_ON_START` | `false` | dev only; production runs migrations as a release step |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | unset | export spans over OTLP/HTTP when set |
-
-## Test
-`make check-svc S=go` (root) runs `make check`: gofmt, `go vet`, `go test -race` (Docker needed for Testcontainers).
+| `PORT` | `8080` | |
+| `UPSTREAM_AUTH_PROFILE_URL` | (required) | `http://auth-profile:8081` |
+| `JWKS_URL` | (required) | auth-profile's `/.well-known/jwks.json` |
+| `JWT_ISSUER` | `royal-gambit` | |
+| `REDIS_URL` | (required) | rate-limit counters; if Redis is down, requests pass with a warning |
+| `CORS_ORIGINS` | none | comma-separated, e.g. `http://localhost:1420,tauri://localhost` |
+| `RATE_IP_PER_MIN`, `RATE_SIGNIN_PER_MIN`, `RATE_GUEST_PER_MIN`, `RATE_USER_PER_MIN` | 300, 20, 60, 300 | requests per minute |
+| `UPSTREAM_TIMEOUT` | `10s` | time for a service to start answering (streams may then run on) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | unset | export spans when set |

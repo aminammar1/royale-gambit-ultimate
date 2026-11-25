@@ -12,8 +12,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+
 	"github.com/aminammar1/royale-gambit-ultimate/services/gateway/internal/app"
+	"github.com/aminammar1/royale-gambit-ultimate/services/gateway/internal/auth"
 	"github.com/aminammar1/royale-gambit-ultimate/services/gateway/internal/config"
+	"github.com/aminammar1/royale-gambit-ultimate/services/gateway/internal/limit"
+	"github.com/aminammar1/royale-gambit-ultimate/services/gateway/internal/routes"
 	"github.com/aminammar1/royale-gambit-ultimate/services/gateway/internal/telemetry"
 )
 
@@ -44,9 +49,25 @@ func run() error {
 	}
 	defer func() { _ = shutdownTracing(context.Background()) }()
 
+	verifier, err := auth.NewVerifier(ctx, cfg.JWKSURL, cfg.Issuer)
+	if err != nil {
+		return err
+	}
+	rdb := redis.NewClient(cfg.Redis)
+	defer rdb.Close()
+
 	srv := &http.Server{
-		Addr:              ":" + cfg.Port,
-		Handler:           app.New(app.Options{Service: cfg.ServiceName, Log: log}),
+		Addr: ":" + cfg.Port,
+		Handler: app.New(app.Options{
+			Service:         cfg.ServiceName,
+			Log:             log,
+			Routes:          routes.P2(cfg.AuthProfile),
+			Verifier:        verifier,
+			Limiter:         limit.New(rdb),
+			Limits:          cfg.Limits,
+			CORSOrigins:     cfg.CORSOrigins,
+			UpstreamTimeout: cfg.UpstreamTimeout,
+		}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	errc := make(chan error, 1)

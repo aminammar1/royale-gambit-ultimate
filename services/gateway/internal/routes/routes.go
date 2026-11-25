@@ -42,3 +42,18 @@ func (t Table) Match(path string) (Route, bool) {
 	}
 	return best, found
 }
+
+// P2 is the table for the services that exist at P2: only auth-profile. A service joins
+// the table in the milestone that creates it.
+func P2(authProfile *url.URL) Table {
+	return Table{
+		// Refresh and logout: a token may come along but is not needed.
+		{Prefix: "/v1/auth", Upstream: authProfile},
+		// The routes that hand out tokens to anonymous callers get the tight per-IP budget.
+		{Prefix: "/v1/auth/guest", Upstream: authProfile, SignIn: true},
+		{Prefix: "/v1/auth/email", Upstream: authProfile, SignIn: true},
+		{Prefix: "/v1/auth/lichess", Upstream: authProfile, SignIn: true},
+		{Prefix: "/v1/auth/identities", Upstream: authProfile, Auth: Required},
+		{Prefix: "/v1/profile", Upstream: authProfile, Auth: Required},
+	}
+}

@@ -19,6 +19,7 @@ jobs:
           - { name: template-go, dir: services/_templates/go }
           - { name: template-py, dir: services/_templates/python }
           - { name: auth-profile, dir: services/auth-profile }
+          - { name: gateway, dir: services/gateway }
     steps:
       - uses: actions/checkout@v5
       - uses: docker/login-action@v3
