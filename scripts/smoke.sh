@@ -78,11 +78,15 @@ token=$(curl -fsS -X POST -H 'Content-Type: application/json' -d "{\"email\":\"$
   "$gw/v1/auth/email/verify" | json_field access_token)
 status=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $token" "$gw/v1/profile")
 [[ $status == 404 ]] || { echo "   GET /v1/profile through the gateway: $status, want 404 (no profile yet)"; fail=1; }
+# What the Settings credential cards read.
+label=$(curl -fsS -H "Authorization: Bearer $token" "$gw/v1/auth/identities" |
+  python3 -c "import json, sys; print(json.load(sys.stdin)[0]['label'])")
+[[ $label == "$email" ]] || { echo "   identities through the gateway: got '$label', want $email"; fail=1; }
 status=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer not.a.token" "$gw/v1/profile")
 [[ $status == 401 ]] || { echo "   a bad token got $status at the gateway, want 401"; fail=1; }
 status=$(curl -s -o /dev/null -w '%{http_code}' "$gw/.well-known/jwks.json")
 [[ $status == 404 ]] || { echo "   the JWKS is public through the gateway ($status)"; fail=1; }
 check_metrics "$gw"
-echo "   email sign-in, profile and token check through the gateway ok"
+echo "   email sign-in, identities, profile and token check through the gateway ok"
 
 exit $fail
