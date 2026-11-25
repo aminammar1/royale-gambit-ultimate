@@ -53,7 +53,9 @@ paths:
       description: |
         Always 202 for a well-formed address, whether or not an account exists, so the endpoint
         cannot be used to find out who is registered. A new code replaces any earlier one. A
-        second request inside the resend cooldown (60 s) sends nothing.
+        second request inside the resend cooldown (60 s) sends nothing. At most 5 codes per hour
+        and 10 per day go to one address (which also bounds guessing to 50 tries a day); past
+        that the answer is 429 `.../problems/too-many-codes` with `Retry-After`.
       security: []
       requestBody:
         required: true
@@ -61,6 +63,7 @@ paths:
       responses:
         "202": { description: Code sent (or deliberately not sent; see description) }
         "400": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
 
   /v1/auth/email/verify:
@@ -126,7 +129,12 @@ paths:
         Only loopback redirects are accepted (http://127.0.0.1, http://[::1] or
         http://localhost, any port), so a code can only ever land on the player's own machine.
         The flow must be completed within 10 minutes.
-      security: []
+
+        To link Lichess to the signed-in account, call this with that user's bearer token: the
+        flow is then bound to that user and can only be completed with the same user's token.
+        Without a token (or with a guest's) the flow signs in. The app MUST check that the
+        `state` arriving on its redirect equals the one returned here before calling /complete.
+      security: [{}, { bearer: [] }]
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/LichessStart" } } }
@@ -141,14 +149,19 @@ paths:
       operationId: completeLichessSignIn
       summary: Finish a Lichess sign-in, or link Lichess to the signed-in account
       description: |
-        Without a bearer token: signs in the account linked to this Lichess user, creating it
-        (and publishing `user.registered`) the first time. With a user's bearer token: links
-        this Lichess user to that account and returns a fresh pair for it.
+        For a sign-in flow (started without a user token): signs in the account linked to this
+        Lichess user, creating it (and publishing `user.registered`) the first time. For a link
+        flow: links this Lichess user to the account that started it and returns a fresh pair
+        for it. The bearer token sent here must belong to the same user as at /start (none for a
+        sign-in flow); anything else is refused as an invalid state, so a code and state
+        captured from someone else's flow cannot be completed against your account.
 
         Problem types:
-        - 401 `.../problems/oauth-state-invalid`: unknown, expired or already used state.
+        - 401 `.../problems/oauth-state-invalid`: unknown, expired or already used state, or a
+          caller other than the one who started the flow.
         - 401 `.../problems/lichess-code-invalid`: Lichess refused the code.
-        - 409 `.../problems/identity-taken`: this Lichess user is linked to another account.
+        - 409 `.../problems/identity-taken`: this Lichess user is linked to another account, or
+          this account already has a different Lichess user linked (unlink it first).
         - 503 `.../problems/lichess-unavailable`: Lichess did not answer properly; try again.
       security: [{}, { bearer: [] }]
       requestBody:
@@ -169,7 +182,8 @@ paths:
       summary: Unlink Lichess from the signed-in account (idempotent)
       description: |
         Refused with 409 `.../problems/last-identity` when Lichess is the only way into the
-        account, since the player could never sign in again. Guests get 403.
+        account, since the player could never sign in again. An account has at most one
+        Lichess user. Guests get 403.
       responses:
         "204": { description: Not linked any more }
         "401": { $ref: "#/components/responses/Problem" }
