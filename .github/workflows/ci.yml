@@ -28,6 +28,7 @@ jobs:
             go: ['services/_templates/go/**']
             python: ['services/_templates/python/**']
             java: ['services/_templates/java/**']
+            auth-profile: ['services/auth-profile/**', 'contracts/openapi/auth-profile.yaml', 'contracts/events/**']
             infra: ['infra/**', 'contracts/**', 'Makefile', 'scripts/**', '.github/workflows/**']
       - id: list
         run: echo "services=$(jq -c 'map(select(. != "infra"))' <<< '${{ steps.filter.outputs.changes }}')" >> "$GITHUB_OUTPUT"
@@ -45,7 +46,11 @@ jobs:
       - name: Checks inside the service toolchain image (ADR-18)
         run: make check-svc S=${{ matrix.service }}
       - name: Build the runtime image
-        run: docker build -t rg/${{ matrix.service }}:ci services/_templates/${{ matrix.service }}
+        # Real services live in services/<name>; the language templates in services/_templates/<name>.
+        run: |
+          dir=services/${{ matrix.service }}
+          [ -d "$dir" ] || dir=services/_templates/${{ matrix.service }}
+          docker build -t rg/${{ matrix.service }}:ci "$dir"
 
   smoke:
     needs: [changes, check]

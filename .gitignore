@@ -2,6 +2,11 @@
 .env
 .env.*
 !.env.example
+# private keys and keystores (JWT signing keys come from env, never from a file in the repo)
+*.pem
+*.key
+*.p12
+*.jks
 .claude/settings.local.json
 # build output
 node_modules/
@@ -16,7 +21,12 @@ __pycache__/
 data/raw/
 *.db
 *.sqlite
+# logs and local tooling
+*.log
+logs/
+.superpowers/
 # editors and OS
+*.iml
 .idea/
 .vscode/
 .DS_Store

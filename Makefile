@@ -6,7 +6,7 @@ SERVICES := $(patsubst %/Makefile,%,$(wildcard services/*/Makefile services/_tem
 # S=<name> resolves to services/<name>, or services/_templates/<name> for templates (S=go|python|java).
 svc = $(firstword $(wildcard services/$(S) services/_templates/$(S)))
 
-.PHONY: help env infra up watch down logs check check-svc check-desktop smoke ps
+.PHONY: help env infra up watch down logs check check-svc fmt-svc check-desktop smoke ps
 
 help:
 	@grep -E '^## ' Makefile | sed 's/## //'
@@ -17,8 +17,11 @@ env: .env
 	cp .env.example .env
 
 ## infra          only postgres, redis, rabbitmq, mailpit (no services)
+# `up --wait` reads a one-shot container's exit as a failure when nothing depends on it, so the
+# database init runs on its own once the stores are healthy.
 infra: .env
-	$(COMPOSE) up -d --wait
+	$(COMPOSE) up -d --wait postgres redis rabbitmq mailpit
+	$(COMPOSE) run --rm postgres-init
 
 ## up             infra + every service in Docker (PROFILES="full obs" to add observability)
 PROFILES ?= full
@@ -52,6 +55,11 @@ check-svc:
 	@test -n "$(svc)" || { echo "unknown service S=$(S)"; exit 1; }
 	@$(MAKE) --no-print-directory in-toolchain DIR=$(svc)
 
+## fmt-svc S=<svc>     apply the service's formatter (same toolchain image as the checks)
+fmt-svc:
+	@test -n "$(svc)" || { echo "unknown service S=$(S)"; exit 1; }
+	@$(MAKE) --no-print-directory in-toolchain DIR=$(svc) TARGET=fmt
+
 # Runs `make check` for DIR inside the `toolchain` stage of its Dockerfile (ADR-18): source
 # mounted, your uid, the Docker socket shared so Testcontainers can start databases, and one
 # cache volume for Go modules, uv and Maven.
@@ -67,7 +75,7 @@ in-toolchain:
 	  -e HOME=/cache/home -e GOMODCACHE=/cache/go/mod -e GOCACHE=/cache/go/build \
 	  -e UV_CACHE_DIR=/cache/uv -e UV_PROJECT_ENVIRONMENT=/cache/venv/$(notdir $(TOOLCHAIN_IMAGE)) \
 	  -e MAVEN_USER_HOME=/cache/home/.m2 -e MAVEN_OPTS=-Duser.home=/cache/home \
-	  $(TOOLCHAIN_IMAGE) make check
+	  $(TOOLCHAIN_IMAGE) make $(or $(TARGET),check)
 
 ## check-desktop  the client checks (from M0)
 check-desktop:
