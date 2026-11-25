@@ -74,10 +74,16 @@ paths:
         The first successful sign-in for an address creates the account and publishes
         `user.registered`. A code works once, for 10 minutes, and allows 5 wrong guesses.
 
-        Problem types (all 401):
-        - `.../problems/code-invalid`: wrong code; `attempts_left` says how many guesses remain.
-        - `.../problems/code-expired`: no usable code (expired, already used, or out of attempts); ask for a new one.
-      security: []
+        With a user's bearer token this links the address to that account instead (a player
+        who signed in with Lichess adds an email, so Lichess is no longer the only way in) and
+        returns a fresh pair for it. Without a token, or with a guest's, it signs in.
+
+        Problem types:
+        - 401 `.../problems/code-invalid`: wrong code; `attempts_left` says how many guesses remain.
+        - 401 `.../problems/code-expired`: no usable code (expired, already used, or out of attempts); ask for a new one.
+        - 409 `.../problems/identity-taken`: linking, and the address belongs to another
+          account, or this account already has a different address.
+      security: [{}, { bearer: [] }]
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/EmailVerify" } } }
@@ -87,6 +93,7 @@ paths:
           content: { application/json: { schema: { $ref: "#/components/schemas/TokenPair" } } }
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
 
   /v1/auth/refresh:
     post:
@@ -175,6 +182,23 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
+
+  /v1/auth/identities:
+    get:
+      operationId: listMyIdentities
+      summary: The ways the signed-in player can sign in (oldest first)
+      description: |
+        What the Settings credential cards show: one entry per linked provider, with the
+        email address or the Lichess username as `label`. Provider tokens never leave the
+        service. Guests get 403: they have no identities.
+      responses:
+        "200":
+          description: Linked identities
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Identity" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
 
   /v1/auth/identities/lichess:
     delete:
@@ -312,6 +336,13 @@ components:
         refresh_expires_in: { type: integer, description: seconds }
         user_id: { type: string, format: uuid, description: UUIDv7 }
         role: { type: string, enum: [guest, user] }
+    Identity:
+      type: object
+      required: [provider, label, linked_at]
+      properties:
+        provider: { type: string, enum: [email, lichess] }
+        label: { type: string, description: "The email address, or the Lichess username", examples: ["kingside_tal"] }
+        linked_at: { type: string, format: date-time }
     ProfileWrite:
       type: object
       additionalProperties: false
