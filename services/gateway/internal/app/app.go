@@ -13,20 +13,30 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
+	"github.com/aminammar1/royale-gambit-ultimate/services/gateway/internal/auth"
 	"github.com/aminammar1/royale-gambit-ultimate/services/gateway/internal/httpx"
 	"github.com/aminammar1/royale-gambit-ultimate/services/gateway/internal/proxy"
 	"github.com/aminammar1/royale-gambit-ultimate/services/gateway/internal/routes"
 )
+
+// TokenVerifier checks a bearer token; *auth.Verifier is the real one.
+type TokenVerifier interface {
+	Verify(raw string) (auth.Claims, error)
+}
 
 // Options is what the gateway is built from. Zero values get safe defaults.
 type Options struct {
 	Service         string
 	Log             *slog.Logger
 	Routes          routes.Table
+	Verifier        TokenVerifier
 	UpstreamTimeout time.Duration
 }
 
-const routeKey = "route"
+const (
+	routeKey  = "route"
+	claimsKey = "claims"
+)
 
 // New returns the gateway router.
 func New(opts Options) *gin.Engine {
@@ -48,7 +58,7 @@ func New(opts Options) *gin.Engine {
 
 	fwd := proxy.New(opts.UpstreamTimeout, opts.Log)
 	// Everything that is not one of our own routes is a candidate for forwarding.
-	r.NoRoute(route(opts.Routes), func(c *gin.Context) {
+	r.NoRoute(route(opts.Routes), authenticate(opts.Verifier), func(c *gin.Context) {
 		fwd.Forward(c.Writer, c.Request, c.MustGet(routeKey).(routes.Route), c.GetString("request_id"))
 	})
 	r.NoMethod(func(c *gin.Context) {
@@ -76,4 +86,38 @@ func route(table routes.Table) gin.HandlerFunc {
 		c.Set(routeKey, match)
 		c.Next()
 	}
+}
+
+// authenticate checks the bearer token. A route that needs one gets 401 without it; on
+// any route a token that is sent must be valid, so a bad token never reaches a service.
+// The token itself is forwarded unchanged: services verify it again (defence in depth).
+func authenticate(verifier TokenVerifier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		header := c.GetHeader("Authorization")
+		if header == "" {
+			if c.MustGet(routeKey).(routes.Route).Auth == routes.Required {
+				unauthorized(c, "a bearer token is required")
+				return
+			}
+			c.Next()
+			return
+		}
+		raw, isBearer := strings.CutPrefix(header, "Bearer ")
+		if !isBearer || verifier == nil {
+			unauthorized(c, "a valid bearer token is required")
+			return
+		}
+		claims, err := verifier.Verify(raw)
+		if err != nil {
+			unauthorized(c, "a valid bearer token is required")
+			return
+		}
+		c.Set(claimsKey, claims)
+		c.Next()
+	}
+}
+
+func unauthorized(c *gin.Context, detail string) {
+	c.Header("WWW-Authenticate", `Bearer realm="royal-gambit"`)
+	httpx.WriteProblem(c, http.StatusUnauthorized, detail)
 }
