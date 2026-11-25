@@ -3,7 +3,7 @@ SHELL := /bin/bash
 COMPOSE := docker compose --env-file .env -f infra/compose/docker-compose.yml
 # Every service folder that has a Makefile: real services and the language templates.
 SERVICES := $(patsubst %/Makefile,%,$(wildcard services/*/Makefile services/_templates/*/Makefile))
-# S=<name> resolves to services/<name>, or services/_templates/<name> for templates (S=go|python|java).
+# S=<name> resolves to services/<name>, or services/_templates/<name> for templates (S=go|python).
 svc = $(firstword $(wildcard services/$(S) services/_templates/$(S)))
 
 .PHONY: help env infra up watch down logs check check-svc fmt-svc check-desktop smoke ps
@@ -81,9 +81,8 @@ in-toolchain:
 check-desktop:
 	@if [ -f apps/desktop/package.json ]; then cd apps/desktop && pnpm check; else echo "apps/desktop not created yet (M0): skipped"; fi
 
-## smoke          start infra + templates in Docker, check health and the contract, then stop
+## smoke          start infra, templates and services in Docker, check health and the contracts, then stop
+SMOKE = $(COMPOSE) --profile templates --profile full
 smoke: .env
-	$(COMPOSE) --profile templates up -d --build --wait || { \
-	  $(COMPOSE) --profile templates ps; $(COMPOSE) --profile templates logs --tail 40; \
-	  $(COMPOSE) --profile templates down; exit 1; }
-	./scripts/smoke.sh; status=$$?; $(COMPOSE) --profile templates down; exit $$status
+	$(SMOKE) up -d --build --wait || { $(SMOKE) ps; $(SMOKE) logs --tail 40; $(SMOKE) down; exit 1; }
+	./scripts/smoke.sh; status=$$?; $(SMOKE) down; exit $$status
