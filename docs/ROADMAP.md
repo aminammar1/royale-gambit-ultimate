@@ -20,7 +20,7 @@ The whole product, in order, built as **vertical slices**: each milestone delive
 | **v2.1** | AI coach | M17 | ☐ |
 | **v3.0** | Mobile | M18 | ☐ |
 
-Milestone status: P1 ☐ · P2 ☐ · M0 ☐ · M1 ☐ · M2 ☐ · M3 ☐ · M4 ☐ · M5 ☐ · M6 ☐ · M7 ☐
+Milestone status: P1 ☑ · P2 ☐ · M0 ☐ · M1 ☐ · M2 ☐ · M3 ☐ · M4 ☐ · M5 ☐ · M6 ☐ · M7 ☐
 
 ---
 
