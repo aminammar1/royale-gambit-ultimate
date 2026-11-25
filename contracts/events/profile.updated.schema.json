@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://royal-gambit.dev/contracts/events/profile.updated.schema.json",
   "title": "profile.updated",
-  "description": "`data` of the event auth-profile publishes when a stored profile actually changes. Settings stay out: they only matter to the player's own devices.",
+  "description": "`data` of the event auth-profile publishes when a player's username or country changes. Settings stay out (and changing only them publishes nothing): they only matter to the player's own devices.",
   "type": "object",
   "additionalProperties": false,
   "required": ["user_id", "username", "country", "updated_at"],
