@@ -6,8 +6,6 @@ import { BoardPlaceholder } from "../../ui/BoardPlaceholder";
 import { Kicker } from "../../ui/Kicker";
 import { Masthead } from "../../ui/Masthead";
 
-const BOARD_PAGES = new Set(["B", "C", "D", "E"]);
-
 /** A section whose page is not built yet: the masthead and a printed notice of when it opens. */
 export function SectionPage({ section }: { section: Section }) {
   const edition = useEdition();
@@ -15,7 +13,7 @@ export function SectionPage({ section }: { section: Section }) {
   return (
     <>
       <Masthead
-        kicker={`Section ${section.letter} · ${section.kicker}`}
+        kicker={section.kicker}
         title={section.title}
         dateline={[
           `${edition} edition`,
@@ -32,13 +30,16 @@ export function SectionPage({ section }: { section: Section }) {
           </p>
           <p className="mt-3 font-body text-[length:var(--text-lg)] text-ink-2">{opens?.what}</p>
           <p className="mt-6">
-            <Link to="/" className="label border-b border-ink pb-0.5 text-ink">
-              Back to the front page →
+            <Link
+              to="/"
+              className="label inline-block rounded-[var(--radius)] border border-ink-2 px-4 py-2.5 text-[length:var(--text-sm)] text-ink transition-colors duration-150 hover:border-ink hover:bg-paper-2"
+            >
+              Back to the front page
             </Link>
           </p>
         </section>
         <section className="border-l border-rule pl-8">
-          {BOARD_PAGES.has(section.letter) ? (
+          {section.board ? (
             <div className="mx-auto max-w-[36rem]">
               <BoardPlaceholder label={`${section.title}: board placeholder`} />
             </div>

@@ -38,6 +38,9 @@ public class EmailSignIn {
 		record NoUsableCode() implements Outcome {
 		}
 
+		record Taken() implements Outcome {
+		}
+
 	}
 
 	private final EmailCodes codes;
@@ -100,21 +103,27 @@ public class EmailSignIn {
 		}
 	}
 
-	public TokenPair verify(String rawEmail, String code) {
+	/**
+	 * Signs in with the code, or, when {@code linkTo} names a signed-in user, adds the
+	 * address to that account. Linking is how a Lichess player gets a second way in,
+	 * which they need before they can unlink Lichess.
+	 */
+	public TokenPair verify(String rawEmail, String code, Optional<UUID> linkTo) {
 		String email = normalize(rawEmail);
 		// The wrong-guess counter must be saved even though we answer with an
 		// error, so the outcome is decided in the transaction and the exception
 		// thrown after it commits.
-		Outcome outcome = this.transaction.execute((status) -> check(email, code));
+		Outcome outcome = this.transaction.execute((status) -> check(email, code, linkTo));
 		return switch (outcome) {
 			case Outcome.Accepted accepted -> this.sessions.open(accepted.userId(), Role.USER);
 			case Outcome.WrongCode wrong -> throw AuthProblem.codeInvalid(wrong.attemptsLeft());
 			case Outcome.NoUsableCode none -> throw AuthProblem.codeExpired();
+			case Outcome.Taken taken -> throw AuthProblem.identityTaken(Provider.EMAIL);
 			case null -> throw new IllegalStateException("transaction returned no outcome");
 		};
 	}
 
-	private Outcome check(String email, String code) {
+	private Outcome check(String email, String code, Optional<UUID> linkTo) {
 		Optional<EmailCodes.ActiveCode> usable = this.codes.lockUsable(email);
 		if (usable.isEmpty()) {
 			return new Outcome.NoUsableCode();
@@ -124,11 +133,25 @@ public class EmailSignIn {
 			return new Outcome.WrongCode(this.codes.spendAttempt(active.id()));
 		}
 		this.codes.consume(active.id());
-		return new Outcome.Accepted(this.accounts.findBy(Provider.EMAIL, email).orElseGet(() -> register(email)));
+		Optional<UUID> owner = this.accounts.findBy(Provider.EMAIL, email);
+		if (linkTo.isEmpty()) {
+			return new Outcome.Accepted(owner.orElseGet(() -> register(email)));
+		}
+		// The code row is locked above, so two links of one address cannot both
+		// get past this check.
+		UUID user = linkTo.get();
+		if (owner.isPresent()) {
+			return owner.get().equals(user) ? new Outcome.Accepted(user) : new Outcome.Taken();
+		}
+		if (this.accounts.subjectOf(user, Provider.EMAIL).isPresent()) {
+			return new Outcome.Taken();
+		}
+		this.accounts.link(user, Accounts.ProviderUser.email(email), null);
+		return new Outcome.Accepted(user);
 	}
 
 	private UUID register(String email) {
-		UUID userId = this.accounts.createWith(Provider.EMAIL, email, null);
+		UUID userId = this.accounts.createWith(Accounts.ProviderUser.email(email), null);
 		this.outbox.append(UserRegistered.TYPE, new UserRegistered(userId, Instant.now()));
 		return userId;
 	}

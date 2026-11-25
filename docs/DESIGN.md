@@ -5,15 +5,17 @@ Chess history printed on newspaper. Written summary of the Claude Design boards 
 ## Color tokens
 | Token | Day Edition | Night Edition | Use |
 | --- | --- | --- | --- |
-| `--paper` | `#F3EFE6` | `#191815` | app background |
-| `--paper-2` | `#E9E3D6` | `#23211D` | panels, sunken areas |
-| `--ink` | `#1B1A17` | `#ECE5D6` | primary text, icons |
-| `--ink-2` | `#57534A` | `#A79F90` | secondary text, captions |
-| `--rule` | `#BDB5A6` | `#3E3A33` | 1px column rules, borders |
-| `--accent` | `#9E2A2B` | `#E0605A` | the editor's red: mistakes, blunders, critical marks, focus |
-| `--focus` | `= --accent` | `= --accent` | 2px focus outline, offset 2px |
+| `--paper` | `#F3EFE6` | `#121212` | app background |
+| `--paper-2` | `#E9E3D6` | `#1F1F1F` | panels, sunken areas |
+| `--ink` | `#1B1A17` | `#EDEDED` | primary text, icons |
+| `--ink-2` | `#57534A` | `#ADADAD` | secondary text, captions |
+| `--rule` | `#BDB5A6` | `#474747` | 1px column rules, borders |
+| `--accent` | `#9E2A2B` | `#EF4444` | the editor's red: mistakes, blunders, critical marks |
+| `--focus` | `= --ink` | `= --ink` | 2px focus outline, offset 2px. Ink, not red: a red ring on a field read as an error (changed 2026-11-25) |
 
-No other hues in UI chrome. Engine arrows use `--ink` at 70% (best move) and `--ink-2` (other lines). Mistake arrows use `--accent`.
+Night (Amine, 2026-11-25, after trying a warm sepia night that tired the eyes): the neutral dark of chess sites players already use, modelled on endgame.ai. True greys with no warm cast; near-white text (16:1), secondary text 8.4:1, rules as white at about a fifth (2.0:1), the red of their error colour. The board keeps the Day colours in both editions. Portraits print at 90% brightness at night.
+
+No other hues in UI chrome; country flags (flag-icons) are content, always printed beside the country's name. Engine arrows use `--ink` at 70% (best move) and `--ink-2` (other lines). Mistake arrows use `--accent`.
 
 ### Board presets (square light / dark)
 | Preset | Light | Dark | Notes |
@@ -40,7 +42,7 @@ Type scale (rem): 0.75 · 0.875 · 1 · 1.125 · 1.375 · 1.75 · 2.25 · 3 (mas
 - 4px spacing grid. Columns are separated by vertical rules, like a newspaper page.
 - **Logo:** `design/newsprint/logo.jpg` is a fixed bitmap (chrome queen, drawn gradient). It is the one allowed exception to the no-gradient, no-shadow rule and is never recreated in CSS.
 - Paper grain: a static, subtle SVG-noise PNG at ≤ 6% opacity on `--paper`. Never put it over text panels.
-- Halftone portraits: **pre-processed offline** into halftone PNG/WebP assets, not live CSS filters. Opacity 8–15% (Day) and 6–10% (Night). Used only on Welcome, Home and Profile mastheads, plus the small framed thumbnail in the nav's **Hall of Champions** widget (shown on every page, full contrast, 40px, cycles with the two arrow buttons). No other place gets a portrait.
+- Halftone portraits: **pre-processed offline** into halftone PNG/WebP assets, not live CSS filters. Opacity 8–15% (Day) and 6–10% (Night). Used only on Welcome, Home and Profile mastheads, plus the small framed thumbnail in the nav's **Hall of Champions** widget (shown on every page, full contrast, 64px, cycles with the two arrow buttons). That thumbnail is a grey photo crop, not dots: at 64px a halftone loses the face. A champion without a photo shows initials. Photo credits: `assets/wc-pictures/CREDITS.md`. No other place gets a portrait.
 
 ## Motion
 - Durations 120–240 ms, `ease-out` or `cubic-bezier(0.2, 0, 0, 1)`. No springs with overshoot, no bounce, no scale-pop.
@@ -55,8 +57,16 @@ Type scale (rem): 0.75 · 0.875 · 1 · 1.125 · 1.375 · 1.75 · 2.25 · 3 (mas
 Every screen is a "page": masthead strip (page title, edition/date line, small actions) → body in 2–3 columns divided by rules. The board column is always the widest, and the board is the hero.
 
 ## Navigation (from the design)
-- Left nav with **permanent** section letters that match each page's masthead kicker: A Home, B Play, C Analyze, D Review, E Puzzles, F Settings, G Profile. Later sections take the next free letters and sit between Puzzles and Settings: H Library (M9), I Bots (M10), J Learn (M13). Letters never change once assigned. Current page: `--paper-2` fill, ink rules above and below, semibold label, `aria-current="page"`.
-- At 1100–1279px wide the nav collapses to a 64px rail of section letters with tooltips and accessible names; the nameplate shortens to "RG".
+- Left nav: an icon (lucide, 20px, stroke 1.5) and the section name: Home (newspaper), Play (pawn), Analyze (scan), Review (eval curve), Puzzles (knight), Settings (sliders), Profile (ID card). Later sections sit between Puzzles and Settings: Library (M9), Bots (M10), Learn (M13). The board's section letters were dropped (2026-11-25): players read them as noise. Current page: `--paper-2` fill, ink rules above and below, `aria-current="page"`.
+- Under 1280px wide (a tiled window is often ~950px) the nav narrows to an 80px rail: the icon with the name set small beneath, the logo alone, the Hall of Champions as one 48px portrait that steps on a click, and the player slot's badge. The window's minimum is 760×600.
+
+## Start-up and sign-in (beyond the boards)
+- **Start screen** (`app/StartScreen.tsx`), every launch: first a newsreel intro, the eighteen champions in hard cuts (125 ms each, the year set large beneath), skipped by any key or click. Then the title page: three rows of champion portraits drifting sideways behind (16% opacity, 20% at night, still under reduced motion), and a double-ruled panel with logo, nameplate, a champion quotation (portrait beside it, the opening mark hanging) and the **Start** button (Enter works). Start reads "Getting ready…" until the card, keychain and server have answered; only an unreachable server is mentioned, in one line. `index.html` paints `--paper` before the CSS loads, so the window never flashes white.
+- **Quotations** (`app/quotes.ts`): short, commonly attributed lines from the champions. On the front page, a pull-quote band under the masthead (portrait, the line in Playfair italic with a hanging opening mark, the name beneath; turns every 12 s, holds under the pointer, previous/pause/next). Never invented quotes.
+- **Hall of Champions** turns by itself every 7 s, fading out then in (never two names on top of each other), holds under the pointer or focus, and has a Pause button (WCAG 2.2.2).
+- **Brand marks**: Lichess and Chess.com from Simple Icons (CC0), one colour in `currentColor`, so they print in ink; the brands' own hues never appear.
+- **Sign-in** (`features/signin`): full window, no nav. Left, the Hall of Champions as a photo spread (6 × 3, all eighteen, captions by the name players use). Right, email code, Lichess, and "Play without an account". Shown when the machine has no card and nobody is signed in; when the card's owner is signed out at Start; after "Sign out"; and from the player slot for a guest. Each account's card lives on the server (`/v1/profile`); this machine holds one card at a time, the signed-in account's (`app/cardSync.ts`: adopt the server's, push a guest card or a newer local edit, or send the player to Welcome to make one, pre-filled with the Lichess name). Signed out, the app prints "Guest", and the sign-in page says "Welcome back, <name>. Last time you signed in with Lichess · <name>", pre-filling that address or making Lichess the primary button. Greetings use the card's name, else the signed-in account's.
+- Front page headlines are tiles that open their page, each with its action as a button ("Start a game", "Open the board", "Solve a puzzle", "Review a game") that fills with ink when the tile is hovered.
 - Any border a control depends on uses `--ink-2` (6.7:1); `--rule` is decorative only.
 
 ## Kids Edition (M15)

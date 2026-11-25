@@ -1,6 +1,6 @@
 # Decisions (ADRs)
 
-Locked decisions for Royal Gambit Ultimate. If a task conflicts with one, stop and ask; do not work around it. Last reviewed: 2026-11-24.
+Locked decisions for Royale Gambit Ultimate. If a task conflicts with one, stop and ask; do not work around it. Last reviewed: 2026-11-24.
 
 ## ADR-01: Microservices from the start (Amine's decision)
 **Decision.** The backend is built as separate services from the first milestone that needs one, in one monorepo, behind one gateway. There is no "monolith first" phase. This replaces the earlier modular-monolith plan.

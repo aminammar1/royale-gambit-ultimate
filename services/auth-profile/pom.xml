@@ -12,7 +12,7 @@
 	<artifactId>auth-profile</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>auth-profile</name>
-	<description>Royal Gambit identity and player profile service</description>
+	<description>Royale Gambit identity and player profile service</description>
 	<properties>
 		<java.version>25</java.version>
 	</properties>

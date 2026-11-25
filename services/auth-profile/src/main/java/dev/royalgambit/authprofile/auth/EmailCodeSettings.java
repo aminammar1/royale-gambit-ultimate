@@ -21,6 +21,6 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 @ConfigurationProperties("auth.email-code")
 public record EmailCodeSettings(@DefaultValue("10m") Duration ttl, @DefaultValue("5") int attempts,
 		@DefaultValue("60s") Duration resendCooldown, @DefaultValue("5") int maxPerHour,
-		@DefaultValue("10") int maxPerDay, @DefaultValue("Royal Gambit <no-reply@royal-gambit.dev>") String from) {
+		@DefaultValue("10") int maxPerDay, @DefaultValue("Royale Gambit <no-reply@royal-gambit.dev>") String from) {
 
 }

@@ -1,19 +1,147 @@
 {
-  "php2NaZ5O.jpeg": null,
-  "php5FphOK.jpeg": null,
-  "php8DUGGx.jpeg": null,
-  "php94EiHq.jpeg": null,
-  "phpDDuqK0.jpeg": null,
-  "phpDtvv6F.jpeg": null,
+  "phpntpDFh.jpeg": {
+    "no": 1,
+    "focus": [
+      0.48,
+      0.32
+    ],
+    "size": 0.75
+  },
+  "phpSMzrrG.jpeg": {
+    "no": 2,
+    "focus": [
+      0.5,
+      0.38
+    ],
+    "size": 0.8
+  },
+  "phpl6eb2D.jpeg": {
+    "no": 3,
+    "focus": [
+      0.5,
+      0.3
+    ],
+    "size": 0.7
+  },
+  "phpDtvv6F.jpeg": {
+    "no": 4,
+    "focus": [
+      0.5,
+      0.3
+    ],
+    "size": 0.7
+  },
+  "phpepz5vO.jpeg": {
+    "no": 5,
+    "focus": [
+      0.5,
+      0.35
+    ],
+    "size": 0.8
+  },
+  "php5FphOK.jpeg": {
+    "no": 6,
+    "focus": [
+      0.5,
+      0.42
+    ],
+    "size": 0.85
+  },
+  "php2NaZ5O.jpeg": {
+    "no": 7,
+    "focus": [
+      0.42,
+      0.33
+    ],
+    "size": 0.75
+  },
+  "php94EiHq.jpeg": {
+    "no": 8,
+    "focus": [
+      0.52,
+      0.42
+    ],
+    "size": 0.8
+  },
+  "php8DUGGx.jpeg": {
+    "no": 9,
+    "focus": [
+      0.5,
+      0.3
+    ],
+    "size": 0.75
+  },
+  "phpqvtDEr.jpeg": {
+    "no": 10,
+    "focus": [
+      0.45,
+      0.35
+    ],
+    "size": 0.65
+  },
+  "phpyqe4zE.jpeg": {
+    "no": 11,
+    "focus": [
+      0.5,
+      0.3
+    ],
+    "size": 0.7
+  },
+  "phpdWrLWO.jpeg": {
+    "no": 12,
+    "focus": [
+      0.6,
+      0.35
+    ],
+    "size": 0.65
+  },
   "phpDzqHgr.jpeg": null,
-  "phpFMy4uQ.jpeg": null,
-  "phpSMzrrG.jpeg": null,
-  "phpaL0xY6.jpg": null,
-  "phpdWrLWO.jpeg": null,
-  "phpepz5vO.jpeg": null,
-  "phpl6eb2D.jpeg": null,
-  "phpntpDFh.jpeg": null,
-  "phpopdjZ4.jpg": null,
-  "phpqvtDEr.jpeg": null,
-  "phpyqe4zE.jpeg": null
+  "phpFMy4uQ.jpeg": {
+    "no": 15,
+    "focus": [
+      0.6,
+      0.33
+    ],
+    "size": 0.6
+  },
+  "phpDDuqK0.jpeg": {
+    "no": 16,
+    "focus": [
+      0.55,
+      0.3
+    ],
+    "size": 0.6
+  },
+  "phpopdjZ4.jpg": {
+    "no": 17,
+    "focus": [
+      0.49,
+      0.32
+    ],
+    "size": 0.55
+  },
+  "phpaL0xY6.jpg": {
+    "no": 18,
+    "focus": [
+      0.57,
+      0.27
+    ],
+    "size": 0.6
+  },
+  "kramnik-candidates-2018.jpg": {
+    "no": 14,
+    "focus": [
+      0.5,
+      0.34
+    ],
+    "size": 0.72
+  },
+  "kasparov-23.jpg": {
+    "no": 13,
+    "focus": [
+      0.5,
+      0.36
+    ],
+    "size": 0.95
+  }
 }

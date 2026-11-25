@@ -1,4 +1,4 @@
-# Royal Gambit Ultimate
+# Royale Gambit Ultimate
 
 Chess training app that looks like a vintage chess newspaper. Desktop client (Tauri 2 + React/TS + Rust + Stockfish) plus **microservices** (mostly Go and FastAPI, one Spring Boot) behind one gateway, in one monorepo. Solo developer: Amine.
 

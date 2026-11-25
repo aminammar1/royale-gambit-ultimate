@@ -1,6 +1,19 @@
-/** Nav sections with their permanent letters (docs/DESIGN.md). Later ones: H Library, I Bots, J Learn. */
+import {
+  ChartSpline,
+  ChessKnight,
+  ChessPawn,
+  IdCard,
+  Newspaper,
+  ScanSearch,
+  SlidersHorizontal,
+  type LucideIcon,
+} from "lucide-react";
+
+/** Nav sections, each with its icon (docs/DESIGN.md). Later ones: Library, Bots, Learn. */
 export type Section = {
-  letter: string;
+  icon: LucideIcon;
+  /** Pages with a chess board on them show the board placeholder until they are built. */
+  board?: boolean;
   path: string;
   label: string;
   kicker: string;
@@ -10,9 +23,10 @@ export type Section = {
 };
 
 export const SECTIONS: readonly Section[] = [
-  { letter: "A", path: "/", label: "Home", kicker: "Front page", title: "Royal Gambit Ultimate" },
+  { icon: Newspaper, path: "/", label: "Home", kicker: "Front page", title: "Royale Gambit Ultimate" },
   {
-    letter: "B",
+    icon: ChessPawn,
+    board: true,
     path: "/play",
     label: "Play",
     kicker: "Play",
@@ -20,7 +34,8 @@ export const SECTIONS: readonly Section[] = [
     opensIn: { milestone: "M1", what: "Board and local game: two players at one board, clocks, the score sheet." },
   },
   {
-    letter: "C",
+    icon: ScanSearch,
+    board: true,
     path: "/analyze",
     label: "Analyze",
     kicker: "Analysis",
@@ -31,7 +46,8 @@ export const SECTIONS: readonly Section[] = [
     },
   },
   {
-    letter: "D",
+    icon: ChartSpline,
+    board: true,
     path: "/review",
     label: "Review",
     kicker: "Review",
@@ -39,16 +55,17 @@ export const SECTIONS: readonly Section[] = [
     opensIn: { milestone: "M5", what: "Accuracy for each side, the eval graph and the moments that mattered." },
   },
   {
-    letter: "E",
+    icon: ChessKnight,
+    board: true,
     path: "/puzzles",
     label: "Puzzles",
     kicker: "Puzzles",
     title: "Puzzles",
     opensIn: { milestone: "M6", what: "Tactics with hints, your record, and the daily chess column." },
   },
-  { letter: "F", path: "/settings", label: "Settings", kicker: "Settings", title: "Settings" },
+  { icon: SlidersHorizontal, path: "/settings", label: "Settings", kicker: "Settings", title: "Settings" },
   {
-    letter: "G",
+    icon: IdCard,
     path: "/profile",
     label: "Profile",
     kicker: "Profile",

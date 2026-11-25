@@ -29,7 +29,21 @@ public final class AuthSteps {
 	}
 
 	public HttpResponse<String> verify(String email, String code) {
-		return this.http.post("/v1/auth/email/verify", "{\"email\":\"" + email + "\",\"code\":\"" + code + "\"}");
+		return verify(email, code, null);
+	}
+
+	/**
+	 * With a user's token this links the address to that account instead of signing in.
+	 */
+	public HttpResponse<String> verify(String email, String code, String bearer) {
+		return this.http.send("POST", "/v1/auth/email/verify",
+				"{\"email\":\"" + email + "\",\"code\":\"" + code + "\"}", bearer);
+	}
+
+	/** Asks for a code and sends it back with the bearer; returns the raw answer. */
+	public HttpResponse<String> linkEmail(String email, String bearer) {
+		assertThat(requestCode(email).statusCode()).isEqualTo(202);
+		return verify(email, this.mailbox.latestCode(email), bearer);
 	}
 
 	/** Full email sign-in; returns the token pair. */

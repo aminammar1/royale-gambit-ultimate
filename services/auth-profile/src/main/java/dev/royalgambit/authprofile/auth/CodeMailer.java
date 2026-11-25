@@ -26,7 +26,7 @@ class CodeMailer {
 		message.setTo(to);
 		// Code first in the subject: most mail apps show it in the
 		// notification.
-		message.setSubject(code + " is your Royal Gambit sign-in code");
+		message.setSubject(code + " is your Royale Gambit sign-in code");
 		message.setText("""
 				Your sign-in code is %s
 

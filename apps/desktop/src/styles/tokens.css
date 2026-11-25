@@ -24,20 +24,24 @@
   color-scheme: light;
 }
 
+/* Night follows the neutral dark of chess sites players already use (endgame.ai): true greys
+   with no warm cast, near-white text, borders as white at about a fifth. The board stays as Day. */
 [data-edition="night"] {
-  --paper: #191815;
-  --paper-2: #23211d;
-  --ink: #ece5d6;
-  --ink-2: #a79f90;
-  --rule: #3e3a33;
-  --accent: #e0605a;
+  --paper: #121212;
+  --paper-2: #1f1f1f;
+  --ink: #ededed;
+  --ink-2: #adadad;
+  --rule: #474747;
+  --accent: #ef4444;
   color-scheme: dark;
 }
 
 :root {
-  --focus: var(--accent);
+  /* Focus is ink, not red: red is kept for mistakes, and a focused field is not one. */
+  --focus: var(--ink);
 
-  /* Board presets (Newsprint default: ink dark squares, hatched paper light squares) */
+  /* Board presets, the same in both editions (Newsprint default: ink dark squares, hatched paper
+     light squares). */
   --board-light: #e9e1cc;
   --board-dark: #1b1a17;
 
@@ -59,7 +63,7 @@
   --radius: 0.125rem;
   --tracking-label: 0.06em;
   --nav-width: 15rem;
-  --nav-rail: 4rem;
+  --nav-rail: 5rem;
 
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --duration: 180ms;

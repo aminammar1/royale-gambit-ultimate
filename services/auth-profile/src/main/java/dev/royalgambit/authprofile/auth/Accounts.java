@@ -36,36 +36,67 @@ class Accounts {
 		return id;
 	}
 
+	/**
+	 * Who the player is at a provider: the stable subject we match on, and the name they
+	 * know themselves by (null when the subject is already that, as an email address is).
+	 */
+	record ProviderUser(Provider provider, String subject, String displayName) {
+
+		static ProviderUser email(String address) {
+			return new ProviderUser(Provider.EMAIL, address, null);
+		}
+
+	}
+
 	/** Call inside a transaction: the user and its first identity are saved together. */
-	UUID createWith(Provider provider, String subject, ProviderToken token) {
+	UUID createWith(ProviderUser who, ProviderToken token) {
 		UUID id = create(Role.USER);
-		link(id, provider, subject, token);
+		link(id, who, token);
 		return id;
 	}
 
-	void link(UUID userId, Provider provider, String subject, ProviderToken token) {
+	void link(UUID userId, ProviderUser who, ProviderToken token) {
 		this.jdbc.sql("""
-				INSERT INTO identities (provider, subject, user_id, access_token, access_token_expires_at)
-				VALUES (:provider, :subject, :user, :token, :expires)
+				INSERT INTO identities (provider, subject, display_name, user_id, access_token, access_token_expires_at)
+				VALUES (:provider, :subject, :name, :user, :token, :expires)
 				""")
-			.param("provider", provider.id())
-			.param("subject", subject)
+			.param("provider", who.provider().id())
+			.param("subject", who.subject())
+			.param("name", who.displayName())
 			.param("user", userId)
 			.param("token", (token != null) ? token.value() : null)
 			.param("expires", (token != null) ? utc(token.expiresAt()) : null)
 			.update();
 	}
 
-	void updateToken(Provider provider, String subject, ProviderToken token) {
+	/**
+	 * A returning player: keep their newest token and the name as the provider spells it
+	 * now.
+	 */
+	void refresh(ProviderUser who, ProviderToken token) {
 		this.jdbc.sql("""
-				UPDATE identities SET access_token = :token, access_token_expires_at = :expires
+				UPDATE identities
+				SET display_name = :name, access_token = :token, access_token_expires_at = :expires
 				WHERE provider = :provider AND subject = :subject
 				""")
+			.param("name", who.displayName())
 			.param("token", token.value())
 			.param("expires", utc(token.expiresAt()))
-			.param("provider", provider.id())
-			.param("subject", subject)
+			.param("provider", who.provider().id())
+			.param("subject", who.subject())
 			.update();
+	}
+
+	/** Oldest first, so the cards keep their order as identities come and go. */
+	List<Identity> identitiesOf(UUID userId) {
+		return this.jdbc.sql("""
+				SELECT provider, coalesce(display_name, subject) AS label, created_at
+				FROM identities WHERE user_id = :user ORDER BY created_at, provider
+				""")
+			.param("user", userId)
+			.query((rs, n) -> new Identity(rs.getString("provider"), rs.getString("label"),
+					rs.getObject("created_at", OffsetDateTime.class).toInstant()))
+			.list();
 	}
 
 	Optional<UUID> findBy(Provider provider, String subject) {

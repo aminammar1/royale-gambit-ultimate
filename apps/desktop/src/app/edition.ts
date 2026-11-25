@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { create } from "zustand";
 
 export type Edition = "day" | "night";
@@ -21,10 +21,17 @@ function systemEdition(): Edition {
   return window.matchMedia(query).matches ? "night" : "day";
 }
 
-/** The edition currently printed. */
+function onSystemChange(notify: () => void): () => void {
+  const mq = window.matchMedia(query);
+  mq.addEventListener("change", notify);
+  return () => mq.removeEventListener("change", notify);
+}
+
+/** The edition currently printed; follows the system setting live when the choice is "system". */
 export function useEdition(): Edition {
   const choice = useEditionStore((s) => s.choice);
-  return choice === "system" ? systemEdition() : choice;
+  const system = useSyncExternalStore(onSystemChange, systemEdition);
+  return choice === "system" ? system : choice;
 }
 
 /** Keeps <html data-edition> in step with the choice and with the system setting. */

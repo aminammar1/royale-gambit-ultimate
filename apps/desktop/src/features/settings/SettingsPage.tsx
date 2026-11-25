@@ -1,6 +1,9 @@
 import { editionDate } from "../../app/editionDate";
 import { type EditionChoice, useEdition, useEditionStore } from "../../app/edition";
-import { Kicker } from "../../ui/Kicker";
+import { useSession } from "../../api/auth/session";
+import { AccountsPanel } from "../account/AccountsPanel";
+import { sessionLine } from "../account/cards";
+import { useIdentities } from "../account/identities";
 import { Masthead } from "../../ui/Masthead";
 
 function EditionCard({ value, label }: { value: "day" | "night"; label: string }) {
@@ -30,17 +33,24 @@ function EditionCard({ value, label }: { value: "day" | "night"; label: string }
   );
 }
 
-/** Section F. The edition switch is live from M0; board, sounds and accounts arrive in M2 and M7. */
+/** Settings. The edition switch is live from M0; accounts and links from P2; board and sounds arrive in M2. */
 export function SettingsPage() {
   const edition = useEdition();
   const choice = useEditionStore((s) => s.choice);
   const setChoice = useEditionStore((s) => s.setChoice);
+  const status = useSession((s) => s.status);
+  const identities = useIdentities((s) => s.list);
   return (
     <>
       <Masthead
-        kicker="Section F · Settings"
+        kicker="Settings"
         title="Settings"
-        dateline={[`${edition} edition`, editionDate(new Date()), "Saved on this machine", "Guest"]}
+        dateline={[
+          `${edition} edition`,
+          editionDate(new Date()),
+          "Saved on this machine",
+          sessionLine(status, identities),
+        ]}
       />
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] py-8">
         <section className="pr-8">
@@ -73,13 +83,7 @@ export function SettingsPage() {
             </div>
           </dl>
         </section>
-        <section className="border-l border-rule pl-8">
-          <Kicker>Accounts &amp; sync</Kicker>
-          <p className="mt-5 font-body text-[length:var(--text-lg)] text-ink-2">
-            You are reading as a guest. Registration, email sign-in and sync arrive in M7; Lichess and Chess.com links
-            in M11.
-          </p>
-        </section>
+        <AccountsPanel />
       </div>
     </>
   );

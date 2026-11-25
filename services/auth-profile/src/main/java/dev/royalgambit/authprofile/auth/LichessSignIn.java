@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import dev.royalgambit.authprofile.auth.Accounts.ProviderToken;
+import dev.royalgambit.authprofile.auth.Accounts.ProviderUser;
 import dev.royalgambit.authprofile.auth.LichessClient.LichessAccount;
 import dev.royalgambit.authprofile.auth.LichessClient.LichessToken;
 import dev.royalgambit.authprofile.common.Secrets;
@@ -127,29 +128,30 @@ public class LichessSignIn {
 	}
 
 	private UUID attachOnce(LichessAccount account, ProviderToken token, Optional<UUID> linkTo) {
+		ProviderUser who = new ProviderUser(Provider.LICHESS, account.id(), account.username());
 		Optional<UUID> owner = this.accounts.findBy(Provider.LICHESS, account.id());
 		if (linkTo.isPresent()) {
 			if (owner.isPresent() && !owner.get().equals(linkTo.get())) {
-				throw AuthProblem.identityTaken();
+				throw AuthProblem.identityTaken(Provider.LICHESS);
 			}
 			Optional<String> current = this.accounts.subjectOf(linkTo.get(), Provider.LICHESS);
 			if (current.isPresent() && !current.get().equals(account.id())) {
 				// One Lichess user per account: the player unlinks the old one
 				// first.
-				throw AuthProblem.identityTaken();
+				throw AuthProblem.identityTaken(Provider.LICHESS);
 			}
 			if (owner.isEmpty()) {
-				this.accounts.link(linkTo.get(), Provider.LICHESS, account.id(), token);
+				this.accounts.link(linkTo.get(), who, token);
 				return linkTo.get();
 			}
 		}
 		if (owner.isPresent()) {
 			// Keep the newest token: the explorer will use it on the player's
 			// behalf.
-			this.accounts.updateToken(Provider.LICHESS, account.id(), token);
+			this.accounts.refresh(who, token);
 			return owner.get();
 		}
-		UUID userId = this.accounts.createWith(Provider.LICHESS, account.id(), token);
+		UUID userId = this.accounts.createWith(who, token);
 		this.outbox.append(UserRegistered.TYPE, new UserRegistered(userId, Instant.now()));
 		return userId;
 	}

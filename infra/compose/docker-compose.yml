@@ -114,8 +114,14 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: rg
       RABBITMQ_PASSWORD: rg
-      MAIL_HOST: mailpit
-      MAIL_PORT: "1025"
+      # Sign-in codes land in Mailpit (localhost:8025) unless .env names a real SMTP server;
+      # see docs/SETUP.md, "Real email in dev". The password only ever lives in .env.
+      MAIL_HOST: ${MAIL_HOST:-mailpit}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USER: ${MAIL_USER:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_STARTTLS: ${MAIL_STARTTLS:-false}
+      MAIL_FROM: ${MAIL_FROM:-Royale Gambit <no-reply@royal-gambit.dev>}
       # Dev only: a fresh signing key per start, so tokens die with the container. Real
       # environments set JWT_PRIVATE_KEY from a secret instead.
       JWT_EPHEMERAL_KEY: "true"

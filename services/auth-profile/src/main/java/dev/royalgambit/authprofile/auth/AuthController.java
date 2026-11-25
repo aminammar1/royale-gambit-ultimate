@@ -9,6 +9,8 @@ import dev.royalgambit.authprofile.auth.AuthRequests.RefreshRequest;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,9 +42,10 @@ class AuthController {
 		return ResponseEntity.accepted().build();
 	}
 
+	/** A user's token here means "add this address to my account"; see EmailSignIn. */
 	@PostMapping("/email/verify")
-	TokenPair verifyEmail(@Valid @RequestBody EmailVerify body) {
-		return this.emailSignIn.verify(body.email(), body.code());
+	TokenPair verifyEmail(@AuthenticationPrincipal Jwt token, @Valid @RequestBody EmailVerify body) {
+		return this.emailSignIn.verify(body.email(), body.code(), SignedIn.user(token));
 	}
 
 	@PostMapping("/refresh")

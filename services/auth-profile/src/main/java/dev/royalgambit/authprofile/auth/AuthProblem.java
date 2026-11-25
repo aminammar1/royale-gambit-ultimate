@@ -72,9 +72,10 @@ public final class AuthProblem extends ErrorResponseException {
 				"Lichess did not answer properly; start the sign-in again in a moment");
 	}
 
-	static AuthProblem identityTaken() {
-		return new AuthProblem(HttpStatus.CONFLICT, "identity-taken", "Already linked",
-				"this Lichess account is linked to another Royal Gambit account");
+	static AuthProblem identityTaken(Provider provider) {
+		String what = (provider == Provider.EMAIL) ? "email address" : "Lichess account";
+		return new AuthProblem(HttpStatus.CONFLICT, "identity-taken", "Already linked", "this " + what
+				+ " belongs to another Royale Gambit account, or yours already has a different one; unlink that first");
 	}
 
 	static AuthProblem lastIdentity() {
