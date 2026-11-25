@@ -33,7 +33,7 @@ function EditionCard({ value, label }: { value: "day" | "night"; label: string }
   );
 }
 
-/** Section F. The edition switch is live from M0; accounts and links from P2; board and sounds arrive in M2. */
+/** Settings. The edition switch is live from M0; accounts and links from P2; board and sounds arrive in M2. */
 export function SettingsPage() {
   const edition = useEdition();
   const choice = useEditionStore((s) => s.choice);
@@ -43,7 +43,7 @@ export function SettingsPage() {
   return (
     <>
       <Masthead
-        kicker="Section F · Settings"
+        kicker="Settings"
         title="Settings"
         dateline={[
           `${edition} edition`,

@@ -88,3 +88,31 @@ describe("createApiClient", () => {
     await expect(api.get("/v1/profile")).rejects.toEqual({ kind: "offline" });
   });
 });
+
+describe("reachable", () => {
+  it("is true when the gateway answers its liveness check", async () => {
+    const { fetch, calls } = fakeFetch([new Response("ok", { status: 200 })]);
+    const { api } = client(fetch, undefined);
+    await expect(api.reachable()).resolves.toBe(true);
+    expect(calls[0].url).toBe("http://gw:8080/health/live");
+  });
+
+  it("is false when the gateway is down or answers with an error", async () => {
+    const down = vi.fn(async () => {
+      throw new TypeError("connection refused");
+    });
+    await expect(client(down, undefined).api.reachable()).resolves.toBe(false);
+    const { fetch } = fakeFetch([new Response("", { status: 503 })]);
+    await expect(client(fetch, undefined).api.reachable()).resolves.toBe(false);
+  });
+
+  it("gives up after the timeout", async () => {
+    const hang = vi.fn(
+      (_: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) =>
+          init?.signal?.addEventListener("abort", () => reject(new Error("aborted"))),
+        ),
+    );
+    await expect(client(hang, undefined).api.reachable(20)).resolves.toBe(false);
+  });
+});

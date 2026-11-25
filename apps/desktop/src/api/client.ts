@@ -11,6 +11,8 @@ export type ApiClientDeps = {
 
 export type ApiClient = {
   get: <T>(path: string) => Promise<T>;
+  /** Whether the gateway answers its liveness check within `timeoutMs`. Never throws. */
+  reachable: (timeoutMs?: number) => Promise<boolean>;
 };
 
 /**
@@ -42,5 +44,16 @@ export function createApiClient(deps: ApiClientDeps): ApiClient {
     return (await response.json()) as T;
   }
 
-  return { get };
+  async function reachable(timeoutMs = 1500): Promise<boolean> {
+    try {
+      const response = await fetchImpl(`${await deps.baseUrl()}/health/live`, {
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  return { get, reachable };
 }

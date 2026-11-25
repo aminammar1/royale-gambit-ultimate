@@ -38,6 +38,11 @@
     outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
+  /* Thin scrollbars in the rule colour: the column, not the window chrome, should hold the eye. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule) transparent;
+  }
   ::selection {
     background: var(--ink);
     color: var(--paper);

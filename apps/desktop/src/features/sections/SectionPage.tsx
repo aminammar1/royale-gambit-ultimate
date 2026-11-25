@@ -6,8 +6,6 @@ import { BoardPlaceholder } from "../../ui/BoardPlaceholder";
 import { Kicker } from "../../ui/Kicker";
 import { Masthead } from "../../ui/Masthead";
 
-const BOARD_PAGES = new Set(["B", "C", "D", "E"]);
-
 /** A section whose page is not built yet: the masthead and a printed notice of when it opens. */
 export function SectionPage({ section }: { section: Section }) {
   const edition = useEdition();
@@ -15,7 +13,7 @@ export function SectionPage({ section }: { section: Section }) {
   return (
     <>
       <Masthead
-        kicker={`Section ${section.letter} · ${section.kicker}`}
+        kicker={section.kicker}
         title={section.title}
         dateline={[
           `${edition} edition`,
@@ -38,7 +36,7 @@ export function SectionPage({ section }: { section: Section }) {
           </p>
         </section>
         <section className="border-l border-rule pl-8">
-          {BOARD_PAGES.has(section.letter) ? (
+          {section.board ? (
             <div className="mx-auto max-w-[36rem]">
               <BoardPlaceholder label={`${section.title}: board placeholder`} />
             </div>

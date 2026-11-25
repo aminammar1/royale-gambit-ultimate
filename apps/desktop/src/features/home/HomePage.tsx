@@ -1,6 +1,9 @@
 import { Link } from "react-router";
 import { editionDate, greeting } from "../../app/editionDate";
+import { championsOfTheDay } from "../../app/champions";
 import { useEdition } from "../../app/edition";
+import { useProfile } from "../../db/profile";
+import { Portrait } from "../../ui/Portrait";
 import { BoardPlaceholder } from "../../ui/BoardPlaceholder";
 import { Kicker } from "../../ui/Kicker";
 import { Masthead } from "../../ui/Masthead";
@@ -11,43 +14,53 @@ const HEADLINES = [
     title: "Play Local",
     text: "Clocks, auto-flip and a score sheet that keeps itself.",
     to: "/play",
-    size: "text-[3.25rem]",
+    size: "text-[3.25rem] max-[1279px]:text-[2.5rem]",
   },
   {
     kicker: "Analysis",
     title: "Analyze a Position",
     text: "Engine best move, top three lines, eval bar.",
     to: "/analyze",
-    size: "text-[2.5rem]",
+    size: "text-[2.5rem] max-[1279px]:text-[2rem]",
   },
   {
     kicker: "Training",
     title: "Puzzles",
     text: "One position a day, more on request.",
     to: "/puzzles",
-    size: "text-[2.5rem]",
+    size: "text-[2.5rem] max-[1279px]:text-[2rem]",
   },
   {
     kicker: "Review",
     title: "Review a Game",
     text: "Accuracy, eval graph and the moments that mattered.",
     to: "/review",
-    size: "text-[2.5rem]",
+    size: "text-[2.5rem] max-[1279px]:text-[2rem]",
   },
 ];
 
-/** Section A, the front page: headlines, the chess column and recent games, in three ruled columns. */
+/** The front page: headlines, the chess column and recent games, in three ruled columns. */
 export function HomePage() {
   const edition = useEdition();
   const now = new Date();
+  const username = useProfile((s) => s.card?.username);
   return (
     <>
       <Masthead
-        kicker="Section A · Front page"
+        kicker="Front page"
         title="Royal Gambit Ultimate"
-        dateline={[`${edition} edition`, editionDate(now), "No. 1", `${greeting(now)}, Guest`]}
+        dateline={[`${edition} edition`, editionDate(now), "No. 1", `${greeting(now)}, ${username ?? "Guest"}`]}
+        actions={
+          <ul aria-label="Today’s champions" className="flex gap-2">
+            {championsOfTheDay(now, 3).map((champion) => (
+              <li key={champion.no} title={`${champion.name}, world champion ${champion.since}`}>
+                <Portrait champion={champion} className="size-24 max-[1279px]:size-16" />
+              </li>
+            ))}
+          </ul>
+        }
       />
-      <div className="grid grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)_minmax(0,0.95fr)] py-8">
+      <div className="grid grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)_minmax(0,0.95fr)] py-8 max-[1279px]:grid-cols-2">
         <section aria-labelledby="headlines" className="pr-8">
           <Kicker>
             <span id="headlines">Today’s headlines</span>
@@ -85,7 +98,10 @@ export function HomePage() {
           </p>
         </section>
 
-        <section aria-labelledby="recent" className="border-l border-rule pl-8">
+        <section
+          aria-labelledby="recent"
+          className="border-l border-rule pl-8 max-[1279px]:col-span-2 max-[1279px]:mt-10 max-[1279px]:border-l-0 max-[1279px]:pl-0"
+        >
           <Kicker aside={<span className="label">All results</span>}>
             <span id="recent">Recent games</span>
           </Kicker>

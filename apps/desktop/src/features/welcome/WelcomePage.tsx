@@ -1,5 +1,6 @@
 import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
+import { useSession } from "../../api/auth/session";
 import { editionDate } from "../../app/editionDate";
 import { useEdition } from "../../app/edition";
 import { profileDb, type DbError } from "../../db/profile";
@@ -112,6 +113,7 @@ export function WelcomePage() {
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<DbError>();
+  const signedIn = useSession((s) => s.status === "signedIn" || s.status === "offline");
 
   const problem = usernameProblem(username);
   const reason = !country ? "Pick a country first." : problem ? "Choose a username." : undefined;
@@ -141,7 +143,7 @@ export function WelcomePage() {
   };
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex min-h-full flex-col px-14 max-[1279px]:px-8">
       <Masthead
         kicker="Federation registration · Step 1 of 2"
         title="Royal Gambit Ultimate"
@@ -209,17 +211,24 @@ export function WelcomePage() {
                   : "The card could not be saved on this machine. Try again."
                 : reason}
             </p>
-            <button
-              type="button"
-              className="label mt-3 text-[length:var(--text-sm)] text-ink underline underline-offset-4 hover:no-underline"
-              onClick={() => void asGuest()}
-            >
-              Continue as guest
-            </button>
+            <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+              <button
+                type="button"
+                className="label text-[length:var(--text-sm)] text-ink underline underline-offset-4 hover:no-underline"
+                onClick={() => void asGuest()}
+              >
+                {signedIn ? "Skip the card for now" : "Continue as guest"}
+              </button>
+              {signedIn ? null : (
+                <Link to="/sign-in" className="label text-[length:var(--text-sm)] text-ink-2 hover:text-ink">
+                  Sign in instead
+                </Link>
+              )}
+            </div>
           </div>
         </section>
 
-        <section className="overflow-y-auto border-l border-rule pl-7 max-[1279px]:col-span-2 max-[1279px]:mt-8 max-[1279px]:border-t max-[1279px]:border-l-0 max-[1279px]:pt-6 max-[1279px]:pl-0">
+        <section className="overflow-y-auto border-l border-rule pl-7 max-[1279px]:col-span-2 max-[1279px]:overflow-visible max-[1279px]:mt-8 max-[1279px]:border-t max-[1279px]:border-l-0 max-[1279px]:pt-6 max-[1279px]:pl-0">
           <img src={logo} alt="" className="mx-auto block w-40 max-[1279px]:hidden" />
           <p className="label mt-4 border-b border-ink pb-2 text-ink-2">Your player card · fills in as you go</p>
           <div className="mt-4">

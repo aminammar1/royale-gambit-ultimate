@@ -1,65 +1,49 @@
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { CHAMPIONS } from "../app/champions";
+import { Portrait } from "./Portrait";
 
-/** Nav widget: one framed halftone thumbnail of a world champion, cycled with two arrows. */
+const arrow = "flex size-9 items-center justify-center border border-ink-2 text-ink hover:border-ink";
+
+/** Nav widget: one framed portrait of a world champion, cycled with two arrows (on the rail, by a click). */
 export function HallOfChampions() {
   const [index, setIndex] = useState(0);
   const champion = CHAMPIONS[index];
   const step = (delta: number) => setIndex((i) => (i + delta + CHAMPIONS.length) % CHAMPIONS.length);
 
   return (
-    <section
-      aria-label="Hall of Champions"
-      className="border-t-[3px] border-double border-ink pt-3 max-[1279px]:hidden"
-    >
-      <div className="flex items-baseline justify-between">
-        <span className="label text-ink-2">Hall of Champions</span>
-        <span className="numeric text-[length:var(--text-sm)] text-ink-2">No. {champion.no}</span>
-      </div>
-      <div className="mt-3 flex gap-3" aria-live="polite">
-        <div className="size-16 shrink-0 border border-ink bg-paper-2">
-          {champion.portrait ? (
-            <img
-              src={champion.portrait}
-              alt=""
-              className="size-full object-cover grayscale [[data-edition=night]_&]:brightness-90"
-            />
-          ) : (
-            <span
-              aria-hidden
-              className="flex size-full items-center justify-center font-masthead text-[length:var(--text-xl)] font-bold text-ink-2"
-            >
-              {champion.name
-                .split(" ")
-                .map((part) => part[0])
-                .join("")
-                .slice(0, 2)}
-            </span>
-          )}
+    <section aria-label="Hall of Champions" className="border-t-[3px] border-double border-ink pt-3">
+      <div className="max-[1279px]:hidden">
+        <div className="flex items-baseline justify-between">
+          <span className="label text-ink-2">Hall of Champions</span>
+          <span className="numeric text-[length:var(--text-sm)] text-ink-2">No. {champion.no}</span>
         </div>
-        <div className="min-w-0">
-          <p className="font-masthead text-[length:var(--text-lg)] leading-tight font-bold">{champion.name}</p>
-          <p className="numeric mt-1 text-[length:var(--text-xs)] text-ink-2">World champion · {champion.since}</p>
+        <div className="mt-3 flex gap-3" aria-live="polite">
+          <Portrait champion={champion} className="size-16 shrink-0" />
+          <div className="min-w-0">
+            <p className="font-masthead text-[length:var(--text-lg)] leading-tight font-bold">{champion.name}</p>
+            <p className="numeric mt-1 text-[length:var(--text-xs)] text-ink-2">World champion · {champion.since}</p>
+          </div>
+        </div>
+        <div className="mt-3 flex gap-2">
+          <button type="button" onClick={() => step(-1)} aria-label="Previous champion" className={arrow}>
+            <ChevronLeft aria-hidden size={16} strokeWidth={1.5} />
+          </button>
+          <button type="button" onClick={() => step(1)} aria-label="Next champion" className={arrow}>
+            <ChevronRight aria-hidden size={16} strokeWidth={1.5} />
+          </button>
         </div>
       </div>
-      <div className="mt-3 flex gap-2">
-        <button
-          type="button"
-          onClick={() => step(-1)}
-          aria-label="Previous champion"
-          className="numeric size-9 border border-ink-2 text-ink hover:border-ink"
-        >
-          ‹
-        </button>
-        <button
-          type="button"
-          onClick={() => step(1)}
-          aria-label="Next champion"
-          className="numeric size-9 border border-ink-2 text-ink hover:border-ink"
-        >
-          ›
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={() => step(1)}
+        title={`${champion.name}, world champion ${champion.since}. Click for the next.`}
+        aria-label={`${champion.name}, world champion ${champion.since}. Next champion`}
+        className="mx-auto hidden w-12 flex-col items-center gap-1 max-[1279px]:flex"
+      >
+        <Portrait champion={champion} className="size-12" />
+        <span className="numeric text-[0.625rem] text-ink-2">No. {champion.no}</span>
+      </button>
     </section>
   );
 }

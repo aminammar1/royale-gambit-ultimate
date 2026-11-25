@@ -18,17 +18,17 @@ export function KeepYourCardPage() {
   const country = card ? countryByCode(card.country) : undefined;
 
   return (
-    <>
+    <div className="px-14 max-[1279px]:px-8">
       <Masthead
         kicker="Federation registration · Step 2 of 2"
         title="Keep your card"
         dateline={[`${edition} edition`, editionDate(new Date()), "Optional", "Your profile stays on this machine"]}
       />
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] py-8">
-        <section className="pr-8">
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] py-8 max-[1099px]:grid-cols-1 max-[1099px]:gap-10">
+        <section className="pr-8 max-[1099px]:pr-0">
           <h2 className="border-b border-ink pb-3 font-masthead text-[length:var(--text-2xl)] font-bold">Registered</h2>
           {card ? (
-            <div className="mt-5">
+            <div className="mt-5 max-w-[34rem]">
               <PlayerCard
                 cardNo={card.cardNo}
                 username={card.username}
@@ -38,7 +38,7 @@ export function KeepYourCardPage() {
             </div>
           ) : null}
         </section>
-        <section className="border-l border-rule pl-8">
+        <section className="border-l border-rule pl-8 max-[1099px]:border-l-0 max-[1099px]:pl-0">
           <h2 className="border-b border-ink pb-3 font-masthead text-[length:var(--text-2xl)] font-bold">
             A way back in
           </h2>
@@ -54,6 +54,6 @@ export function KeepYourCardPage() {
           </div>
         </section>
       </div>
-    </>
+    </div>
   );
 }

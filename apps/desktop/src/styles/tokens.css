@@ -35,7 +35,8 @@
 }
 
 :root {
-  --focus: var(--accent);
+  /* Focus is ink, not red: red is kept for mistakes, and a focused field is not one. */
+  --focus: var(--ink);
 
   /* Board presets (Newsprint default: ink dark squares, hatched paper light squares) */
   --board-light: #e9e1cc;
@@ -59,7 +60,7 @@
   --radius: 0.125rem;
   --tracking-label: 0.06em;
   --nav-width: 15rem;
-  --nav-rail: 4rem;
+  --nav-rail: 5rem;
 
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --duration: 180ms;

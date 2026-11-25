@@ -10,8 +10,8 @@ Chess history printed on newspaper. Written summary of the Claude Design boards 
 | `--ink` | `#1B1A17` | `#E9E2D3` | primary text, icons |
 | `--ink-2` | `#57534A` | `#B1A999` | secondary text, captions |
 | `--rule` | `#BDB5A6` | `#575147` | 1px column rules, borders |
-| `--accent` | `#9E2A2B` | `#E0605A` | the editor's red: mistakes, blunders, critical marks, focus |
-| `--focus` | `= --accent` | `= --accent` | 2px focus outline, offset 2px |
+| `--accent` | `#9E2A2B` | `#E0605A` | the editor's red: mistakes, blunders, critical marks |
+| `--focus` | `= --ink` | `= --ink` | 2px focus outline, offset 2px. Ink, not red: a red ring on a field read as an error (changed 2026-11-25) |
 
 Night values were raised on 2026-11-25 after use on a real screen: rules, sunken panels and dashed cards were too close to the paper to see, and the brightest ink glared in long reading.
 
@@ -57,8 +57,12 @@ Type scale (rem): 0.75 · 0.875 · 1 · 1.125 · 1.375 · 1.75 · 2.25 · 3 (mas
 Every screen is a "page": masthead strip (page title, edition/date line, small actions) → body in 2–3 columns divided by rules. The board column is always the widest, and the board is the hero.
 
 ## Navigation (from the design)
-- Left nav with **permanent** section letters that match each page's masthead kicker: A Home, B Play, C Analyze, D Review, E Puzzles, F Settings, G Profile. Later sections take the next free letters and sit between Puzzles and Settings: H Library (M9), I Bots (M10), J Learn (M13). Letters never change once assigned. Current page: `--paper-2` fill, ink rules above and below, semibold label, `aria-current="page"`.
-- At 1100–1279px wide the nav collapses to a 64px rail of section letters with tooltips and accessible names; the nameplate shortens to "RG".
+- Left nav: an icon (lucide, 20px, stroke 1.5) and the section name: Home (newspaper), Play (pawn), Analyze (scan), Review (eval curve), Puzzles (knight), Settings (sliders), Profile (ID card). Later sections sit between Puzzles and Settings: Library (M9), Bots (M10), Learn (M13). The board's section letters were dropped (2026-11-25): players read them as noise. Current page: `--paper-2` fill, ink rules above and below, `aria-current="page"`.
+- Under 1280px wide (a tiled window is often ~950px) the nav narrows to an 80px rail: the icon with the name set small beneath, the logo alone, the Hall of Champions as one 48px portrait that steps on a click, and the player slot's badge. The window's minimum is 760×600.
+
+## Start-up and sign-in (beyond the boards)
+- **Splash** (`app/Splash.tsx`): logo, nameplate, the double rule drawn across once (the one motion on start), and a three-line log with dot leaders: card on this machine, sign-in, server. Every line is real work; it leaves once all three answer (at least 1.2s, so it can be read). `index.html` paints `--paper` before the CSS loads, so the window never flashes white.
+- **Sign-in** (`features/signin`): full window, no nav. Left, the Hall of Champions as a photo spread (6 × 3, all eighteen, captions by the name players use). Right, email code, Lichess, and "Play without an account". Shown when the machine has no card and nobody is signed in; after "Sign out"; and from the player slot for a guest.
 - Any border a control depends on uses `--ink-2` (6.7:1); `--rule` is decorative only.
 
 ## Kids Edition (M15)

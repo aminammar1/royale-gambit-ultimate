@@ -47,7 +47,7 @@ Milestone status: P1 ☑ · P2 ☐ · M0 ☐ · M1 ☐ · M2 ☐ · M3 ☐ · M4
 - `apps/desktop`: Tauri 2 + Vite + React + TS strict + Tailwind v4 + shadcn/ui (radius 0) + Motion + Zustand + Vitest + ESLint + Prettier; Rust fmt and clippy.
 - Scripts: `dev`, `tauri:dev`, `build`, `tauri:build`, `test`, `lint`, `typecheck`, `check` (typecheck + lint + test + `cargo test` + `cargo clippy -- -D warnings`).
 - `src/styles/tokens.css` implements `DESIGN.md` for both editions; fonts bundled via @fontsource.
-- App shell: masthead strip, left nav with the permanent letters from `DESIGN.md` (A Home, B Play, C Analyze, D Review, E Puzzles, F Settings, G Profile; H Library, I Bots, J Learn appear with their milestones), the `Logo`, and the Hall of Champions widget (halftone thumbnails pre-processed offline from `assets/wc-pictures/`; confirm the photo licences before release). The player slot shows `Guest · Unregistered` until M7.
+- App shell: masthead strip, left nav with the section icons and names from `DESIGN.md` (Home, Play, Analyze, Review, Puzzles, Settings, Profile; Library, Bots, Learn appear with their milestones), the `Logo`, and the Hall of Champions widget (halftone thumbnails pre-processed offline from `assets/wc-pictures/`; confirm the photo licences before release). The player slot shows `Guest · Unregistered` until M7.
 - Generated API client setup (`openapi-typescript`) pointing at the gateway.
 **Accept:** `pnpm check` passes; `pnpm tauri:dev` opens the window; screenshots of the shell in Day and Night; CLAUDE.md commands match reality.
 

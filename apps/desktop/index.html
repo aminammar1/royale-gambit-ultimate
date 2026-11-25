@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Royal Gambit Ultimate</title>
+    <!-- Paper before the stylesheet arrives, so the window never flashes white. Same values as
+         --paper in src/styles/tokens.css; keep the two in step. -->
+    <style>
+      html {
+        background: #f3efe6;
+      }
+      @media (prefers-color-scheme: dark) {
+        html {
+          background: #191815;
+        }
+      }
+    </style>
   </head>
 
   <body>
