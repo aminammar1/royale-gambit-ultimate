@@ -71,3 +71,11 @@ export function sessionLine(status: "loading" | "guest" | "signedIn" | "offline"
   if (find(identities, "email")) return "Signed in · Email";
   return "Signed in";
 }
+
+/** How this account signs in, as the card remembers it: "Lichess · kingside_tal". */
+export function signInLabel(identities: Identity[] | undefined): string | undefined {
+  const lichess = find(identities, "lichess");
+  if (lichess) return `Lichess · ${lichess.label}`;
+  const email = find(identities, "email");
+  return email ? `Email · ${email.label}` : undefined;
+}

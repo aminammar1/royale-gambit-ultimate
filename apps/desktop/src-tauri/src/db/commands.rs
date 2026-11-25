@@ -25,6 +25,6 @@ pub fn profile_continue_as_guest(db: State<'_, Database>) -> Result<Welcome> {
 }
 
 #[tauri::command]
-pub fn profile_claim(db: State<'_, Database>, user_id: String) -> Result<Welcome> {
-    profile::claim(&db, &user_id)
+pub fn profile_claim(db: State<'_, Database>, user_id: String, label: String) -> Result<Welcome> {
+    profile::claim(&db, &user_id, &label)
 }

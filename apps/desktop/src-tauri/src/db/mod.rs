@@ -16,6 +16,7 @@ use serde::Serialize;
 const MIGRATIONS: &[M<'static>] = &[
     M::up(include_str!("migrations/0001_profile.sql")),
     M::up(include_str!("migrations/0002_card_owner.sql")),
+    M::up(include_str!("migrations/0003_card_owner_label.sql")),
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, thiserror::Error)]

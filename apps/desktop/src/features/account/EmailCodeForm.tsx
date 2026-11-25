@@ -31,15 +31,17 @@ type Props = {
   onDone: () => void;
   /** Settings closes the form; the sign-in page keeps it open and offers another address instead. */
   onCancel?: () => void;
+  /** The address to start from: the card owner's, when the sign-in page knows it. */
+  initialEmail?: string;
 };
 
 /**
  * Email in two steps: the address, then the six-digit code from the mail. Signs in, or links the
  * address when someone is already signed in (the Rust core decides from the session it holds).
  */
-export function EmailCodeForm({ submitLabel, onDone, onCancel }: Props) {
+export function EmailCodeForm({ submitLabel, onDone, onCancel, initialEmail = "" }: Props) {
   const [state, setState] = useState<EmailStep>({ step: "address" });
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(initialEmail);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError>();
   const [note, setNote] = useState<string>();

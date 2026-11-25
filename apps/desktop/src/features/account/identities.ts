@@ -30,6 +30,10 @@ let started = false;
 export function useSessionStart(): void {
   useEffect(() => {
     const stop = useSession.subscribe((now, before) => {
+      if (now.account?.userId !== before.account?.userId) {
+        // Another account (or none): the old list must not be read as theirs while the new one loads.
+        useIdentities.setState({ list: undefined, error: undefined });
+      }
       if (now.status !== before.status || now.account?.userId !== before.account?.userId) void reloadIdentities();
     });
     if (!started) {

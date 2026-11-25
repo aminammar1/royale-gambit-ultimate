@@ -1,8 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 import { useServer } from "../api";
-import { useSession } from "../api/auth/session";
-import { useProfile } from "../db/profile";
 import logo from "../assets/logo.png";
 import { Portrait } from "../ui/Portrait";
 import { CHAMPIONS, type Champion } from "./champions";
@@ -106,26 +104,11 @@ function Row({ champions, seconds, reverse }: { champions: readonly Champion[]; 
   );
 }
 
-/** One line of the start-up log, set like a table of contents: name, dot leaders, the outcome. */
-function Check({ name, value }: { name: string; value?: string }) {
-  return (
-    <li className="flex items-baseline gap-2">
-      <span className="font-body text-[length:var(--text-sm)] text-ink-2">{name}</span>
-      <span aria-hidden className="mb-1 flex-1 border-b border-dotted border-rule" />
-      <span className={`numeric text-[length:var(--text-xs)] ${value ? "text-ink" : "text-ink-2"}`}>
-        {value ?? "…"}
-      </span>
-    </li>
-  );
-}
-
 /** The title page: the champions drifting behind, the nameplate, a quotation and the Start button. */
 function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) {
   const edition = useEdition();
   const reduce = useReducedMotion();
-  const profile = useProfile((s) => s.status);
-  const session = useSession((s) => s.status);
-  const server = useServer((s) => s.status);
+  const offline = useServer((s) => s.status === "unreachable");
   const [quote] = useState(() => CHAMPION_QUOTES[Math.floor(Math.random() * CHAMPION_QUOTES.length)]);
 
   useEffect(() => {
@@ -136,11 +119,6 @@ function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) 
     return () => window.removeEventListener("keydown", onKey);
   }, [ready, onStart]);
 
-  const card = { loading: undefined, new: "First run", guest: "Ready", registered: "Ready" }[profile];
-  const signIn = { loading: undefined, guest: "Not signed in", signedIn: "Restored", offline: "Kept, offline" }[
-    session
-  ];
-  const wire = { checking: undefined, reachable: "Connected", unreachable: "Offline" }[server];
   const third = Math.ceil(CHAMPIONS.length / 3);
 
   return (
@@ -183,13 +161,18 @@ function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) 
               <span>{editionDate(new Date())}</span>
             </p>
 
-            <figure className="mt-6 text-center">
-              <blockquote className="font-masthead text-[length:var(--text-lg)] leading-snug italic">
-                “{quote.text}”
-              </blockquote>
-              <figcaption className="label mt-2 text-ink-2">
-                {quote.champion.name} · {quote.champion.since}
-              </figcaption>
+            <figure className="mt-7 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-5 border-y border-rule py-5">
+              <Portrait champion={quote.champion} className="h-20 w-16" />
+              <div className="min-w-0">
+                {/* The opening mark hangs, so the words line up with the name beneath. */}
+                <blockquote className="font-masthead text-[length:var(--text-xl)] leading-[1.3] font-semibold italic [text-indent:-0.42em]">
+                  “{quote.text}”
+                </blockquote>
+                <figcaption className="mt-2 font-body text-[length:var(--text-sm)]">
+                  <span className="font-semibold">{quote.champion.name}</span>
+                  <span className="text-ink-2"> · world champion from {quote.champion.since}</span>
+                </figcaption>
+              </div>
             </figure>
 
             <button
@@ -209,11 +192,11 @@ function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) 
               {ready ? "or press Enter" : " "}
             </p>
 
-            <ul className="mt-5 space-y-1.5 border-t border-rule pt-4" aria-live="polite">
-              <Check name="Your card on this machine" value={card} />
-              <Check name="Your sign-in" value={signIn} />
-              <Check name="Royal Gambit server" value={wire} />
-            </ul>
+            {offline ? (
+              <p role="status" className="mt-4 text-center font-body text-[length:var(--text-sm)] text-ink-2">
+                The Royal Gambit server cannot be reached. You can still play on this machine.
+              </p>
+            ) : null}
           </div>
         </motion.main>
       </div>

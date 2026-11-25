@@ -19,7 +19,7 @@ export function HallOfChampions() {
     initial: reduce ? false : { opacity: 0 },
     animate: { opacity: 1 },
     exit: reduce ? undefined : { opacity: 0 },
-    transition: { duration: 0.35, ease: [0.2, 0, 0, 1] as const },
+    transition: { duration: 0.2, ease: [0.2, 0, 0, 1] as const },
   };
 
   return (
@@ -30,7 +30,7 @@ export function HallOfChampions() {
           <span className="numeric text-[length:var(--text-sm)] text-ink-2">No. {champion.no}</span>
         </div>
         <div className="relative mt-3 h-[4.5rem]" aria-live={paused ? "polite" : "off"}>
-          <AnimatePresence initial={false}>
+          <AnimatePresence mode="wait" initial={false}>
             <motion.div key={champion.no} className="absolute inset-0 flex gap-3" {...fade}>
               <Portrait champion={champion} className="size-16 shrink-0" />
               <div className="min-w-0">
@@ -72,7 +72,7 @@ export function HallOfChampions() {
         className="mx-auto hidden w-12 flex-col items-center gap-1 max-[1279px]:flex"
       >
         <span className="relative block size-12">
-          <AnimatePresence initial={false}>
+          <AnimatePresence mode="wait" initial={false}>
             <motion.span key={champion.no} className="absolute inset-0 block" {...fade}>
               <Portrait champion={champion} className="size-12" />
             </motion.span>

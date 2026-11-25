@@ -20,6 +20,8 @@ pub struct Card {
     pub registered_at: i64,
     /// The account that claimed the card; `None` for a card nobody has signed in with.
     pub owner_id: Option<String>,
+    /// How the owner signs in, for the sign-in page: "Lichess · amineammar".
+    pub owner_label: Option<String>,
 }
 
 /// Where the machine stands on first run.
@@ -37,7 +39,7 @@ pub fn status(db: &Database) -> Result<Welcome> {
     let conn = db.conn()?;
     let card = conn
         .query_row(
-            "SELECT card_no, username, country, registered_at, owner_user_id FROM profile WHERE id = 1",
+            "SELECT card_no, username, country, registered_at, owner_user_id, owner_label FROM profile WHERE id = 1",
             [],
             |row| {
                 Ok(Card {
@@ -46,6 +48,7 @@ pub fn status(db: &Database) -> Result<Welcome> {
                     country: row.get(2)?,
                     registered_at: row.get(3)?,
                     owner_id: row.get(4)?,
+                    owner_label: row.get(5)?,
                 })
             },
         )
@@ -84,6 +87,7 @@ pub fn register(db: &Database, username: &str, country: &str) -> Result<Card> {
         country: country.to_owned(),
         registered_at: now_ms(),
         owner_id: None,
+        owner_label: None,
     };
     let conn = db.conn()?;
     // The id = 1 check makes a second card a constraint error rather than a race.
@@ -113,13 +117,14 @@ pub fn continue_as_guest(db: &Database) -> Result<Welcome> {
     status(db)
 }
 
-/// Ties an unclaimed card to the signed-in account. The first owner stays: a second account
-/// signing in on this machine does not take the card over.
-pub fn claim(db: &Database, user_id: &str) -> Result<Welcome> {
+/// Ties an unclaimed card to the signed-in account, with how that account signs in. The first
+/// owner stays: a second account signing in on this machine does not take the card over. The
+/// owner signing in again refreshes the label (a newly linked Lichess, say).
+pub fn claim(db: &Database, user_id: &str, label: &str) -> Result<Welcome> {
     db.conn()?.execute(
-        "UPDATE profile SET owner_user_id = ?1, updated_at = ?2
-         WHERE id = 1 AND owner_user_id IS NULL",
-        params![user_id, now_ms()],
+        "UPDATE profile SET owner_user_id = ?1, owner_label = ?2, updated_at = ?3
+         WHERE id = 1 AND (owner_user_id IS NULL OR owner_user_id = ?1)",
+        params![user_id, label, now_ms()],
     )?;
     status(db)
 }
@@ -264,10 +269,13 @@ mod tests {
         let card = register(&db, "kingside_tal", "TN").expect("registered");
         assert_eq!(card.owner_id, None);
 
-        let Welcome::Registered(claimed) = claim(&db, "user-1").expect("claimed") else {
+        let Welcome::Registered(claimed) =
+            claim(&db, "user-1", "Lichess · amineammar").expect("claimed")
+        else {
             panic!("expected the card");
         };
         assert_eq!(claimed.owner_id.as_deref(), Some("user-1"));
+        assert_eq!(claimed.owner_label.as_deref(), Some("Lichess · amineammar"));
         assert_eq!(status(&db).expect("status"), Welcome::Registered(claimed));
     }
 
@@ -275,18 +283,38 @@ mod tests {
     fn a_claimed_card_keeps_its_first_owner() {
         let db = Database::in_memory();
         register(&db, "kingside_tal", "TN").expect("registered");
-        claim(&db, "user-1").expect("claimed");
+        claim(&db, "user-1", "Lichess · amineammar").expect("claimed");
 
-        let Welcome::Registered(card) = claim(&db, "user-2").expect("second claim") else {
+        let Welcome::Registered(card) =
+            claim(&db, "user-2", "Email · someone@example.com").expect("second claim")
+        else {
             panic!("expected the card");
         };
         assert_eq!(card.owner_id.as_deref(), Some("user-1"));
+        assert_eq!(card.owner_label.as_deref(), Some("Lichess · amineammar"));
+    }
+
+    #[test]
+    fn the_owner_signing_in_again_refreshes_the_label() {
+        let db = Database::in_memory();
+        register(&db, "kingside_tal", "TN").expect("registered");
+        claim(&db, "user-1", "Email · a@example.com").expect("claimed");
+
+        let Welcome::Registered(card) =
+            claim(&db, "user-1", "Lichess · amineammar").expect("again")
+        else {
+            panic!("expected the card");
+        };
+        assert_eq!(card.owner_label.as_deref(), Some("Lichess · amineammar"));
     }
 
     #[test]
     fn claiming_without_a_card_changes_nothing() {
         let db = Database::in_memory();
-        assert_eq!(claim(&db, "user-1").expect("claim"), Welcome::New);
+        assert_eq!(
+            claim(&db, "user-1", "Lichess · amineammar").expect("claim"),
+            Welcome::New
+        );
     }
 
     #[test]

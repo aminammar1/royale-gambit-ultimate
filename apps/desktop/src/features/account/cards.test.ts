@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Identity } from "../../api";
-import { credentialCards, playerName, sessionLine, since } from "./cards";
+import { credentialCards, playerName, sessionLine, signInLabel, since } from "./cards";
 
 const lichess: Identity = { provider: "lichess", label: "kingside_tal", linked_at: "2026-11-12T09:30:00Z" };
 const email: Identity = { provider: "email", label: "amine@example.com", linked_at: "2026-11-20T18:00:00Z" };
@@ -63,5 +63,14 @@ describe("sessionLine", () => {
     expect(sessionLine("guest", undefined)).toBe("Guest");
     expect(sessionLine("loading", undefined)).toBe("Guest");
     expect(sessionLine("offline", undefined)).toBe("Offline");
+  });
+});
+
+describe("signInLabel", () => {
+  it("names the way in the owner would recognise, Lichess first", () => {
+    expect(signInLabel([email, lichess])).toBe("Lichess · kingside_tal");
+    expect(signInLabel([email])).toBe("Email · amine@example.com");
+    expect(signInLabel([])).toBeUndefined();
+    expect(signInLabel(undefined)).toBeUndefined();
   });
 });

@@ -175,7 +175,7 @@ export function AccountsPanel() {
       <div className="mt-6 flex items-baseline justify-between gap-6">
         <p className="font-body text-[length:var(--text-lg)] text-ink-2">
           {status === "signedIn"
-            ? "Your card is kept on the server. Games and puzzle records sync in a later edition."
+            ? "You are signed in. Your card, games and puzzle records sync to the server in a later edition; for now they stay on this machine."
             : "You are reading as a guest; everything stays on this machine. Link a way in to keep your card."}
         </p>
         {status === "signedIn" ? (

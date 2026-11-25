@@ -1,5 +1,5 @@
-import { usePlayerCard } from "../../app/player";
-import { ChartSpline, ChessKnight, ChessPawn, ScanSearch, type LucideIcon } from "lucide-react";
+import { usePlayerName } from "../../app/player";
+import { ChevronRight } from "lucide-react";
 import { Link } from "react-router";
 import { ChampionQuote } from "./ChampionQuote";
 import { editionDate, greeting } from "../../app/editionDate";
@@ -13,7 +13,7 @@ import { Masthead } from "../../ui/Masthead";
 const HEADLINES: ReadonlyArray<{
   kicker: string;
   title: string;
-  icon: LucideIcon;
+  action: string;
   text: string;
   to: string;
   size: string;
@@ -21,7 +21,7 @@ const HEADLINES: ReadonlyArray<{
   {
     kicker: "Play · two at one board",
     title: "Play Local",
-    icon: ChessPawn,
+    action: "Start a game",
     text: "Clocks, auto-flip and a score sheet that keeps itself.",
     to: "/play",
     size: "text-[2.75rem] max-[1279px]:text-[2.25rem]",
@@ -29,7 +29,7 @@ const HEADLINES: ReadonlyArray<{
   {
     kicker: "Analysis",
     title: "Analyze a Position",
-    icon: ScanSearch,
+    action: "Open the board",
     text: "Engine best move, top three lines, eval bar.",
     to: "/analyze",
     size: "text-[2.125rem] max-[1279px]:text-[1.75rem]",
@@ -37,7 +37,7 @@ const HEADLINES: ReadonlyArray<{
   {
     kicker: "Training",
     title: "Puzzles",
-    icon: ChessKnight,
+    action: "Solve a puzzle",
     text: "One position a day, more on request.",
     to: "/puzzles",
     size: "text-[2.125rem] max-[1279px]:text-[1.75rem]",
@@ -45,7 +45,7 @@ const HEADLINES: ReadonlyArray<{
   {
     kicker: "Review",
     title: "Review a Game",
-    icon: ChartSpline,
+    action: "Review a game",
     text: "Accuracy, eval graph and the moments that mattered.",
     to: "/review",
     size: "text-[2.125rem] max-[1279px]:text-[1.75rem]",
@@ -56,7 +56,7 @@ const HEADLINES: ReadonlyArray<{
 export function HomePage() {
   const edition = useEdition();
   const now = new Date();
-  const username = usePlayerCard()?.username;
+  const username = usePlayerName();
   return (
     <>
       <Masthead
@@ -73,29 +73,26 @@ export function HomePage() {
           </ul>
         }
       />
+      <ChampionQuote />
       <div className="grid grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)_minmax(0,0.95fr)] py-8 max-[1279px]:grid-cols-2">
         <section aria-labelledby="headlines" className="pr-8">
           <Kicker>
             <span id="headlines">Today’s headlines</span>
           </Kicker>
-          {/* Each headline is a button-sized tile: the whole box opens the page. */}
+          {/* Each headline is a tile that opens its page, with the action spelled out as its button. */}
           <ul className="mt-5 flex flex-col gap-3">
-            {HEADLINES.map(({ icon: Icon, ...h }) => (
+            {HEADLINES.map((h) => (
               <li key={h.title}>
                 <Link
                   to={h.to}
-                  className="group flex items-center gap-6 rounded-[var(--radius)] border border-ink-2 px-6 py-5 transition-colors duration-150 hover:border-ink hover:bg-paper-2 active:bg-paper-2"
+                  className="group block rounded-[var(--radius)] border border-ink-2 px-6 pt-5 pb-5 transition-colors duration-150 hover:border-ink hover:bg-paper-2 active:bg-paper-2"
                 >
-                  <div className="min-w-0 flex-1">
-                    <p className="label text-ink-2">{h.kicker}</p>
-                    <h2 className={`mt-1 font-masthead ${h.size} leading-[1.1] font-bold`}>{h.title}</h2>
-                    <p className="mt-2 font-label text-[length:var(--text-md)] text-ink-2">{h.text}</p>
-                  </div>
-                  <span
-                    aria-hidden
-                    className="flex size-12 shrink-0 items-center justify-center border border-ink text-ink transition-colors duration-150 group-hover:bg-ink group-hover:text-paper"
-                  >
-                    <Icon size={22} strokeWidth={1.5} />
+                  <p className="label text-ink-2">{h.kicker}</p>
+                  <h2 className={`mt-1 font-masthead ${h.size} leading-[1.1] font-bold`}>{h.title}</h2>
+                  <p className="mt-2 font-label text-[length:var(--text-md)] text-ink-2">{h.text}</p>
+                  <span className="label mt-4 inline-flex items-center gap-2 rounded-[var(--radius)] border border-ink px-4 py-2 text-[length:var(--text-sm)] text-ink transition-colors duration-150 group-hover:bg-ink group-hover:text-paper">
+                    {h.action}
+                    <ChevronRight aria-hidden size={14} strokeWidth={1.75} />
                   </span>
                 </Link>
               </li>
@@ -119,8 +116,7 @@ export function HomePage() {
           </p>
         </section>
 
-        <div className="flex flex-col gap-10 border-l border-rule pl-8 max-[1279px]:col-span-2 max-[1279px]:mt-10 max-[1279px]:grid max-[1279px]:grid-cols-2 max-[1279px]:gap-8 max-[1279px]:border-l-0 max-[1279px]:pl-0">
-          <ChampionQuote />
+        <div className="border-l border-rule pl-8 max-[1279px]:col-span-2 max-[1279px]:mt-10 max-[1279px]:border-l-0 max-[1279px]:pl-0">
           <section aria-labelledby="recent">
             <Kicker aside={<span className="label">All results</span>}>
               <span id="recent">Recent games</span>
