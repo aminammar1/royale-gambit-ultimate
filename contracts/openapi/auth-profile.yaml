@@ -208,7 +208,9 @@ paths:
         The desktop app edits the profile offline and syncs it later, so the body carries the
         time of the edit. A write older than the stored one is ignored and the stored profile
         comes back unchanged. Guests get 403: their profile stays on the device.
-        Publishes `profile.updated` when something changed.
+        Publishes `profile.updated` when the username or country changed (settings are private
+        to the player's devices). A username someone else holds, in any letter case, is 409
+        `.../problems/username-taken`.
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/ProfileWrite" } } }
@@ -282,7 +284,8 @@ components:
         redirect_uri:
           type: string
           maxLength: 200
-          pattern: "^http://(127\\.0\\.0\\.1|\\[::1\\]|localhost):[0-9]{1,5}(/.*)?$"
+          pattern: "^http://(127\\.0\\.0\\.1|\\[::1\\]|localhost):[0-9]{1,5}(/[A-Za-z0-9._~/-]*)?$"
+          description: No query string or fragment; Lichess appends code and state itself
           examples: ["http://127.0.0.1:53682/callback"]
     LichessAuthorization:
       type: object
@@ -320,8 +323,22 @@ components:
           description: Unique, case-insensitive
         country:
           type: string
-          pattern: "^[A-Z]{2}$"
-          description: ISO 3166-1 alpha-2
+          description: ISO 3166-1 alpha-2, officially assigned codes
+          enum: [
+            AD, AE, AF, AG, AI, AL, AM, AO, AQ, AR, AS, AT, AU, AW, AX, AZ, BA, BB, BD, BE,
+            BF, BG, BH, BI, BJ, BL, BM, BN, BO, BQ, BR, BS, BT, BV, BW, BY, BZ, CA, CC, CD,
+            CF, CG, CH, CI, CK, CL, CM, CN, CO, CR, CU, CV, CW, CX, CY, CZ, DE, DJ, DK, DM,
+            DO, DZ, EC, EE, EG, EH, ER, ES, ET, FI, FJ, FK, FM, FO, FR, GA, GB, GD, GE, GF,
+            GG, GH, GI, GL, GM, GN, GP, GQ, GR, GS, GT, GU, GW, GY, HK, HM, HN, HR, HT, HU,
+            ID, IE, IL, IM, IN, IO, IQ, IR, IS, IT, JE, JM, JO, JP, KE, KG, KH, KI, KM, KN,
+            KP, KR, KW, KY, KZ, LA, LB, LC, LI, LK, LR, LS, LT, LU, LV, LY, MA, MC, MD, ME,
+            MF, MG, MH, MK, ML, MM, MN, MO, MP, MQ, MR, MS, MT, MU, MV, MW, MX, MY, MZ, NA,
+            NC, NE, NF, NG, NI, NL, NO, NP, NR, NU, NZ, OM, PA, PE, PF, PG, PH, PK, PL, PM,
+            PN, PR, PS, PT, PW, PY, QA, RE, RO, RS, RU, RW, SA, SB, SC, SD, SE, SG, SH, SI,
+            SJ, SK, SL, SM, SN, SO, SR, SS, ST, SV, SX, SY, SZ, TC, TD, TF, TG, TH, TJ, TK,
+            TL, TM, TN, TO, TR, TT, TV, TW, TZ, UA, UG, UM, US, UY, UZ, VA, VC, VE, VG, VI,
+            VN, VU, WF, WS, YE, YT, ZA, ZM, ZW
+          ]
         settings:
           type: object
           description: The client's synced settings and themes, stored as given (max 16 KiB)
