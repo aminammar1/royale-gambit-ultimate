@@ -69,7 +69,7 @@ function Federation({ picked, onPick }: { picked?: Country; onPick: (country: Co
         id={listId}
         role="listbox"
         aria-label="Countries"
-        className="mt-3 h-[calc(100vh-23rem)] min-h-48 overflow-y-auto border-t border-ink"
+        className="mt-3 h-[calc(100vh-23rem)] min-h-48 overflow-y-auto border-t border-ink max-[1279px]:h-[26rem]"
       >
         {found.map((country, i) => {
           const selected = picked?.code === country.code;
@@ -156,7 +156,7 @@ export function WelcomePage() {
           "Your profile stays on this machine",
         ]}
       />
-      <div className="grid h-[calc(100vh-11.5rem)] min-h-[34rem] grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)] pt-6 pb-4">
+      <div className="grid h-[calc(100vh-11.5rem)] min-h-[34rem] grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)] pt-6 pb-4 max-[1279px]:h-auto max-[1279px]:grid-cols-2">
         <Federation picked={country} onPick={setCountry} />
 
         <section className="flex flex-col border-l border-rule px-7">
@@ -223,8 +223,12 @@ export function WelcomePage() {
           </div>
         </section>
 
-        <section className="overflow-y-auto border-l border-rule pl-7">
-          <img src={logo} alt="" className="mx-auto block w-40 [[data-edition=night]_&]:invert-[0.9]" />
+        <section className="overflow-y-auto border-l border-rule pl-7 max-[1279px]:col-span-2 max-[1279px]:mt-8 max-[1279px]:border-t max-[1279px]:border-l-0 max-[1279px]:pt-6 max-[1279px]:pl-0">
+          <img
+            src={logo}
+            alt=""
+            className="mx-auto block w-40 max-[1279px]:hidden [[data-edition=night]_&]:invert-[0.9]"
+          />
           <p className="label mt-4 border-b border-ink pb-2 text-ink-2">Your player card · fills in as you go</p>
           <div className="mt-4">
             <PlayerCard username={username.trim()} country={country} issuedAt={new Date()} draft />
