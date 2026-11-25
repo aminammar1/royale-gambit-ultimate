@@ -30,8 +30,11 @@ export function SectionPage({ section }: { section: Section }) {
           </p>
           <p className="mt-3 font-body text-[length:var(--text-lg)] text-ink-2">{opens?.what}</p>
           <p className="mt-6">
-            <Link to="/" className="label border-b border-ink pb-0.5 text-ink">
-              Back to the front page →
+            <Link
+              to="/"
+              className="label inline-block rounded-[var(--radius)] border border-ink-2 px-4 py-2.5 text-[length:var(--text-sm)] text-ink transition-colors duration-150 hover:border-ink hover:bg-paper-2"
+            >
+              Back to the front page
             </Link>
           </p>
         </section>

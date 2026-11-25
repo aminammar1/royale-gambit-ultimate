@@ -2,10 +2,22 @@ import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { auth, useSession } from "../../api/auth/session";
 import { toApiError, type ApiError } from "../../api/problem";
+import { Mail } from "lucide-react";
 import { Button } from "../../ui/Button";
+import { BrandMark } from "../../ui/BrandMark";
 import { EmailCodeForm, Notice } from "./EmailCodeForm";
 import { credentialCards, type CredentialCard } from "./cards";
 import { reloadIdentities, useIdentities } from "./identities";
+
+function ProviderMark({ provider, size }: { provider: CredentialCard["provider"]; size: number }) {
+  return provider === "email" ? (
+    <Mail aria-hidden size={size} strokeWidth={1.5} className="shrink-0" />
+  ) : (
+    <BrandMark brand={provider} size={size} />
+  );
+}
+
+const withMark = "inline-flex items-center gap-2";
 
 function Card({ card, children, action }: { card: CredentialCard; children?: ReactNode; action: ReactNode }) {
   const frame = card.linked
@@ -22,8 +34,9 @@ function Card({ card, children, action }: { card: CredentialCard; children?: Rea
             <span className="numeric text-[length:var(--text-xs)] text-ink-2">{card.version}</span>
           </div>
           <h3
-            className={`mt-1 font-masthead text-[length:var(--text-2xl)] leading-tight font-bold ${card.action === "notYet" ? "text-ink-2" : "text-ink"}`}
+            className={`mt-1 flex items-center gap-3 font-masthead text-[length:var(--text-2xl)] leading-tight font-bold ${card.action === "notYet" ? "text-ink-2" : "text-ink"}`}
           >
+            <ProviderMark provider={card.provider} size={22} />
             {card.title}
           </h3>
           <p className="numeric mt-1 text-[length:var(--text-sm)] text-ink-2">{card.detail}</p>
@@ -64,7 +77,14 @@ export function CredentialList() {
   };
 
   const actionFor = (card: CredentialCard) => {
-    if (card.action === "notYet") return <Button disabled>Not yet</Button>;
+    if (card.action === "notYet") {
+      return (
+        <Button disabled className={withMark}>
+          <ProviderMark provider={card.provider} size={14} />
+          Not yet
+        </Button>
+      );
+    }
     if (card.action === "none") return null;
     const disabled = offline || busy !== undefined;
     if (card.provider === "lichess") {
@@ -73,13 +93,15 @@ export function CredentialList() {
           {busy === "unlink" ? "Unlinking…" : "Unlink"}
         </Button>
       ) : (
-        <Button disabled={disabled} onClick={() => void act("lichess", "lichess", auth.lichess)}>
+        <Button disabled={disabled} className={withMark} onClick={() => void act("lichess", "lichess", auth.lichess)}>
+          <BrandMark brand="lichess" size={14} />
           {busy === "lichess" ? "Waiting…" : "Link Lichess"}
         </Button>
       );
     }
     return (
-      <Button disabled={disabled || linkingEmail} onClick={() => setLinkingEmail(true)}>
+      <Button disabled={disabled || linkingEmail} className={withMark} onClick={() => setLinkingEmail(true)}>
+        <Mail aria-hidden size={14} strokeWidth={1.5} />
         Link email
       </Button>
     );

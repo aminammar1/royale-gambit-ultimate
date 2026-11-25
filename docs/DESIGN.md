@@ -42,7 +42,7 @@ Type scale (rem): 0.75 · 0.875 · 1 · 1.125 · 1.375 · 1.75 · 2.25 · 3 (mas
 - 4px spacing grid. Columns are separated by vertical rules, like a newspaper page.
 - **Logo:** `design/newsprint/logo.jpg` is a fixed bitmap (chrome queen, drawn gradient). It is the one allowed exception to the no-gradient, no-shadow rule and is never recreated in CSS.
 - Paper grain: a static, subtle SVG-noise PNG at ≤ 6% opacity on `--paper`. Never put it over text panels.
-- Halftone portraits: **pre-processed offline** into halftone PNG/WebP assets, not live CSS filters. Opacity 8–15% (Day) and 6–10% (Night). Used only on Welcome, Home and Profile mastheads, plus the small framed thumbnail in the nav's **Hall of Champions** widget (shown on every page, full contrast, 64px, cycles with the two arrow buttons). That thumbnail is a grey photo crop, not dots: at 64px a halftone loses the face. A champion without a photo shows initials. No other place gets a portrait.
+- Halftone portraits: **pre-processed offline** into halftone PNG/WebP assets, not live CSS filters. Opacity 8–15% (Day) and 6–10% (Night). Used only on Welcome, Home and Profile mastheads, plus the small framed thumbnail in the nav's **Hall of Champions** widget (shown on every page, full contrast, 64px, cycles with the two arrow buttons). That thumbnail is a grey photo crop, not dots: at 64px a halftone loses the face. A champion without a photo shows initials. Photo credits: `assets/wc-pictures/CREDITS.md`. No other place gets a portrait.
 
 ## Motion
 - Durations 120–240 ms, `ease-out` or `cubic-bezier(0.2, 0, 0, 1)`. No springs with overshoot, no bounce, no scale-pop.
@@ -61,8 +61,12 @@ Every screen is a "page": masthead strip (page title, edition/date line, small a
 - Under 1280px wide (a tiled window is often ~950px) the nav narrows to an 80px rail: the icon with the name set small beneath, the logo alone, the Hall of Champions as one 48px portrait that steps on a click, and the player slot's badge. The window's minimum is 760×600.
 
 ## Start-up and sign-in (beyond the boards)
-- **Splash** (`app/Splash.tsx`): logo, nameplate, the double rule drawn across once (the one motion on start), and a three-line log with dot leaders: card on this machine, sign-in, server. Every line is real work; it leaves once all three answer (at least 1.2s, so it can be read). `index.html` paints `--paper` before the CSS loads, so the window never flashes white.
-- **Sign-in** (`features/signin`): full window, no nav. Left, the Hall of Champions as a photo spread (6 × 3, all eighteen, captions by the name players use). Right, email code, Lichess, and "Play without an account". Shown when the machine has no card and nobody is signed in; after "Sign out"; and from the player slot for a guest.
+- **Start screen** (`app/StartScreen.tsx`), every launch: first a newsreel intro, the eighteen champions in hard cuts (125 ms each, the year set large beneath), skipped by any key or click. Then the title page: three rows of champion portraits drifting sideways behind (16% opacity, 20% at night, still under reduced motion), and a double-ruled panel with logo, nameplate, a champion quotation, the **Start** button (Enter works) and the start-up checks set with dot leaders (card on this machine, sign-in, server). Start waits for all three. `index.html` paints `--paper` before the CSS loads, so the window never flashes white.
+- **Quotations** (`app/quotes.ts`): short, commonly attributed lines from the champions, on the Start screen and in "From the champions" on the front page (turns every 12 s; holds under the pointer; Pause). Never invented quotes.
+- **Hall of Champions** turns by itself every 7 s with a short crossfade, holds under the pointer or focus, and has a Pause button (WCAG 2.2.2).
+- **Brand marks**: Lichess and Chess.com from Simple Icons (CC0), one colour in `currentColor`, so they print in ink; the brands' own hues never appear.
+- **Sign-in** (`features/signin`): full window, no nav. Left, the Hall of Champions as a photo spread (6 × 3, all eighteen, captions by the name players use). Right, email code, Lichess, and "Play without an account". Shown when the machine has no card and nobody is signed in; when the card's owner is signed out at Start; after "Sign out"; and from the player slot for a guest. A card belongs to the first account signed in while it exists; signed out, the app prints "Guest" instead of the owner's name.
+- Front page headlines are button tiles: the whole box opens the page, with the section's icon in a square that fills with ink on hover.
 - Any border a control depends on uses `--ink-2` (6.7:1); `--rule` is decorative only.
 
 ## Kids Edition (M15)

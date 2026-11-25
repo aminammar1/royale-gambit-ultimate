@@ -1,8 +1,8 @@
+import { usePlayerCard } from "../../app/player";
 import { useNavigate } from "react-router";
 import { useSession } from "../../api/auth/session";
 import { editionDate } from "../../app/editionDate";
 import { useEdition } from "../../app/edition";
-import { useProfile } from "../../db/profile";
 import { Button } from "../../ui/Button";
 import { Masthead } from "../../ui/Masthead";
 import { PlayerCard } from "../../ui/PlayerCard";
@@ -13,7 +13,7 @@ import { countryByCode } from "./countries";
 export function KeepYourCardPage() {
   const edition = useEdition();
   const navigate = useNavigate();
-  const card = useProfile((s) => s.card);
+  const card = usePlayerCard();
   const signedIn = useSession((s) => s.status === "signedIn");
   const country = card ? countryByCode(card.country) : undefined;
 

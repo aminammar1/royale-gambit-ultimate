@@ -1,5 +1,5 @@
 import { AnimatePresence } from "motion/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router";
 import { checkServer, useServer } from "../api";
 import { useSession } from "../api/auth/session";
@@ -7,22 +7,22 @@ import { useProfile } from "../db/profile";
 import { useSessionStart } from "../features/account/identities";
 import { useProfileLoad } from "../features/welcome/useProfileLoad";
 import { useApplyEdition } from "./edition";
-import { gate } from "./gate";
-import { Splash } from "./Splash";
-
-/** Long enough to read the start-up log once; the splash never waits on a timer beyond this. */
-const SPLASH_AT_LEAST_MS = 1200;
+import { gate, startPage } from "./gate";
+import { useClaimCard } from "./player";
+import { StartScreen } from "./StartScreen";
 
 let serverChecked = false;
 
 /**
- * Every route sits under this: it reads the card, the keychain and the server once, shows the splash
- * until all three have answered, then keeps the player on the page the gate allows.
+ * Every route sits under this: it reads the card, the keychain and the server once and shows the
+ * Start screen meanwhile. Start opens the page `startPage` picks; after that the gate keeps the
+ * player on pages their state allows.
  */
 export function Root() {
   useApplyEdition();
   useSessionStart();
   useProfileLoad();
+  useClaimCard();
   useEffect(() => {
     if (serverChecked) return;
     serverChecked = true;
@@ -35,25 +35,27 @@ export function Root() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
-  const [timeUp, setTimeUp] = useState(false);
-  useEffect(() => {
-    const timer = setTimeout(() => setTimeUp(true), SPLASH_AT_LEAST_MS);
-    return () => clearTimeout(timer);
-  }, []);
+  const ownerId = useProfile((s) => s.card?.ownerId);
+  const ready = profile !== "loading" && session !== "loading" && server !== "checking";
 
-  // Latched: once the app is up, a later server check or sign-out never brings the splash back.
-  const [booted, setBooted] = useState(false);
-  const answered = profile !== "loading" && session !== "loading" && server !== "checking";
-  if (!booted && answered && timeUp) setBooted(true);
+  const [started, setStarted] = useState(false);
+  const starting = useRef(false);
+  const start = useCallback(() => {
+    // The Start button and the Enter key can both fire for one press.
+    if (starting.current || profile === "loading" || session === "loading") return;
+    starting.current = true;
+    navigate(startPage(profile, session, ownerId), { replace: true });
+    setStarted(true);
+  }, [profile, session, ownerId, navigate]);
 
-  const target = booted ? gate(profile, session, pathname) : undefined;
+  const target = started ? gate(profile, session, pathname) : undefined;
   useEffect(() => {
     if (target) navigate(target, { replace: true });
   }, [target, navigate]);
 
   return (
     <AnimatePresence mode="wait">
-      {booted ? target ? null : <Outlet key="app" /> : <Splash key="splash" />}
+      {started ? target ? null : <Outlet key="app" /> : <StartScreen key="start" ready={ready} onStart={start} />}
     </AnimatePresence>
   );
 }

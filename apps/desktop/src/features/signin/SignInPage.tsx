@@ -1,4 +1,4 @@
-import { ChessKnight, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useServer } from "../../api";
@@ -9,6 +9,7 @@ import { useEdition, useEditionStore } from "../../app/edition";
 import { editionDate } from "../../app/editionDate";
 import logo from "../../assets/logo.png";
 import { useProfile } from "../../db/profile";
+import { BrandMark } from "../../ui/BrandMark";
 import { Button } from "../../ui/Button";
 import { Portrait } from "../../ui/Portrait";
 import { EmailCodeForm, Notice } from "../account/EmailCodeForm";
@@ -89,6 +90,9 @@ export function SignInPage() {
         <p className="mt-6 max-w-[38rem] font-body text-[length:var(--text-md)] text-ink-2 italic">
           Every undisputed world champion, from Steinitz in 1886 to Gukesh in 2024. Your card joins the same federation.
         </p>
+        <p className="mt-2 font-body text-[length:var(--text-xs)] text-ink-2">
+          Kramnik: photo by Vladimir Barskij, CC BY-SA 3.0, via Wikimedia Commons.
+        </p>
       </section>
 
       <section className="flex flex-col border-l border-rule px-10 py-8 max-[1279px]:px-8 max-[899px]:border-l-0">
@@ -135,7 +139,7 @@ export function SignInPage() {
           disabled={lichess === "waiting"}
           onClick={() => void withLichess()}
         >
-          <ChessKnight aria-hidden size={18} strokeWidth={1.5} />
+          <BrandMark brand="lichess" size={18} />
           {lichess === "waiting" ? "Waiting for lichess.org…" : "Sign in with Lichess"}
         </Button>
         {lichess === "waiting" ? (
@@ -143,6 +147,10 @@ export function SignInPage() {
         ) : (
           <Notice error={lichessError} />
         )}
+        <Button disabled className="mt-3 flex w-full items-center justify-center gap-3 py-3">
+          <BrandMark brand="chesscom" size={18} />
+          Chess.com · in a later edition
+        </Button>
 
         <div className="mt-12">
           <div className="border-t-[3px] border-double border-ink pt-5">

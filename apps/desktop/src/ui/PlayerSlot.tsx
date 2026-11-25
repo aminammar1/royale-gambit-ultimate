@@ -1,6 +1,6 @@
+import { usePlayerCard } from "../app/player";
 import { Link } from "react-router";
 import { useSession } from "../api/auth/session";
-import { useProfile } from "../db/profile";
 import { playerName } from "../features/account/cards";
 import { useIdentities } from "../features/account/identities";
 import { countryByCode } from "../features/welcome/countries";
@@ -8,7 +8,7 @@ import { Flag } from "./Flag";
 
 /** Bottom of the nav: the player's card in brief. Opens the account settings, or sign-in for a guest. */
 export function PlayerSlot() {
-  const card = useProfile((s) => s.card);
+  const card = usePlayerCard();
   const status = useSession((s) => s.status);
   const signedInAs = useIdentities((s) => playerName(s.list));
   const signedIn = status === "signedIn" || status === "offline";

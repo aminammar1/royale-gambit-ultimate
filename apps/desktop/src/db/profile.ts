@@ -10,6 +10,8 @@ export type Card = {
   country: string;
   /** Unix milliseconds. */
   registeredAt: number;
+  /** The account that claimed the card (app/gate.ts `visibleCard`); null until someone signs in. */
+  ownerId: string | null;
 };
 
 export type Welcome = { state: "new" } | { state: "guest" } | ({ state: "registered" } & Card);
@@ -42,8 +44,8 @@ async function call<T>(command: string, args?: Record<string, unknown>): Promise
 
 function apply(welcome: Welcome) {
   if (welcome.state === "registered") {
-    const { cardNo, username, country, registeredAt } = welcome;
-    useProfile.setState({ status: "registered", card: { cardNo, username, country, registeredAt } });
+    const { cardNo, username, country, registeredAt, ownerId } = welcome;
+    useProfile.setState({ status: "registered", card: { cardNo, username, country, registeredAt, ownerId } });
   } else {
     useProfile.setState({ status: welcome.state, card: undefined });
   }
@@ -58,4 +60,6 @@ export const profileDb = {
     return card;
   },
   continueAsGuest: async () => apply(await call<Welcome>("profile_continue_as_guest")),
+  /** Ties an unclaimed card to the signed-in account; a claimed card keeps its first owner. */
+  claim: async (userId: string) => apply(await call<Welcome>("profile_claim", { userId })),
 };

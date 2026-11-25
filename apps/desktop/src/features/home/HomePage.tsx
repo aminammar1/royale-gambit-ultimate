@@ -1,41 +1,54 @@
+import { usePlayerCard } from "../../app/player";
+import { ChartSpline, ChessKnight, ChessPawn, ScanSearch, type LucideIcon } from "lucide-react";
 import { Link } from "react-router";
+import { ChampionQuote } from "./ChampionQuote";
 import { editionDate, greeting } from "../../app/editionDate";
 import { championsOfTheDay } from "../../app/champions";
 import { useEdition } from "../../app/edition";
-import { useProfile } from "../../db/profile";
 import { Portrait } from "../../ui/Portrait";
 import { BoardPlaceholder } from "../../ui/BoardPlaceholder";
 import { Kicker } from "../../ui/Kicker";
 import { Masthead } from "../../ui/Masthead";
 
-const HEADLINES = [
+const HEADLINES: ReadonlyArray<{
+  kicker: string;
+  title: string;
+  icon: LucideIcon;
+  text: string;
+  to: string;
+  size: string;
+}> = [
   {
     kicker: "Play · two at one board",
     title: "Play Local",
+    icon: ChessPawn,
     text: "Clocks, auto-flip and a score sheet that keeps itself.",
     to: "/play",
-    size: "text-[3.25rem] max-[1279px]:text-[2.5rem]",
+    size: "text-[2.75rem] max-[1279px]:text-[2.25rem]",
   },
   {
     kicker: "Analysis",
     title: "Analyze a Position",
+    icon: ScanSearch,
     text: "Engine best move, top three lines, eval bar.",
     to: "/analyze",
-    size: "text-[2.5rem] max-[1279px]:text-[2rem]",
+    size: "text-[2.125rem] max-[1279px]:text-[1.75rem]",
   },
   {
     kicker: "Training",
     title: "Puzzles",
+    icon: ChessKnight,
     text: "One position a day, more on request.",
     to: "/puzzles",
-    size: "text-[2.5rem] max-[1279px]:text-[2rem]",
+    size: "text-[2.125rem] max-[1279px]:text-[1.75rem]",
   },
   {
     kicker: "Review",
     title: "Review a Game",
+    icon: ChartSpline,
     text: "Accuracy, eval graph and the moments that mattered.",
     to: "/review",
-    size: "text-[2.5rem] max-[1279px]:text-[2rem]",
+    size: "text-[2.125rem] max-[1279px]:text-[1.75rem]",
   },
 ];
 
@@ -43,7 +56,7 @@ const HEADLINES = [
 export function HomePage() {
   const edition = useEdition();
   const now = new Date();
-  const username = useProfile((s) => s.card?.username);
+  const username = usePlayerCard()?.username;
   return (
     <>
       <Masthead
@@ -65,17 +78,25 @@ export function HomePage() {
           <Kicker>
             <span id="headlines">Today’s headlines</span>
           </Kicker>
-          <ul>
-            {HEADLINES.map((h) => (
-              <li key={h.title} className="border-b border-rule py-5">
-                <Link to={h.to} className="group block">
-                  <p className="label text-ink-2">{h.kicker}</p>
-                  <h2
-                    className={`mt-1 font-masthead ${h.size} leading-[1.1] font-bold group-hover:underline group-hover:decoration-1 group-hover:underline-offset-8`}
+          {/* Each headline is a button-sized tile: the whole box opens the page. */}
+          <ul className="mt-5 flex flex-col gap-3">
+            {HEADLINES.map(({ icon: Icon, ...h }) => (
+              <li key={h.title}>
+                <Link
+                  to={h.to}
+                  className="group flex items-center gap-6 rounded-[var(--radius)] border border-ink-2 px-6 py-5 transition-colors duration-150 hover:border-ink hover:bg-paper-2 active:bg-paper-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="label text-ink-2">{h.kicker}</p>
+                    <h2 className={`mt-1 font-masthead ${h.size} leading-[1.1] font-bold`}>{h.title}</h2>
+                    <p className="mt-2 font-label text-[length:var(--text-md)] text-ink-2">{h.text}</p>
+                  </div>
+                  <span
+                    aria-hidden
+                    className="flex size-12 shrink-0 items-center justify-center border border-ink text-ink transition-colors duration-150 group-hover:bg-ink group-hover:text-paper"
                   >
-                    {h.title}
-                  </h2>
-                  <p className="mt-2 font-label text-[length:var(--text-lg)] text-ink-2">{h.text}</p>
+                    <Icon size={22} strokeWidth={1.5} />
+                  </span>
                 </Link>
               </li>
             ))}
@@ -98,30 +119,30 @@ export function HomePage() {
           </p>
         </section>
 
-        <section
-          aria-labelledby="recent"
-          className="border-l border-rule pl-8 max-[1279px]:col-span-2 max-[1279px]:mt-10 max-[1279px]:border-l-0 max-[1279px]:pl-0"
-        >
-          <Kicker aside={<span className="label">All results</span>}>
-            <span id="recent">Recent games</span>
-          </Kicker>
-          <table className="mt-2 w-full border-collapse text-left">
-            <thead>
-              <tr className="label border-b border-ink text-ink-2">
-                <th className="py-3 font-medium">Date</th>
-                <th className="py-3 font-medium">Opponent · Opening</th>
-                <th className="py-3 text-right font-medium">Res.</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td colSpan={3} className="border-b border-rule py-6 font-body text-ink-2 italic">
-                  No games filed yet. Play a local game and it is filed here.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
+        <div className="flex flex-col gap-10 border-l border-rule pl-8 max-[1279px]:col-span-2 max-[1279px]:mt-10 max-[1279px]:grid max-[1279px]:grid-cols-2 max-[1279px]:gap-8 max-[1279px]:border-l-0 max-[1279px]:pl-0">
+          <ChampionQuote />
+          <section aria-labelledby="recent">
+            <Kicker aside={<span className="label">All results</span>}>
+              <span id="recent">Recent games</span>
+            </Kicker>
+            <table className="mt-2 w-full border-collapse text-left">
+              <thead>
+                <tr className="label border-b border-ink text-ink-2">
+                  <th className="py-3 font-medium">Date</th>
+                  <th className="py-3 font-medium">Opponent · Opening</th>
+                  <th className="py-3 text-right font-medium">Res.</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colSpan={3} className="border-b border-rule py-6 font-body text-ink-2 italic">
+                    No games filed yet. Play a local game and it is filed here.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+        </div>
       </div>
     </>
   );

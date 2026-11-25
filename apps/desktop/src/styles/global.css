@@ -92,3 +92,14 @@
     color: var(--board-light);
   }
 }
+
+/* Start screen: rows of champion portraits drifting sideways behind the title. The row holds its
+   portraits twice, so sliding it by half returns it to the same picture. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}

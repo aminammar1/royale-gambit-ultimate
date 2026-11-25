@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gate } from "./gate";
+import { gate, startPage, visibleCard } from "./gate";
 
 describe("gate", () => {
   it("waits while either store is still loading", () => {
@@ -37,5 +37,38 @@ describe("gate", () => {
   it("never offers a second registration", () => {
     expect(gate("registered", "guest", "/welcome")).toBe("/");
     expect(gate("guest", "signedIn", "/welcome")).toBe("/");
+  });
+});
+
+describe("visibleCard", () => {
+  const card = { cardNo: "004217", username: "amineammar", country: "TN", registeredAt: 1, ownerId: null };
+  const owned = { ...card, ownerId: "user-1" };
+
+  it("shows a card nobody has claimed to whoever uses the machine", () => {
+    expect(visibleCard(card, undefined)).toBe(card);
+    expect(visibleCard(card, "user-9")).toBe(card);
+  });
+
+  it("shows a claimed card only to its owner", () => {
+    expect(visibleCard(owned, "user-1")).toBe(owned);
+    expect(visibleCard(owned, undefined)).toBeUndefined();
+    expect(visibleCard(owned, "user-2")).toBeUndefined();
+  });
+});
+
+describe("startPage", () => {
+  it("opens sign-in for a new machine, Welcome for a signed-in player without a card", () => {
+    expect(startPage("new", "guest", undefined)).toBe("/sign-in");
+    expect(startPage("new", "signedIn", undefined)).toBe("/welcome");
+  });
+
+  it("opens sign-in when the card's owner has signed out", () => {
+    expect(startPage("registered", "guest", "user-1")).toBe("/sign-in");
+    expect(startPage("registered", "signedIn", "user-1")).toBe("/");
+  });
+
+  it("opens the front page for an unclaimed card or a guest machine", () => {
+    expect(startPage("registered", "guest", null)).toBe("/");
+    expect(startPage("guest", "guest", undefined)).toBe("/");
   });
 });

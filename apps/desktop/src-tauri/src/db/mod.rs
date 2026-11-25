@@ -13,7 +13,10 @@ use rusqlite_migration::{M, Migrations};
 use serde::Serialize;
 
 /// Append only: a shipped migration is never edited, the next change is a new entry.
-const MIGRATIONS: &[M<'static>] = &[M::up(include_str!("migrations/0001_profile.sql"))];
+const MIGRATIONS: &[M<'static>] = &[
+    M::up(include_str!("migrations/0001_profile.sql")),
+    M::up(include_str!("migrations/0002_card_owner.sql")),
+];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, thiserror::Error)]
 #[serde(
