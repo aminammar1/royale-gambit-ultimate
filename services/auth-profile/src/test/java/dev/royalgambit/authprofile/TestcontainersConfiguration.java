@@ -2,6 +2,7 @@ package dev.royalgambit.authprofile;
 
 import dev.royalgambit.authprofile.support.MailpitContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.rabbitmq.RabbitMQContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import org.springframework.boot.test.context.TestConfiguration;
@@ -17,6 +18,12 @@ class TestcontainersConfiguration {
 	@ServiceConnection
 	PostgreSQLContainer postgresContainer() {
 		return new PostgreSQLContainer(DockerImageName.parse("postgres:19.0-trixie"));
+	}
+
+	@Bean
+	@ServiceConnection
+	RabbitMQContainer rabbitContainer() {
+		return new RabbitMQContainer(DockerImageName.parse("rabbitmq:4.4.1-management-alpine"));
 	}
 
 	@Bean
