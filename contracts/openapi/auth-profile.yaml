@@ -3,9 +3,10 @@ info:
   title: auth-profile
   version: 1.0.0
   description: |
-    Who you are, and your profile (P2). Guest tokens, passwordless email sign-in, RS256 access
-    tokens with rotating refresh tokens, the JWKS the gateway verifies against, and the
-    signed-in player's profile.
+    Who you are, and your profile (P2). Guest tokens, passwordless email sign-in, Lichess
+    sign-in and linking (the server half of M11, built early), RS256 access tokens with
+    rotating refresh tokens, the JWKS the gateway verifies against, and the signed-in
+    player's profile.
 
     Access tokens live 15 minutes, refresh tokens 30 days. Every refresh returns a new refresh
     token; presenting a token that was already rotated revokes the whole session (reuse
@@ -115,6 +116,66 @@ paths:
         "204": { description: Session ended, or there was nothing to end }
         "400": { $ref: "#/components/responses/Problem" }
 
+  /v1/auth/lichess/start:
+    post:
+      operationId: startLichessSignIn
+      summary: Begin a Lichess sign-in (OAuth 2.0 authorization code with PKCE)
+      description: |
+        auth-profile keeps the PKCE verifier and the state; the app opens `authorize_url` in the
+        system browser and listens on its loopback `redirect_uri` for `code` and `state`.
+        Only loopback redirects are accepted (http://127.0.0.1, http://[::1] or
+        http://localhost, any port), so a code can only ever land on the player's own machine.
+        The flow must be completed within 10 minutes.
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/LichessStart" } } }
+      responses:
+        "200":
+          description: Where to send the player
+          content: { application/json: { schema: { $ref: "#/components/schemas/LichessAuthorization" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+
+  /v1/auth/lichess/complete:
+    post:
+      operationId: completeLichessSignIn
+      summary: Finish a Lichess sign-in, or link Lichess to the signed-in account
+      description: |
+        Without a bearer token: signs in the account linked to this Lichess user, creating it
+        (and publishing `user.registered`) the first time. With a user's bearer token: links
+        this Lichess user to that account and returns a fresh pair for it.
+
+        Problem types:
+        - 401 `.../problems/oauth-state-invalid`: unknown, expired or already used state.
+        - 401 `.../problems/lichess-code-invalid`: Lichess refused the code.
+        - 409 `.../problems/identity-taken`: this Lichess user is linked to another account.
+        - 503 `.../problems/lichess-unavailable`: Lichess did not answer properly; try again.
+      security: [{}, { bearer: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/LichessComplete" } } }
+      responses:
+        "200":
+          description: Signed in (or linked)
+          content: { application/json: { schema: { $ref: "#/components/schemas/TokenPair" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /v1/auth/identities/lichess:
+    delete:
+      operationId: unlinkLichess
+      summary: Unlink Lichess from the signed-in account (idempotent)
+      description: |
+        Refused with 409 `.../problems/last-identity` when Lichess is the only way into the
+        account, since the player could never sign in again. Guests get 403.
+      responses:
+        "204": { description: Not linked any more }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+
   /v1/profile:
     get:
       operationId: getMyProfile
@@ -199,6 +260,30 @@ components:
       required: [refresh_token]
       properties:
         refresh_token: { type: string, minLength: 1, maxLength: 200 }
+    LichessStart:
+      type: object
+      additionalProperties: false
+      required: [redirect_uri]
+      properties:
+        redirect_uri:
+          type: string
+          maxLength: 200
+          pattern: "^http://(127\\.0\\.0\\.1|\\[::1\\]|localhost):[0-9]{1,5}(/.*)?$"
+          examples: ["http://127.0.0.1:53682/callback"]
+    LichessAuthorization:
+      type: object
+      required: [authorize_url, state, expires_in]
+      properties:
+        authorize_url: { type: string, format: uri, description: Open this in the system browser }
+        state: { type: string, description: Comes back on the redirect; send it to /complete }
+        expires_in: { type: integer, description: seconds }
+    LichessComplete:
+      type: object
+      additionalProperties: false
+      required: [code, state]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 500 }
+        state: { type: string, minLength: 1, maxLength: 200 }
     TokenPair:
       type: object
       required: [access_token, token_type, expires_in, refresh_token, refresh_expires_in, user_id, role]
