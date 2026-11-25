@@ -2,14 +2,14 @@
 #   (none)     infrastructure only: postgres, redis, rabbitmq, mailpit   -> make infra
 # Every service runs in Docker (ADR-18); ports are published on localhost for inspection only.
 #   full       + every real service container                           -> make up
-#   templates  + the three template services (P1 checks, CI smoke test)
+#   templates  + the Go and Python template services (CI smoke test)
 #   obs        + OpenTelemetry collector, Jaeger, Prometheus, Grafana
 name: royal-gambit
 
 x-service-defaults: &service-defaults
   restart: unless-stopped
   depends_on:
-    postgres: { condition: service_healthy }
+    postgres-init: { condition: service_completed_successfully }
   extra_hosts: ["host.docker.internal:host-gateway"]
 
 services:
@@ -18,15 +18,28 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      SERVICE_DATABASES: ${SERVICE_DATABASES}
     ports: ["127.0.0.1:${POSTGRES_PORT}:5432"]
     volumes:
       - pgdata:/var/lib/postgresql
-      - ../db/init-databases.sh:/docker-entrypoint-initdb.d/10-init-databases.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 3s
       retries: 20
+
+  # One-shot: creates any missing per-service database, then exits. Runs on every `up`, so a
+  # new service gets its database without resetting the volume.
+  postgres-init:
+    image: postgres:19.0-trixie
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      SERVICE_DATABASES: template_go template_py auth_profile
+    volumes: ["../db/init-databases.sh:/init-databases.sh:ro"]
+    command: ["sh", "/init-databases.sh"]
+    restart: "no"
 
   redis:
     image: redis:8.8.4-trixie
@@ -59,6 +72,34 @@ services:
       interval: 3s
       retries: 20
 
+  # ---- services
+  auth-profile:
+    <<: *service-defaults
+    profiles: [full]
+    build: ../../services/auth-profile
+    depends_on:
+      postgres-init: { condition: service_completed_successfully }
+      rabbitmq: { condition: service_healthy }
+      mailpit: { condition: service_healthy }
+    develop:
+      watch:
+        - { action: rebuild, path: ../../services/auth-profile }
+    environment:
+      PORT: "8081"
+      DATABASE_URL: jdbc:postgresql://postgres:5432/auth_profile
+      DATABASE_USER: auth_profile
+      DATABASE_PASSWORD: auth_profile
+      MIGRATE_ON_START: "true"
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: rg
+      RABBITMQ_PASSWORD: rg
+      MAIL_HOST: mailpit
+      MAIL_PORT: "1025"
+      # Dev only: a fresh signing key per start, so tokens die with the container. Real
+      # environments set JWT_PRIVATE_KEY from a secret instead.
+      JWT_EPHEMERAL_KEY: "true"
+    ports: ["127.0.0.1:8081:8081"]
+
   # ---- templates (copied to create real services; never deployed)
   template-go:
     <<: *service-defaults
@@ -88,23 +129,6 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_IN_DOCKER:-}
     ports: ["127.0.0.1:8102:8102"]
 
-  template-java:
-    <<: *service-defaults
-    profiles: [templates]
-    build: ../../services/_templates/java
-    develop:
-      watch:
-        - { action: rebuild, path: ../../services/_templates/java }
-    environment:
-      PORT: "8103"
-      DATABASE_URL: jdbc:postgresql://postgres:5432/template_java
-      DATABASE_USER: template_java
-      DATABASE_PASSWORD: template_java
-      MIGRATE_ON_START: "true"
-      # Spring starts the OTLP exporter as soon as this variable exists, even empty, and then fails
-      # on a null endpoint. Uncomment it only while the obs profile runs.
-      # MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
-    ports: ["127.0.0.1:8103:8103"]
 
   # ---- observability
   otel-collector:
