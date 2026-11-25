@@ -66,6 +66,20 @@ class HousekeepingIntegrationTest {
 		assertThat(eventExists(recentPublished)).isTrue();
 	}
 
+	@Test
+	void largeBacklogsAreClearedInBatches() {
+		String email = "backlog-" + UUID.randomUUID() + "@example.com";
+		this.jdbc.sql("""
+				INSERT INTO email_codes (id, email, code_hash, attempts_left, created_at, expires_at)
+				SELECT gen_random_uuid(), :email, '\\x00', 5, now() - interval '2 days', now() - interval '2 days'
+				FROM generate_series(1, 2500)
+				""").param("email", email).update();
+
+		this.housekeeping.run();
+
+		assertThat(count("SELECT count(*) FROM email_codes WHERE email = '" + email + "'")).isZero();
+	}
+
 	private void code(String email, String createdAt) {
 		this.jdbc
 			.sql("INSERT INTO email_codes (id, email, code_hash, attempts_left, created_at, expires_at) "

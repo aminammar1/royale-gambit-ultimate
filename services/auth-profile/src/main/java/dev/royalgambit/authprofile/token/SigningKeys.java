@@ -90,6 +90,9 @@ public class SigningKeys {
 	}
 
 	private static List<RSAKey> retiredFromPem(String pems) {
+		if (pems.isBlank()) {
+			return List.of();
+		}
 		Matcher blocks = PUBLIC_PEM.matcher(pems);
 		List<RSAKey> keys = new ArrayList<>();
 		while (blocks.find()) {
@@ -107,6 +110,13 @@ public class SigningKeys {
 				throw new IllegalStateException("JWT_RETIRED_PUBLIC_KEYS holds something that is not an RSA public key",
 						ex);
 			}
+		}
+		// Anything that is not a public key block (a private key pasted by mistake, a
+		// PKCS#1 block, literal \n from a .env file) must stop the start: ignoring it
+		// would log out everyone holding a token from the old key.
+		if (keys.isEmpty() || !PUBLIC_PEM.matcher(pems).replaceAll("").isBlank()) {
+			throw new IllegalStateException(
+					"JWT_RETIRED_PUBLIC_KEYS must hold only '-----BEGIN PUBLIC KEY-----' blocks");
 		}
 		return List.copyOf(keys);
 	}

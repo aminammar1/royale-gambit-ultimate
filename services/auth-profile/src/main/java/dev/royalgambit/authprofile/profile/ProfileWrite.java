@@ -3,6 +3,7 @@ package dev.royalgambit.authprofile.profile;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 import jakarta.validation.constraints.AssertTrue;
@@ -35,13 +36,31 @@ record ProfileWrite(
 				&& this.settings.toString().getBytes(StandardCharsets.UTF_8).length <= MAX_SETTINGS_BYTES);
 	}
 
-	/**
-	 * Postgres jsonb refuses U+0000 anywhere, keys included. Serialized JSON writes it as
-	 * a backslash-u-0000 escape, so one look at the text finds it at any depth.
-	 */
+	/** Postgres jsonb refuses the NUL character anywhere, keys included. */
 	@AssertTrue(message = "must not contain the NUL character")
 	boolean isSettingsFreeOfNul() {
-		return this.settings == null || !this.settings.toString().contains("\\u0000");
+		return this.settings == null || !containsNul(this.settings);
+	}
+
+	private static boolean containsNul(JsonNode node) {
+		if (node.isString()) {
+			return node.asString().indexOf('\0') >= 0;
+		}
+		if (node.isObject()) {
+			for (Map.Entry<String, JsonNode> field : node.properties()) {
+				if (field.getKey().indexOf('\0') >= 0 || containsNul(field.getValue())) {
+					return true;
+				}
+			}
+		}
+		else if (node.isArray()) {
+			for (JsonNode element : node) {
+				if (containsNul(element)) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 }

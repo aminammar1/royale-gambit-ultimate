@@ -214,6 +214,14 @@ class ProfileIntegrationTest {
 	}
 
 	@Test
+	void theTextBackslashU0000IsFineOnlyTheCharacterIsNot() {
+		// A player can name a theme with a literal backslash-u-0000; that is just text.
+		String settings = "{\"theme\":\"odd \\\\u0000 name\"}";
+		HttpResponse<String> response = put(player(), uniqueName(), "FR", settings, "2026-11-20T10:00:00Z");
+		assertThat(response.statusCode()).as(response.body()).isEqualTo(200);
+	}
+
+	@Test
 	void settingsOver16KiBAre400() {
 		String big = "{\"blob\":\"" + "x".repeat(16 * 1024) + "\"}";
 		this.http.problem(put(player(), uniqueName(), "FR", big, "2026-11-20T10:00:00Z"), 400);

@@ -40,9 +40,13 @@ class Profiles {
 	 * Saves the write if it is newer than what we have and actually changes something.
 	 * The timestamp is capped at the database's now(): a device with its clock set to
 	 * 2099 would otherwise win every future sync.
-	 * @return whether a row was inserted or changed
+	 * <p>
+	 * Whether the public part (username, country) changed is read from the row before and
+	 * after this very statement. Comparing with an earlier SELECT would race a concurrent
+	 * write and could miss an event for good.
+	 * @return empty when nothing was saved; otherwise whether username or country changed
 	 */
-	boolean saveIfNewer(UUID userId, ProfileWrite write) {
+	Optional<Boolean> saveIfNewer(UUID userId, ProfileWrite write) {
 		return this.jdbc.sql("""
 				INSERT INTO profiles AS p (user_id, username, country, settings, updated_at)
 				VALUES (:id, :username, :country, :settings::jsonb, least(:updatedAt, now()))
@@ -52,16 +56,16 @@ class Profiles {
 				    WHERE p.updated_at < EXCLUDED.updated_at
 				      AND (p.username, p.country, p.settings)
 				          IS DISTINCT FROM (EXCLUDED.username, EXCLUDED.country, EXCLUDED.settings)
-				RETURNING user_id
+				RETURNING (old.username IS DISTINCT FROM new.username
+				           OR old.country IS DISTINCT FROM new.country) AS public_change
 				""")
 			.param("id", userId)
 			.param("username", write.username())
 			.param("country", write.country())
 			.param("settings", this.json.writeValueAsString(write.settings()))
 			.param("updatedAt", OffsetDateTime.ofInstant(write.updatedAt(), ZoneOffset.UTC))
-			.query(UUID.class)
-			.optional()
-			.isPresent();
+			.query(Boolean.class)
+			.optional();
 	}
 
 }

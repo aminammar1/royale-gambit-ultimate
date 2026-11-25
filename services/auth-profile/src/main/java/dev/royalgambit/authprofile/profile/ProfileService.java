@@ -36,21 +36,17 @@ class ProfileService {
 	 */
 	@Transactional
 	public Profile put(UUID userId, ProfileWrite write) {
-		Optional<Profile> before = this.profiles.find(userId);
-		boolean saved;
+		boolean publicChange;
 		try {
-			saved = this.profiles.saveIfNewer(userId, write);
+			// The event carries name and country only; a settings tweak would tell
+			// consumers nothing, and theme toggles would flood them.
+			publicChange = this.profiles.saveIfNewer(userId, write).orElse(false);
 		}
 		catch (DuplicateKeyException ex) {
 			throw usernameTaken(ex);
 		}
 		Profile stored = this.profiles.find(userId).orElseThrow();
-		// The event carries name and country only; a settings tweak would tell
-		// consumers nothing, and theme toggles would flood them.
-		boolean publicChange = before
-			.map((old) -> !old.username().equals(stored.username()) || !old.country().equals(stored.country()))
-			.orElse(true);
-		if (saved && publicChange) {
+		if (publicChange) {
 			this.outbox.append(ProfileUpdated.TYPE,
 					new ProfileUpdated(stored.userId(), stored.username(), stored.country(), stored.updatedAt()));
 		}

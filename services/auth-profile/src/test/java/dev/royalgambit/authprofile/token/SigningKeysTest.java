@@ -70,6 +70,20 @@ class SigningKeysTest {
 		assertThat(decoder.decode(signed(retired, retiredKid)).getSubject()).isEqualTo("someone");
 	}
 
+	@Test
+	void aRetiredKeySettingThatHoldsNoPublicKeyFailsAtStart() throws Exception {
+		// Pasting the old private key, or a PKCS#1 block, must not be silently ignored:
+		// every token signed with the old key would start failing after the rotation.
+		for (String wrong : new String[] { pem(rsa()),
+				"-----BEGIN RSA PUBLIC KEY-----\nAAAA\n-----END RSA PUBLIC KEY-----",
+				"-----BEGIN PUBLIC KEY-----\\nMIIB\\n-----END PUBLIC KEY-----" }) {
+			assertThatIllegalStateException()
+				.isThrownBy(() -> new SigningKeys(new JwtSettings(pem(rsa()), false, "royal-gambit",
+						Duration.ofMinutes(15), Duration.ofDays(30), wrong)))
+				.withMessageContaining("JWT_RETIRED_PUBLIC_KEYS");
+		}
+	}
+
 	private static String signed(KeyPair pair, String kid) throws Exception {
 		JWTClaimsSet claims = new JWTClaimsSet.Builder().issuer("royal-gambit")
 			.subject("someone")

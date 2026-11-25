@@ -57,7 +57,7 @@ token=$(curl -fsS -X POST -H 'Content-Type: application/json' -d "{\"email\":\"$
 echo "   email sign-in ok"
 # A profile to read back, so the contract check exercises GET /v1/profile beyond its 404.
 curl -fsS -X PUT -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
-  -d "{\"username\":\"smoke$RANDOM\",\"country\":\"MA\",\"settings\":{},\"updated_at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" \
+  -d "{\"username\":\"smoke$(date +%s)\",\"country\":\"MA\",\"settings\":{},\"updated_at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" \
   "$base/v1/profile" >/dev/null
 check_metrics "$base"
 contract_check auth-profile.yaml "$base" --header "Authorization: Bearer $token"
