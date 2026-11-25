@@ -1,0 +1,249 @@
+openapi: 3.1.0
+info:
+  title: auth-profile
+  version: 1.0.0
+  description: |
+    Who you are, and your profile (P2). Guest tokens, passwordless email sign-in, RS256 access
+    tokens with rotating refresh tokens, the JWKS the gateway verifies against, and the
+    signed-in player's profile.
+
+    Access tokens live 15 minutes, refresh tokens 30 days. Every refresh returns a new refresh
+    token; presenting a token that was already rotated revokes the whole session (reuse
+    detection), so a stolen token stops working for both sides.
+paths:
+  /health/live:
+    get:
+      operationId: live
+      security: []
+      responses:
+        "200": { description: Process is up, content: { application/json: { schema: { $ref: "#/components/schemas/Health" } } } }
+  /health/ready:
+    get:
+      operationId: ready
+      security: []
+      responses:
+        "200": { description: Dependencies reachable, content: { application/json: { schema: { $ref: "#/components/schemas/Health" } } } }
+        "503": { description: A dependency is down, content: { application/json: { schema: { $ref: "#/components/schemas/Health" } } } }
+
+  /.well-known/jwks.json:
+    get:
+      operationId: jwks
+      summary: Public signing keys (the gateway caches these; not routed to the client)
+      security: []
+      responses:
+        "200":
+          description: JSON Web Key Set (RFC 7517)
+          content: { application/json: { schema: { $ref: "#/components/schemas/Jwks" } } }
+
+  /v1/auth/guest:
+    post:
+      operationId: startGuestSession
+      summary: A guest account and its first token pair
+      security: []
+      responses:
+        "201":
+          description: Guest session created
+          content: { application/json: { schema: { $ref: "#/components/schemas/TokenPair" } } }
+
+  /v1/auth/email/start:
+    post:
+      operationId: startEmailSignIn
+      summary: Send a six-digit sign-in code
+      description: |
+        Always 202 for a well-formed address, whether or not an account exists, so the endpoint
+        cannot be used to find out who is registered. A new code replaces any earlier one. A
+        second request inside the resend cooldown (60 s) sends nothing.
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/EmailStart" } } }
+      responses:
+        "202": { description: Code sent (or deliberately not sent; see description) }
+        "400": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+
+  /v1/auth/email/verify:
+    post:
+      operationId: verifyEmailCode
+      summary: Trade a code for a token pair
+      description: |
+        The first successful sign-in for an address creates the account and publishes
+        `user.registered`. A code works once, for 10 minutes, and allows 5 wrong guesses.
+
+        Problem types (all 401):
+        - `.../problems/code-invalid`: wrong code; `attempts_left` says how many guesses remain.
+        - `.../problems/code-expired`: no usable code (expired, already used, or out of attempts); ask for a new one.
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/EmailVerify" } } }
+      responses:
+        "200":
+          description: Signed in
+          content: { application/json: { schema: { $ref: "#/components/schemas/TokenPair" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+
+  /v1/auth/refresh:
+    post:
+      operationId: refreshTokens
+      summary: Rotate the refresh token and get a new access token
+      description: |
+        Problem types (all 401):
+        - `.../problems/refresh-invalid`: unknown, expired or revoked token.
+        - `.../problems/refresh-reused`: the token was already rotated; the whole session is now revoked.
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RefreshRequest" } } }
+      responses:
+        "200":
+          description: New pair
+          content: { application/json: { schema: { $ref: "#/components/schemas/TokenPair" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+
+  /v1/auth/logout:
+    post:
+      operationId: logout
+      summary: End the session that owns this refresh token (idempotent)
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RefreshRequest" } } }
+      responses:
+        "204": { description: Session ended, or there was nothing to end }
+        "400": { $ref: "#/components/responses/Problem" }
+
+  /v1/profile:
+    get:
+      operationId: getMyProfile
+      summary: The signed-in player's profile
+      responses:
+        "200":
+          description: Found
+          content: { application/json: { schema: { $ref: "#/components/schemas/Profile" } } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    put:
+      operationId: putMyProfile
+      summary: Create or replace the profile (last write wins by updated_at)
+      description: |
+        The desktop app edits the profile offline and syncs it later, so the body carries the
+        time of the edit. A write older than the stored one is ignored and the stored profile
+        comes back unchanged. Guests get 403: their profile stays on the device.
+        Publishes `profile.updated` when something changed.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/ProfileWrite" } } }
+      responses:
+        "200":
+          description: The profile as stored after this write
+          content: { application/json: { schema: { $ref: "#/components/schemas/Profile" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+
+security:
+  - bearer: []
+
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  responses:
+    Problem:
+      description: RFC 9457 problem details
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string }
+    Jwks:
+      type: object
+      required: [keys]
+      properties:
+        keys:
+          type: array
+          items:
+            type: object
+            required: [kty, kid, use, alg, n, e]
+            properties:
+              kty: { const: RSA }
+              kid: { type: string, description: RFC 7638 thumbprint }
+              use: { const: sig }
+              alg: { const: RS256 }
+              n: { type: string }
+              e: { type: string }
+    EmailStart:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+    EmailVerify:
+      type: object
+      additionalProperties: false
+      required: [email, code]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        code: { type: string, pattern: "^[0-9]{6}$" }
+    RefreshRequest:
+      type: object
+      additionalProperties: false
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string, minLength: 1, maxLength: 200 }
+    TokenPair:
+      type: object
+      required: [access_token, token_type, expires_in, refresh_token, refresh_expires_in, user_id, role]
+      properties:
+        access_token: { type: string, description: "RS256 JWT; claims sub, role, scope, iss, iat, exp, jti" }
+        token_type: { const: Bearer }
+        expires_in: { type: integer, description: seconds }
+        refresh_token: { type: string, description: Opaque; keep it in the OS keychain }
+        refresh_expires_in: { type: integer, description: seconds }
+        user_id: { type: string, format: uuid, description: UUIDv7 }
+        role: { type: string, enum: [guest, user] }
+    ProfileWrite:
+      type: object
+      additionalProperties: false
+      required: [username, country, settings, updated_at]
+      properties:
+        username:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{3,20}$"
+          description: Unique, case-insensitive
+        country:
+          type: string
+          pattern: "^[A-Z]{2}$"
+          description: ISO 3166-1 alpha-2
+        settings:
+          type: object
+          description: The client's synced settings and themes, stored as given (max 16 KiB)
+        updated_at: { type: string, format: date-time, description: When the player made this edit (UTC) }
+    Profile:
+      type: object
+      required: [user_id, username, country, settings, updated_at]
+      properties:
+        user_id: { type: string, format: uuid }
+        username: { type: string }
+        country: { type: string }
+        settings: { type: object }
+        updated_at: { type: string, format: date-time }
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        trace_id: { type: string }
+        attempts_left: { type: integer, description: Only on code-invalid }

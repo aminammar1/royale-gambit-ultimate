@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://royal-gambit.dev/contracts/events/user.registered.schema.json",
+  "title": "user.registered",
+  "description": "`data` of the event auth-profile publishes the first time an email address signs in. Guests never produce it. No email or other personal data: consumers only need the id.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["user_id", "registered_at"],
+  "properties": {
+    "user_id": { "type": "string", "format": "uuid", "description": "UUIDv7, the JWT `sub`" },
+    "registered_at": { "type": "string", "format": "date-time" }
+  }
+}
