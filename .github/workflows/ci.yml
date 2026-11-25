@@ -27,7 +27,6 @@ jobs:
           filters: |
             go: ['services/_templates/go/**']
             python: ['services/_templates/python/**']
-            java: ['services/_templates/java/**']
             auth-profile: ['services/auth-profile/**', 'contracts/openapi/auth-profile.yaml', 'contracts/events/**']
             infra: ['infra/**', 'contracts/**', 'Makefile', 'scripts/**', '.github/workflows/**']
       - id: list

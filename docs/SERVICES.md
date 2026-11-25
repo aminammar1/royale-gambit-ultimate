@@ -25,7 +25,7 @@ One section per service. The diagram for each is in `docs/diagrams/NN-<name>.md`
 ## Working checklist for any service
 ### New service (only in the milestone that needs it)
 1. Write `contracts/openapi/<name>.yaml` (paths under `/v1/`, problem+json errors) and any `contracts/events/*.schema.json`. Get Amine's OK on the contract if it is big.
-2. Copy `services/_templates/<language>` to `services/<name>`; rename; keep the template's health, logging, tracing, error and Docker setup untouched.
+2. Copy `services/_templates/<language>` (Go or Python) to `services/<name>`; rename; keep the template's health, logging, tracing, error and Docker setup untouched. There is no Java template any more (ADR-12): `auth-profile` is the only Spring service and the reference for its conventions.
 3. Add it to `infra/compose/docker-compose.yml` with a health check, its own database in `infra/db/`, and a gateway route.
 4. Add `S=<name>` to `make check-svc`; add its path filter to CI.
 5. Write the README (one screen: run, env vars, test).

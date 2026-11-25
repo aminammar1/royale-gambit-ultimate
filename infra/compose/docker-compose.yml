@@ -2,7 +2,7 @@
 #   (none)     infrastructure only: postgres, redis, rabbitmq, mailpit   -> make infra
 # Every service runs in Docker (ADR-18); ports are published on localhost for inspection only.
 #   full       + every real service container                           -> make up
-#   templates  + the three template services (P1 checks, CI smoke test)
+#   templates  + the Go and Python template services (CI smoke test)
 #   obs        + OpenTelemetry collector, Jaeger, Prometheus, Grafana
 name: royal-gambit
 
@@ -36,7 +36,7 @@ services:
       PGHOST: postgres
       PGUSER: ${POSTGRES_USER}
       PGPASSWORD: ${POSTGRES_PASSWORD}
-      SERVICE_DATABASES: template_go template_py template_java auth_profile
+      SERVICE_DATABASES: template_go template_py auth_profile
     volumes: ["../db/init-databases.sh:/init-databases.sh:ro"]
     command: ["sh", "/init-databases.sh"]
     restart: "no"
@@ -129,23 +129,6 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_IN_DOCKER:-}
     ports: ["127.0.0.1:8102:8102"]
 
-  template-java:
-    <<: *service-defaults
-    profiles: [templates]
-    build: ../../services/_templates/java
-    develop:
-      watch:
-        - { action: rebuild, path: ../../services/_templates/java }
-    environment:
-      PORT: "8103"
-      DATABASE_URL: jdbc:postgresql://postgres:5432/template_java
-      DATABASE_USER: template_java
-      DATABASE_PASSWORD: template_java
-      MIGRATE_ON_START: "true"
-      # Spring starts the OTLP exporter as soon as this variable exists, even empty, and then fails
-      # on a null endpoint. Uncomment it only while the obs profile runs.
-      # MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
-    ports: ["127.0.0.1:8103:8103"]
 
   # ---- observability
   otel-collector:
