@@ -1,5 +1,6 @@
 package dev.royalgambit.authprofile.auth;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
@@ -73,6 +74,15 @@ public class EmailSignIn {
 		String email = normalize(rawEmail);
 		if (this.codes.sentWithin(email, this.settings.resendCooldown())) {
 			return;
+		}
+		// Without a cap, five guesses a minute add up: about one account in five over a
+		// month. The cap also stops this endpoint from mailing someone all day long.
+		EmailCodes.SentCounts sent = this.codes.sentCounts(email);
+		if (sent.lastDay() >= this.settings.maxPerDay()) {
+			throw AuthProblem.tooManyCodes(Duration.ofDays(1));
+		}
+		if (sent.lastHour() >= this.settings.maxPerHour()) {
+			throw AuthProblem.tooManyCodes(Duration.ofHours(1));
 		}
 		UUID id = UuidV7.next();
 		String code = Secrets.signInCode();

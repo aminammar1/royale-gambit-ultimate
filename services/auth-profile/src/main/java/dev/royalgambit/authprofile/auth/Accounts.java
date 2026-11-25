@@ -3,6 +3,7 @@ package dev.royalgambit.authprofile.auth;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -76,22 +77,23 @@ class Accounts {
 	}
 
 	/**
-	 * Locks the user's identities so two unlinks cannot both pass the "last one" check.
+	 * The providers the user can sign in with, row-locked so two unlinks at once cannot
+	 * both pass the "not the last one" check.
 	 */
-	int lockAndCountIdentities(UUID userId) {
+	List<String> lockProviders(UUID userId) {
 		return this.jdbc.sql("SELECT provider FROM identities WHERE user_id = :user FOR UPDATE")
 			.param("user", userId)
 			.query(String.class)
-			.list()
-			.size();
+			.list();
 	}
 
-	boolean hasIdentity(UUID userId, Provider provider) {
-		return this.jdbc.sql("SELECT EXISTS (SELECT 1 FROM identities WHERE user_id = :user AND provider = :provider)")
+	/** The account's identity at this provider, if it has one (at most one, by index). */
+	Optional<String> subjectOf(UUID userId, Provider provider) {
+		return this.jdbc.sql("SELECT subject FROM identities WHERE user_id = :user AND provider = :provider")
 			.param("user", userId)
 			.param("provider", provider.id())
-			.query(Boolean.class)
-			.single();
+			.query(String.class)
+			.optional();
 	}
 
 	void unlink(UUID userId, Provider provider) {

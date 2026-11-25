@@ -31,6 +31,22 @@ class EmailCodes {
 				""").param("email", email).param("seconds", cooldown.toSeconds()).query(Boolean.class).single();
 	}
 
+	/** How many codes went to the address in the last hour and the last day. */
+	record SentCounts(int lastHour, int lastDay) {
+	}
+
+	SentCounts sentCounts(String email) {
+		return this.jdbc.sql("""
+				SELECT count(*) FILTER (WHERE created_at > now() - interval '1 hour') AS last_hour,
+				       count(*) AS last_day
+				FROM email_codes
+				WHERE email = :email AND created_at > now() - interval '1 day'
+				""")
+			.param("email", email)
+			.query((rs, n) -> new SentCounts(rs.getInt("last_hour"), rs.getInt("last_day")))
+			.single();
+	}
+
 	/** Saves a new code and retires every older one for the address, in one statement. */
 	void replace(UUID id, String email, byte[] hash, int attempts, Duration ttl) {
 		this.jdbc.sql("""

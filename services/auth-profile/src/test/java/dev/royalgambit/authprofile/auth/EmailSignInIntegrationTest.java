@@ -131,6 +131,41 @@ class EmailSignInIntegrationTest {
 	}
 
 	@Test
+	void fiveCodesAnHourIsTheLimit() {
+		String email = freshEmail();
+		for (int i = 0; i < 5; i++) {
+			assertThat(this.auth.requestCode(email).statusCode()).isEqualTo(202);
+			pushPastCooldown(email);
+		}
+
+		HttpResponse<String> refused = this.auth.requestCode(email);
+		assertThat(this.http.problem(refused, 429).get("type").asString())
+			.isEqualTo("https://royal-gambit.dev/problems/too-many-codes");
+		assertThat(refused.headers().firstValue("Retry-After")).isPresent();
+		assertThat(this.mailbox.subjectsFor(email)).hasSize(5);
+	}
+
+	@Test
+	void tenCodesADayIsTheLimit() {
+		String email = freshEmail();
+		for (int i = 0; i < 10; i++) {
+			if (i == 5) {
+				// The first five are now two hours old: out of the hourly window, still
+				// today.
+				this.jdbc
+					.sql("UPDATE email_codes SET created_at = created_at - interval '2 hours' WHERE email = :email")
+					.param("email", email)
+					.update();
+			}
+			assertThat(this.auth.requestCode(email).statusCode()).isEqualTo(202);
+			pushPastCooldown(email);
+		}
+
+		this.http.problem(this.auth.requestCode(email), 429);
+		assertThat(this.mailbox.subjectsFor(email)).hasSize(10);
+	}
+
+	@Test
 	void emailIsNormalizedToOneAccount() {
 		String local = "Mixed-" + UUID.randomUUID();
 		String normalized = local.toLowerCase() + "@example.com";

@@ -176,6 +176,59 @@ class LichessSignInIntegrationTest {
 	}
 
 	@Test
+	void anAccountHoldsOneLichessUserAtATime() {
+		JsonNode emailUser = this.auth.signIn(AuthSteps.freshEmail());
+		String token = emailUser.get("access_token").asString();
+		signIn(lichessName(), token);
+
+		assertThat(type(signIn(lichessName(), token), 409)).isEqualTo(PROBLEMS + "identity-taken");
+		// So unlinking can never sweep away more than the one Lichess way in.
+		assertThat(unlink(token).statusCode()).isEqualTo(204);
+		assertThat(this.auth.signIn(emailUserEmail(emailUser)).get("user_id")).isEqualTo(emailUser.get("user_id"));
+	}
+
+	@Test
+	void aLichessOnlyAccountCannotSwapInASecondLichessUser() {
+		String token = this.http.body(signIn(lichessName())).get("access_token").asString();
+		assertThat(type(signIn(lichessName(), token), 409)).isEqualTo(PROBLEMS + "identity-taken");
+		assertThat(type(unlink(token), 409)).isEqualTo(PROBLEMS + "last-identity");
+	}
+
+	@Test
+	void aLinkFlowCanOnlyBeFinishedByTheUserWhoStartedIt() {
+		String owner = this.auth.signIn(AuthSteps.freshEmail()).get("access_token").asString();
+		String someoneElse = this.auth.signIn(AuthSteps.freshEmail()).get("access_token").asString();
+		JsonNode started = start(REDIRECT, owner);
+		String code = this.lichess.approve(started.get("authorize_url").asString(), lichessName());
+		String state = started.get("state").asString();
+
+		assertThat(type(complete(code, state, someoneElse), 401)).isEqualTo(PROBLEMS + "oauth-state-invalid");
+	}
+
+	@Test
+	void aSignInFlowCannotBeTurnedIntoALinkOnSomeoneElsesAccount() {
+		// The attacker approves with their own Lichess and gets a victim's app to post
+		// the
+		// code and state with the victim's token.
+		JsonNode victim = this.auth.signIn(AuthSteps.freshEmail());
+		JsonNode started = start(REDIRECT);
+		String attackerLichess = lichessName();
+		String code = this.lichess.approve(started.get("authorize_url").asString(), attackerLichess);
+
+		assertThat(type(complete(code, started.get("state").asString(), victim.get("access_token").asString()), 401))
+			.isEqualTo(PROBLEMS + "oauth-state-invalid");
+		// Nothing got linked: the attacker's Lichess still opens a separate, new account.
+		assertThat(this.http.body(signIn(attackerLichess)).get("user_id")).isNotEqualTo(victim.get("user_id"));
+	}
+
+	@Test
+	void aGuestTokenStartsAPlainSignIn() {
+		String guest = this.auth.guest().get("access_token").asString();
+		JsonNode signedIn = this.http.body(signIn(lichessName(), guest));
+		assertThat(signedIn.get("role").asString()).isEqualTo("user");
+	}
+
+	@Test
 	void unlinkingFreesTheLichessUser() {
 		JsonNode emailUser = this.auth.signIn(AuthSteps.freshEmail());
 		String token = emailUser.get("access_token").asString();
@@ -208,8 +261,12 @@ class LichessSignInIntegrationTest {
 	}
 
 	private JsonNode start(String redirect) {
-		HttpResponse<String> response = this.http.post("/v1/auth/lichess/start",
-				"{\"redirect_uri\":\"" + redirect + "\"}");
+		return start(redirect, null);
+	}
+
+	private JsonNode start(String redirect, String bearer) {
+		HttpResponse<String> response = this.http.send("POST", "/v1/auth/lichess/start",
+				"{\"redirect_uri\":\"" + redirect + "\"}", bearer);
 		assertThat(response.statusCode()).as(response.body()).isEqualTo(200);
 		return this.http.body(response);
 	}
@@ -220,7 +277,7 @@ class LichessSignInIntegrationTest {
 
 	/** Start, approve on "Lichess", complete: the whole round as the app runs it. */
 	private HttpResponse<String> signIn(String lichessUser, String bearer) {
-		JsonNode started = start(REDIRECT);
+		JsonNode started = start(REDIRECT, bearer);
 		String code = this.lichess.approve(started.get("authorize_url").asString(), lichessUser);
 		return complete(code, started.get("state").asString(), bearer);
 	}
@@ -232,6 +289,13 @@ class LichessSignInIntegrationTest {
 
 	private HttpResponse<String> unlink(String bearer) {
 		return this.http.send("DELETE", "/v1/auth/identities/lichess", null, bearer);
+	}
+
+	private String emailUserEmail(JsonNode tokens) {
+		return this.jdbc.sql("SELECT subject FROM identities WHERE provider = 'email' AND user_id = :id")
+			.param("id", UUID.fromString(tokens.get("user_id").asString()))
+			.query(String.class)
+			.single();
 	}
 
 	private int registrations(String userId) {

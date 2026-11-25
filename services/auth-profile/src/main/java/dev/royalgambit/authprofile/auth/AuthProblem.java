@@ -1,7 +1,9 @@
 package dev.royalgambit.authprofile.auth;
 
 import java.net.URI;
+import java.time.Duration;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.ErrorResponseException;
@@ -38,6 +40,16 @@ public final class AuthProblem extends ErrorResponseException {
 	static AuthProblem refreshReused() {
 		return new AuthProblem(HttpStatus.UNAUTHORIZED, "refresh-reused", "Session revoked",
 				"this refresh token was already used, so the session was ended for safety; sign in again");
+	}
+
+	/**
+	 * @param window the cap's window; a safe (if pessimistic) time to come back
+	 */
+	static AuthProblem tooManyCodes(Duration window) {
+		AuthProblem problem = new AuthProblem(HttpStatus.TOO_MANY_REQUESTS, "too-many-codes", "Too many codes",
+				"too many sign-in codes were sent to this address; try again later");
+		problem.getHeaders().set(HttpHeaders.RETRY_AFTER, String.valueOf(window.toSeconds()));
+		return problem;
 	}
 
 	static AuthProblem mailUnavailable() {

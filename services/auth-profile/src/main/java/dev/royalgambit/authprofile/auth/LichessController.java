@@ -41,15 +41,16 @@ class LichessController {
 		this.lichess = lichess;
 	}
 
-	@PostMapping("/v1/auth/lichess/start")
-	LichessSignIn.Authorization start(@Valid @RequestBody Start body) {
-		return this.lichess.start(body.redirectUri());
-	}
-
 	/**
 	 * A user's token here means "link to my account". A guest token does not: guests have
 	 * nothing worth linking to, so they simply sign in.
 	 */
+	@PostMapping("/v1/auth/lichess/start")
+	LichessSignIn.Authorization start(@AuthenticationPrincipal Jwt token, @Valid @RequestBody Start body) {
+		return this.lichess.start(body.redirectUri(), signedInUser(token));
+	}
+
+	/** Needs the same user's token as /start, or none for a sign-in flow. */
 	@PostMapping("/v1/auth/lichess/complete")
 	TokenPair complete(@AuthenticationPrincipal Jwt token, @Valid @RequestBody Complete body) {
 		return this.lichess.complete(body.code(), body.state(), signedInUser(token));

@@ -1,6 +1,7 @@
 package dev.royalgambit.authprofile.auth;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -58,11 +59,15 @@ public class LichessSignIn {
 
 	/**
 	 * @param redirectUri a loopback URL, already checked by the request validation
+	 * @param linkTo the signed-in user this flow links to; empty for a plain sign-in. The
+	 * choice is made here and stored with the state, never inferred at the end of the
+	 * flow.
 	 */
-	public Authorization start(String redirectUri) {
+	public Authorization start(String redirectUri, Optional<UUID> linkTo) {
 		String state = Secrets.opaqueToken();
 		String verifier = Secrets.opaqueToken();
-		this.states.save(Secrets.sha256(state), Provider.LICHESS, verifier, redirectUri, this.settings.flowTtl());
+		this.states.save(Secrets.sha256(state), Provider.LICHESS, verifier, redirectUri, linkTo.orElse(null),
+				this.settings.flowTtl());
 		String url = UriComponentsBuilder.fromUriString(this.settings.baseUrl())
 			.path("/oauth")
 			.queryParam("response_type", "code")
@@ -79,29 +84,31 @@ public class LichessSignIn {
 	}
 
 	/**
-	 * Finishes the flow. With {@code linkTo} the Lichess account joins that user; without
-	 * it, the Lichess account signs in to its own user, created on first use.
+	 * Finishes the flow. A link flow must be finished by the user who started it, a
+	 * sign-in flow by nobody in particular. Otherwise a code and state captured from one
+	 * flow could be sent with someone else's token and link the wrong accounts.
+	 * @param caller the signed-in user sending this request, if any
 	 */
-	public TokenPair complete(String code, String state, Optional<UUID> linkTo) {
-		OAuthStates.Flow flow = this.states.consume(Secrets.sha256(state), Provider.LICHESS)
+	public TokenPair complete(String code, String state, Optional<UUID> caller) {
+		OAuthStates.Flow flow = this.states.consume(Secrets.sha256(state), Provider.LICHESS, caller.orElse(null))
 			.orElseThrow(AuthProblem::oauthStateInvalid);
-		// Network calls stay outside any transaction: no row locks held while Lichess
+		// No transaction around the network calls: no row locks held while Lichess
 		// thinks.
 		LichessToken token = this.lichess.exchange(code, flow.verifier(), flow.redirectUri());
 		LichessAccount account = this.lichess.account(token.accessToken());
 		ProviderToken kept = new ProviderToken(token.accessToken(), token.expiresAt());
-		UUID userId = attach(account, kept, linkTo);
+		UUID userId = attach(account, kept, caller);
 		return this.sessions.open(userId, Role.USER);
 	}
 
 	/** Unlinks Lichess, unless it is the only way left into the account. */
 	public void unlink(UUID userId) {
 		this.transaction.executeWithoutResult((status) -> {
-			int identities = this.accounts.lockAndCountIdentities(userId);
-			if (!this.accounts.hasIdentity(userId, Provider.LICHESS)) {
+			List<String> providers = this.accounts.lockProviders(userId);
+			if (!providers.contains(Provider.LICHESS.id())) {
 				return;
 			}
-			if (identities <= 1) {
+			if (providers.stream().allMatch(Provider.LICHESS.id()::equals)) {
 				throw AuthProblem.lastIdentity();
 			}
 			this.accounts.unlink(userId, Provider.LICHESS);
@@ -113,9 +120,8 @@ public class LichessSignIn {
 			return this.transaction.execute((status) -> attachOnce(account, token, linkTo));
 		}
 		catch (DuplicateKeyException firstSignInRace) {
-			// Two first sign-ins of the same Lichess player at once: the other one
-			// created
-			// the account a moment ago, so this time we simply find it.
+			// Two first sign-ins of one Lichess player at once: the other request just
+			// created the account, so this time we find it.
 			return this.transaction.execute((status) -> attachOnce(account, token, linkTo));
 		}
 	}
@@ -124,6 +130,11 @@ public class LichessSignIn {
 		Optional<UUID> owner = this.accounts.findBy(Provider.LICHESS, account.id());
 		if (linkTo.isPresent()) {
 			if (owner.isPresent() && !owner.get().equals(linkTo.get())) {
+				throw AuthProblem.identityTaken();
+			}
+			Optional<String> current = this.accounts.subjectOf(linkTo.get(), Provider.LICHESS);
+			if (current.isPresent() && !current.get().equals(account.id())) {
+				// One Lichess user per account: the player unlinks the old one first.
 				throw AuthProblem.identityTaken();
 			}
 			if (owner.isEmpty()) {
