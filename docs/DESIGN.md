@@ -5,15 +5,15 @@ Chess history printed on newspaper. Written summary of the Claude Design boards 
 ## Color tokens
 | Token | Day Edition | Night Edition | Use |
 | --- | --- | --- | --- |
-| `--paper` | `#F3EFE6` | `#1F1D1A` | app background |
-| `--paper-2` | `#E9E3D6` | `#2B2824` | panels, sunken areas |
-| `--ink` | `#1B1A17` | `#D9D1C1` | primary text, icons |
-| `--ink-2` | `#57534A` | `#A39B8C` | secondary text, captions |
-| `--rule` | `#BDB5A6` | `#5F5950` | 1px column rules, borders |
-| `--accent` | `#9E2A2B` | `#D8736B` | the editor's red: mistakes, blunders, critical marks |
+| `--paper` | `#F3EFE6` | `#121212` | app background |
+| `--paper-2` | `#E9E3D6` | `#1F1F1F` | panels, sunken areas |
+| `--ink` | `#1B1A17` | `#EDEDED` | primary text, icons |
+| `--ink-2` | `#57534A` | `#ADADAD` | secondary text, captions |
+| `--rule` | `#BDB5A6` | `#474747` | 1px column rules, borders |
+| `--accent` | `#9E2A2B` | `#EF4444` | the editor's red: mistakes, blunders, critical marks |
 | `--focus` | `= --ink` | `= --ink` | 2px focus outline, offset 2px. Ink, not red: a red ring on a field read as an error (changed 2026-11-25) |
 
-Night was retuned on 2026-11-25 for long sessions at the board (Amine: "kills my eyes"). Same warm hues, calmer levels: a charcoal paper instead of near-black; body text at 11.1:1 instead of 13.8:1, since bright text on black blooms and tires the eye (secondary text 6.1:1, still above AA); rules at 2.4:1 so borders stay visible; and a Night board of mid-tone squares (`--board-light #A89F8A`, `--board-dark #4A453C`, 3.6:1 between them), so the largest thing on screen is not the brightest. Portraits print at 82% brightness and 92% contrast at night.
+Night (Amine, 2026-11-25, after trying a warm sepia night that tired the eyes): the neutral dark of chess sites players already use, modelled on endgame.ai. True greys with no warm cast; near-white text (16:1), secondary text 8.4:1, rules as white at about a fifth (2.0:1), the red of their error colour. The board keeps the Day colours in both editions. Portraits print at 90% brightness at night.
 
 No other hues in UI chrome; country flags (flag-icons) are content, always printed beside the country's name. Engine arrows use `--ink` at 70% (best move) and `--ink-2` (other lines). Mistake arrows use `--accent`.
 
