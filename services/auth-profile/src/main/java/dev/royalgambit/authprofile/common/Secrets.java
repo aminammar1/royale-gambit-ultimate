@@ -46,6 +46,11 @@ public final class Secrets {
 		return digest.digest();
 	}
 
+	/** PKCE S256 (RFC 7636): base64url(SHA-256(verifier)), no padding. */
+	public static String pkceChallenge(String verifier) {
+		return URL_SAFE.encodeToString(newDigest().digest(verifier.getBytes(StandardCharsets.US_ASCII)));
+	}
+
 	/**
 	 * Constant-time comparison, so response timing says nothing about how close a guess
 	 * was.

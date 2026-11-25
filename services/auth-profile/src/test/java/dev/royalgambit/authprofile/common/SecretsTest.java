@@ -39,6 +39,12 @@ class SecretsTest {
 	}
 
 	@Test
+	void pkceChallengeMatchesTheRfc7636Example() {
+		assertThat(Secrets.pkceChallenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"))
+			.isEqualTo("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
+	}
+
+	@Test
 	void sameHashComparesInConstantTimeHelper() {
 		byte[] hash = Secrets.sha256("x");
 		assertThat(Secrets.sameHash(hash, Secrets.sha256("x"))).isTrue();

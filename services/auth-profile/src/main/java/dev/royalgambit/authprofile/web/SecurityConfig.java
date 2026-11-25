@@ -62,7 +62,12 @@ class SecurityConfig {
 		http.csrf((csrf) -> csrf.disable())
 			.sessionManagement((session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.requestCache((cache) -> cache.disable())
-			.authorizeHttpRequests((requests) -> requests.requestMatchers(PUBLIC)
+			.authorizeHttpRequests((requests) -> requests
+				// Before the public /v1/auth/** rule: changing identities needs a
+				// signed-in user.
+				.requestMatchers("/v1/auth/identities/**")
+				.hasRole(Role.USER.name())
+				.requestMatchers(PUBLIC)
 				.permitAll()
 				// Guests keep their profile on the device (ADR-15).
 				.requestMatchers("/v1/profile")

@@ -1,5 +1,8 @@
 package dev.royalgambit.authprofile.auth;
 
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -9,11 +12,13 @@ import dev.royalgambit.authprofile.token.Role;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
-/** Users and the identities they sign in with. */
+/** Users and the identities they sign in with (an email address, a Lichess account). */
 @Repository
 class Accounts {
 
-	private static final String EMAIL = "email";
+	/** A provider's token kept for later calls on the player's behalf. */
+	record ProviderToken(String value, Instant expiresAt) {
+	}
 
 	private final JdbcClient jdbc;
 
@@ -30,23 +35,70 @@ class Accounts {
 		return id;
 	}
 
-	/** Call inside a transaction: the user and its identity are saved together. */
-	UUID createWithEmail(String email) {
+	/** Call inside a transaction: the user and its first identity are saved together. */
+	UUID createWith(Provider provider, String subject, ProviderToken token) {
 		UUID id = create(Role.USER);
-		this.jdbc.sql("INSERT INTO identities (provider, subject, user_id) VALUES (:provider, :email, :id)")
-			.param("provider", EMAIL)
-			.param("email", email)
-			.param("id", id)
-			.update();
+		link(id, provider, subject, token);
 		return id;
 	}
 
-	Optional<UUID> findByEmail(String email) {
-		return this.jdbc.sql("SELECT user_id FROM identities WHERE provider = :provider AND subject = :email")
-			.param("provider", EMAIL)
-			.param("email", email)
+	void link(UUID userId, Provider provider, String subject, ProviderToken token) {
+		this.jdbc.sql("""
+				INSERT INTO identities (provider, subject, user_id, access_token, access_token_expires_at)
+				VALUES (:provider, :subject, :user, :token, :expires)
+				""")
+			.param("provider", provider.id())
+			.param("subject", subject)
+			.param("user", userId)
+			.param("token", (token != null) ? token.value() : null)
+			.param("expires", (token != null) ? utc(token.expiresAt()) : null)
+			.update();
+	}
+
+	void updateToken(Provider provider, String subject, ProviderToken token) {
+		this.jdbc.sql("""
+				UPDATE identities SET access_token = :token, access_token_expires_at = :expires
+				WHERE provider = :provider AND subject = :subject
+				""")
+			.param("token", token.value())
+			.param("expires", utc(token.expiresAt()))
+			.param("provider", provider.id())
+			.param("subject", subject)
+			.update();
+	}
+
+	Optional<UUID> findBy(Provider provider, String subject) {
+		return this.jdbc.sql("SELECT user_id FROM identities WHERE provider = :provider AND subject = :subject")
+			.param("provider", provider.id())
+			.param("subject", subject)
 			.query(UUID.class)
 			.optional();
+	}
+
+	/**
+	 * Locks the user's identities so two unlinks cannot both pass the "last one" check.
+	 */
+	int lockAndCountIdentities(UUID userId) {
+		return this.jdbc.sql("SELECT provider FROM identities WHERE user_id = :user FOR UPDATE")
+			.param("user", userId)
+			.query(String.class)
+			.list()
+			.size();
+	}
+
+	boolean hasIdentity(UUID userId, Provider provider) {
+		return this.jdbc.sql("SELECT EXISTS (SELECT 1 FROM identities WHERE user_id = :user AND provider = :provider)")
+			.param("user", userId)
+			.param("provider", provider.id())
+			.query(Boolean.class)
+			.single();
+	}
+
+	void unlink(UUID userId, Provider provider) {
+		this.jdbc.sql("DELETE FROM identities WHERE user_id = :user AND provider = :provider")
+			.param("user", userId)
+			.param("provider", provider.id())
+			.update();
 	}
 
 	Optional<Role> roleOf(UUID userId) {
@@ -54,6 +106,10 @@ class Accounts {
 			.param("id", userId)
 			.query((rs, n) -> Role.fromClaim(rs.getString("role")))
 			.optional();
+	}
+
+	private static OffsetDateTime utc(Instant instant) {
+		return OffsetDateTime.ofInstant(instant, ZoneOffset.UTC);
 	}
 
 }

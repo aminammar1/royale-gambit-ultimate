@@ -1,5 +1,6 @@
 package dev.royalgambit.authprofile;
 
+import dev.royalgambit.authprofile.support.FakeLichess;
 import dev.royalgambit.authprofile.support.MailpitContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.rabbitmq.RabbitMQContainer;
@@ -10,7 +11,7 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.DynamicPropertyRegistrar;
 
-/** The real backing services, same images as the compose stack. */
+/** The real backing services, same images as the compose stack, plus a fake Lichess. */
 @TestConfiguration(proxyBeanMethods = false)
 class TestcontainersConfiguration {
 
@@ -29,6 +30,16 @@ class TestcontainersConfiguration {
 	@Bean
 	MailpitContainer mailpitContainer() {
 		return new MailpitContainer();
+	}
+
+	@Bean(destroyMethod = "close")
+	FakeLichess fakeLichess() {
+		return new FakeLichess();
+	}
+
+	@Bean
+	DynamicPropertyRegistrar lichessProperties(FakeLichess lichess) {
+		return (registry) -> registry.add("auth.lichess.base-url", lichess::baseUrl);
 	}
 
 	@Bean

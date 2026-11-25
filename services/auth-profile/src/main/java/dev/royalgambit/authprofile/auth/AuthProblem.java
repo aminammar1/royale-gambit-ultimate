@@ -45,6 +45,31 @@ public final class AuthProblem extends ErrorResponseException {
 				"the code could not be sent; try again in a moment");
 	}
 
+	static AuthProblem oauthStateInvalid() {
+		return new AuthProblem(HttpStatus.UNAUTHORIZED, "oauth-state-invalid", "Sign-in expired",
+				"this sign-in attempt is unknown, expired or already finished; start again");
+	}
+
+	static AuthProblem lichessCodeInvalid() {
+		return new AuthProblem(HttpStatus.UNAUTHORIZED, "lichess-code-invalid", "Lichess refused",
+				"Lichess did not accept the authorization code; start again");
+	}
+
+	static AuthProblem lichessUnavailable() {
+		return new AuthProblem(HttpStatus.SERVICE_UNAVAILABLE, "lichess-unavailable", "Lichess unavailable",
+				"Lichess did not answer properly; try again in a moment");
+	}
+
+	static AuthProblem identityTaken() {
+		return new AuthProblem(HttpStatus.CONFLICT, "identity-taken", "Already linked",
+				"this Lichess account is linked to another Royal Gambit account");
+	}
+
+	static AuthProblem lastIdentity() {
+		return new AuthProblem(HttpStatus.CONFLICT, "last-identity", "Cannot unlink",
+				"this is the only way into the account; link another one first");
+	}
+
 	private static ProblemDetail describe(HttpStatus status, String type, String title, String detail) {
 		ProblemDetail body = ProblemDetail.forStatusAndDetail(status, detail);
 		body.setType(URI.create(TYPES + type));

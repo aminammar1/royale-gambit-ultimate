@@ -114,11 +114,11 @@ public class EmailSignIn {
 			return new Outcome.WrongCode(this.codes.spendAttempt(active.id()));
 		}
 		this.codes.consume(active.id());
-		return new Outcome.Accepted(this.accounts.findByEmail(email).orElseGet(() -> register(email)));
+		return new Outcome.Accepted(this.accounts.findBy(Provider.EMAIL, email).orElseGet(() -> register(email)));
 	}
 
 	private UUID register(String email) {
-		UUID userId = this.accounts.createWithEmail(email);
+		UUID userId = this.accounts.createWith(Provider.EMAIL, email, null);
 		this.outbox.append(UserRegistered.TYPE, new UserRegistered(userId, Instant.now()));
 		return userId;
 	}
