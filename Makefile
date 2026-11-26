@@ -6,7 +6,7 @@ SERVICES := $(patsubst %/Makefile,%,$(wildcard services/*/Makefile services/_tem
 # S=<name> resolves to services/<name>, or services/_templates/<name> for templates (S=go|python).
 svc = $(firstword $(wildcard services/$(S) services/_templates/$(S)))
 
-.PHONY: help env infra up watch down logs check check-svc fmt-svc check-desktop smoke ps
+.PHONY: help env infra up watch down logs check check-svc fmt-svc check-desktop smoke ps clean
 
 help:
 	@grep -E '^## ' Makefile | sed 's/## //'
@@ -80,6 +80,16 @@ in-toolchain:
 ## check-desktop  the client checks (from M0)
 check-desktop:
 	@if [ -f apps/desktop/package.json ]; then cd apps/desktop && pnpm check; else echo "apps/desktop not created yet (M0): skipped"; fi
+
+## clean          free disk: the desktop's Rust build and WebKit cache, unused Docker build cache and dangling images (volumes kept)
+# The next `pnpm tauri:dev` rebuilds the Rust side once (about a minute). Named volumes (the
+# databases, the toolchain caches) are never touched.
+clean:
+	cd apps/desktop/src-tauri && cargo clean
+	rm -rf apps/desktop/node_modules/.vite "$$HOME/.local/share/dev.royalgambit.ultimate/WebKitCache"
+	-docker builder prune -f
+	-docker image prune -f
+	@df -h /
 
 ## smoke          start infra, templates and services in Docker, check health and the contracts, then stop
 SMOKE = $(COMPOSE) --profile templates --profile full
