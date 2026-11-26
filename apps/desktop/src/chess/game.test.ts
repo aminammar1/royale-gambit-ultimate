@@ -8,7 +8,9 @@ import {
   load,
   moveNumberLabel,
   newGame,
+  normalizeStart,
   numberedLine,
+  outcome,
   play,
   pvToSan,
   toPgn,
@@ -132,5 +134,56 @@ describe("scores", () => {
     expect(whiteWinPercent({ cp: 5000 })).toBe(whiteWinPercent({ cp: 1000 }));
     expect(whiteWinPercent({ mate: 2 })).toBe(100);
     expect(whiteWinPercent({ mate: -2 })).toBe(0);
+  });
+});
+
+// From the reviews of 2026-11-26: what a pasted position must become before the board uses it.
+describe("pasted positions", () => {
+  it("drop castling rights with no rook, so the board never offers a castle the server refuses", () => {
+    const loaded = load("4k3/8/8/8/8/8/8/4K3 w K - 0 1");
+    if (!loaded.ok) throw new Error(loaded.error);
+    expect(loaded.game.startFen).toBe("4k3/8/8/8/8/8/8/4K3 w - - 0 1");
+    expect(play(loaded.game, 0, "e1", "g1")).toBeUndefined();
+  });
+
+  it("refuse a position whose side not to move is in check", () => {
+    expect(load("4k3/8/8/8/8/8/4R3/4K3 w - - 0 1")).toMatchObject({ ok: false });
+    expect(normalizeStart("4k3/8/8/8/8/8/4R3/4K3 b - - 0 1").ok).toBe(true);
+  });
+
+  it("fold any spacing into single spaces", () => {
+    const loaded = load("4k3/8/8/8/8/8/4P3/4K3  b   - - 0 30");
+    if (!loaded.ok) throw new Error(loaded.error);
+    expect(loaded.game.startFen).toBe("4k3/8/8/8/8/8/4P3/4K3 b - - 0 30");
+    expect(moveNumberLabel(loaded.game.startFen)).toBe("30…");
+  });
+
+  it("start a PGN from its FEN tag even without SetUp", () => {
+    const loaded = load('[FEN "4k3/8/8/8/8/8/8/R3K3 w - - 0 1"]\n\n1. Ra8+ *');
+    if (!loaded.ok) throw new Error(loaded.error);
+    expect(loaded.game.startFen).toBe("4k3/8/8/8/8/8/8/R3K3 w - - 0 1");
+    expect(loaded.game.plies[0].san).toBe("Ra8+");
+  });
+});
+
+describe("PGN out", () => {
+  it("prints the board's result, not a stale header, and keeps comments", () => {
+    const loaded = load('[Result "1-0"]\n\n1. e4 {best by test} e5 2. Qh5 Nc6 3. Bc4 Nf6 4. Qxf7# 1-0');
+    if (!loaded.ok) throw new Error(loaded.error);
+    expect(toPgn(loaded.game)).toMatch(/1-0$/);
+    expect(toPgn(loaded.game)).toContain("{best by test}");
+    const crossed = play(loaded.game, 2, "g1", "f3");
+    if (!crossed) throw new Error("illegal");
+    expect(toPgn(crossed)).toMatch(/\*$/);
+    const mated = playAll(newGame(), ["f2f3", "e7e5", "g2g4", "d8h4"]);
+    expect(toPgn(mated)).toMatch(/0-1$/);
+  });
+});
+
+describe("outcome", () => {
+  it("comes from chess.js, not from the engine", () => {
+    expect(outcome("7k/6Q1/6K1/8/8/8/8/8 b - - 0 1")).toBe("checkmate");
+    expect(outcome("7k/5Q2/6K1/8/8/8/8/8 b - - 0 1")).toBe("stalemate");
+    expect(outcome(START_FEN)).toBeUndefined();
   });
 });

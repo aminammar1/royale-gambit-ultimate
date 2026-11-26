@@ -19,11 +19,38 @@ export type Ply = {
 export type Game = {
   startFen: string;
   plies: readonly Ply[];
-  /** PGN headers kept from an imported game (Event, White, Black...). */
+  /** PGN headers kept from an imported game (Event, White, Black...). Result is worked out again. */
   headers: Readonly<Record<string, string>>;
+  /** PGN comments, by the position they follow. Side lines are not kept. */
+  comments: Readonly<Record<string, string>>;
 };
 
-export const newGame = (startFen = START_FEN): Game => ({ startFen, plies: [], headers: {} });
+export const newGame = (startFen = START_FEN): Game => ({ startFen, plies: [], headers: {}, comments: {} });
+
+type Normal = { ok: true; fen: string } | { ok: false; error: string };
+
+/**
+ * A start position as the engine will see it, through chess.js: one space between fields,
+ * castling rights only where king and rook still stand (chess.js would otherwise let a king
+ * castle with no rook, and the server would refuse the move), and refused when the side not to
+ * move is in check, which no game can reach.
+ */
+export function normalizeStart(raw: string): Normal {
+  const fen = raw.trim().split(/\s+/).join(" ");
+  const check = validateFen(fen);
+  if (!check.ok) return { ok: false, error: check.error ?? "That FEN is not a legal position." };
+  const chess = new Chess(fen);
+  for (const color of ["w", "b"] as const) chess.setCastlingRights(color, chess.getCastlingRights(color));
+  const f = chess.fen().split(" ");
+  try {
+    if (new Chess([f[0], f[1] === "w" ? "b" : "w", f[2], "-", f[4], f[5]].join(" ")).inCheck()) {
+      return { ok: false, error: "The side not to move is in check: no game reaches that position." };
+    }
+  } catch {
+    // The position with the other side to move does not load: nothing to check.
+  }
+  return { ok: true, fen: chess.fen() };
+}
 
 const toPly = (m: { san: string; lan: string; from: string; to: string; after: string }): Ply => ({
   san: m.san,
@@ -70,9 +97,8 @@ export function load(text: string): LoadResult {
   const input = text.trim();
   if (input === "") return { ok: false, error: "Paste a FEN or a PGN first." };
   if (/^[1-8pnbrqkPNBRQK/]+\s+[wb]\s/.test(input)) {
-    const check = validateFen(input);
-    if (!check.ok) return { ok: false, error: check.error ?? "That FEN is not a legal position." };
-    return { ok: true, game: newGame(input) };
+    const start = normalizeStart(input);
+    return start.ok ? { ok: true, game: newGame(start.fen) } : start;
   }
   const chess = new Chess();
   try {
@@ -81,9 +107,20 @@ export function load(text: string): LoadResult {
     return { ok: false, error: "That is neither a FEN nor a PGN this board can read." };
   }
   const headers = chess.getHeaders();
-  const startFen = headers.FEN && headers.SetUp === "1" ? headers.FEN : START_FEN;
-  const plies = chess.history({ verbose: true }).map(toPly);
-  return { ok: true, game: { startFen, plies, headers } };
+  const history = chess.history({ verbose: true });
+  // Where chess.js really started (a FEN tag counts with or without SetUp), not what the
+  // headers seem to say; then the moves again from the cleaned start.
+  const start = normalizeStart(history[0]?.before ?? chess.fen());
+  if (!start.ok) return start;
+  const replay = new Chess(start.fen);
+  const plies: Ply[] = [];
+  try {
+    for (const m of history) plies.push(toPly(replay.move(m.san)));
+  } catch {
+    return { ok: false, error: "The moves do not fit the starting position." };
+  }
+  const comments = Object.fromEntries(chess.getComments().map((c) => [c.fen, c.comment]));
+  return { ok: true, game: { startFen: start.fen, plies, headers, comments } };
 }
 
 /** The game as PGN, its headers kept. */
@@ -94,7 +131,14 @@ export function toPgn(game: Game): string {
     chess.setHeader("SetUp", "1");
     chess.setHeader("FEN", game.startFen);
   }
-  for (const p of game.plies) chess.move(p.san);
+  if (game.comments[game.startFen]) chess.setComment(game.comments[game.startFen]);
+  for (const p of game.plies) {
+    chess.move(p.san);
+    if (game.comments[p.fen]) chess.setComment(game.comments[p.fen]);
+  }
+  // The result is the board's, not the header's: a crossed-out game is no longer won.
+  const result = chess.isCheckmate() ? (chess.turn() === "w" ? "0-1" : "1-0") : chess.isDraw() ? "1/2-1/2" : "*";
+  chess.setHeader("Result", result);
   return chess.pgn();
 }
 
@@ -139,6 +183,14 @@ export function numberedLine(fen: string, sans: readonly string[]): string {
 
 /** The side to move in `fen`. */
 export const sideToMove = (fen: string): "w" | "b" => (fen.split(" ")[1] === "b" ? "b" : "w");
+
+/** How the game stands in `fen` when nobody can move: decided by chess.js, never by the engine. */
+export function outcome(fen: string): "checkmate" | "stalemate" | undefined {
+  const chess = new Chess(fen);
+  if (chess.isCheckmate()) return "checkmate";
+  if (chess.isStalemate()) return "stalemate";
+  return undefined;
+}
 
 /** Whether the side to move in `fen` is in check. */
 export const inCheck = (fen: string): boolean => new Chess(fen).inCheck();

@@ -54,7 +54,8 @@ const notation: CSSProperties = {
 /**
  * The Newsprint board (board "Part · playable board"): ink-black dark squares, hatched paper
  * light squares, coordinates in the corners, last move at 12% ink, check as a red glow. Engine
- * arrows: the best line in --ink-2, the others in --rule (ink at 70% vanished on the black squares). Placeholder pieces until Amine's
+ * arrows: the best line in --board-arrow, the others in --board-arrow-2 (the Day --ink-2 and --rule,
+ * fixed like the board: ink at 70% vanished on the black squares). Placeholder pieces until Amine's
  * print set arrives (ADR-04).
  */
 export function ThemedBoard({ fen, orientation, onMove, lastMove, check, selected, onSquareClick, arrows = [], label }: Props) {
@@ -83,7 +84,7 @@ export function ThemedBoard({ fen, orientation, onMove, lastMove, check, selecte
         startSquare: a.from,
         endSquare: a.to,
         // Mid-tone inks read on both square colours; ink itself vanishes on the black squares.
-        color: a.best ? tokenColor("--ink-2", 0.9) : tokenColor("--rule", 0.85),
+        color: a.best ? tokenColor("--board-arrow", 0.9) : tokenColor("--board-arrow-2", 0.85),
       })),
     [arrows],
   );

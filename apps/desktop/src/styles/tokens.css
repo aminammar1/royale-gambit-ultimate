@@ -44,6 +44,10 @@
      light squares). */
   --board-light: #e9e1cc;
   --board-dark: #1b1a17;
+  /* Engine arrows: the Day --ink-2 and --rule, fixed like the board, mid-tones that read on both
+     square colours. */
+  --board-arrow: #57534a;
+  --board-arrow-2: #bdb5a6;
 
   --font-masthead: "Playfair Display", "Times New Roman", serif;
   --font-body: "Source Serif 4", Georgia, serif;

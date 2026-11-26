@@ -18,7 +18,7 @@ export function linesOf(state: EngineState): EngineLine[] {
 type Props = {
   state: EngineState;
   fen: string;
-  /** No legal move in the position: mate or stalemate, with the reason. */
+  /** No legal move in the position (chess.js): mate or stalemate, shown before any engine state. */
   over?: string;
   onRetry: () => void;
   onTurnOn: () => void;
@@ -35,7 +35,9 @@ export function EngineColumn({ state, fen, over, onRetry, onTurnOn }: Props) {
     <section aria-label="Engine" aria-busy={state.status === "thinking"}>
       <Kicker>Engine</Kicker>
 
-      {state.status === "off" ? (
+      {over ? (
+        <p className="mt-5 font-masthead text-[length:var(--text-2xl)] font-bold">{over}</p>
+      ) : state.status === "off" ? (
         <div className="mt-5 font-body text-[length:var(--text-md)] text-ink-2">
           <p>The engine is off. Turn it on to see the best move and the top three lines.</p>
           <Button className="mt-4" onClick={onTurnOn}>
@@ -54,8 +56,6 @@ export function EngineColumn({ state, fen, over, onRetry, onTurnOn }: Props) {
             Try again
           </Button>
         </div>
-      ) : over ? (
-        <p className="mt-5 font-masthead text-[length:var(--text-2xl)] font-bold">{over}</p>
       ) : (
         <>
           <div className="mt-5 border border-rule">

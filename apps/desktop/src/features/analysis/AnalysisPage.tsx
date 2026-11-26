@@ -6,6 +6,7 @@ import {
   fenAt,
   inCheck,
   isPromotion,
+  outcome,
   kingSquare,
   load,
   moveNumberLabel,
@@ -55,22 +56,23 @@ export function AnalysisPage() {
   const [promotion, setPromotion] = useState<{ from: string; to: string }>();
   const [setup, setSetup] = useState("");
   const [setupError, setSetupError] = useState<string>();
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"copied" | "failed">();
 
   const fen = fenAt(game, cursor);
   const moves = useMemo(() => ucisUpTo(game, cursor), [game, cursor]);
-  const engine = useServerAnalysis(game.startFen, moves, engineOn, attempt);
-  const lines = linesOf(engine);
+  // Mate and stalemate come from chess.js (ADR-03), never from the engine's answer.
+  const ended = outcome(fen);
+  const engine = useServerAnalysis(game.startFen, moves, engineOn && !ended, attempt);
+  const lines = ended ? [] : linesOf(engine);
   const last = cursor > 0 ? game.plies[cursor - 1] : undefined;
   const check = inCheck(fen) ? kingSquare(fen, sideToMove(fen)) : undefined;
   const over =
-    engine.status === "done" && engine.result.lines.length === 0
-      ? check
-        ? `Checkmate. ${sideToMove(fen) === "w" ? "Black" : "White"} has won.`
-        : "Stalemate. The game is drawn."
-      : undefined;
-
-  const result = over ? (check ? (sideToMove(fen) === "w" ? "0-1" : "1-0") : "½-½") : undefined;
+    ended === "checkmate"
+      ? `Checkmate. ${sideToMove(fen) === "w" ? "Black" : "White"} has won.`
+      : ended === "stalemate"
+        ? "Stalemate. The game is drawn."
+        : undefined;
+  const result = ended === "checkmate" ? (sideToMove(fen) === "w" ? "0-1" : "1-0") : ended ? "½-½" : undefined;
 
   const arrows: BoardArrow[] = lines.flatMap((l) =>
     l.pv[0] ? [{ from: l.pv[0].slice(0, 2), to: l.pv[0].slice(2, 4), best: l.multipv === 1 }] : [],
@@ -128,16 +130,33 @@ export function AnalysisPage() {
       setSetupError(result.error);
       return;
     }
-    setGame(result.game);
-    setCursor(result.game.plies.length);
-    setSetupError(undefined);
+    replaceGame(result.game, result.game.plies.length);
     setSetup("");
   };
 
   const copyPgn = async () => {
-    await navigator.clipboard.writeText(toPgn(game));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(toPgn(game));
+      setCopied("copied");
+    } catch {
+      setCopied("failed");
+    }
+    setTimeout(() => setCopied(undefined), 2000);
+  };
+
+  /** A new game on the board: nothing picked, no promotion waiting, no old error. */
+  const replaceGame = (next: Game, at: number) => {
+    setGame(next);
+    setCursor(at);
+    setSelected(undefined);
+    setPromotion(undefined);
+    setSetupError(undefined);
+  };
+
+  /** Turning the engine back on searches afresh, never shows the last answer as if new. */
+  const setEngine = (on: boolean) => {
+    if (on && !engineOn) setAttempt((n) => n + 1);
+    setEngineOn(on);
   };
 
   const moveLabel = last ? `${moveNumberLabel(fenAt(game, cursor - 1))} ${last.san}` : "Start position";
@@ -160,7 +179,7 @@ export function AnalysisPage() {
                     key={s}
                     type="button"
                     aria-pressed={status === s}
-                    onClick={() => setEngineOn(s !== "off")}
+                    onClick={() => setEngine(s !== "off")}
                     className={`label -ml-px border px-4 py-2.5 text-[length:var(--text-sm)] first:ml-0 ${
                       status === s ? "relative border-ink bg-ink text-paper" : "border-ink-2 text-ink hover:border-ink"
                     }`}
@@ -174,7 +193,7 @@ export function AnalysisPage() {
               Flip
             </Button>
             <Button variant="ghost" onClick={() => void copyPgn()} disabled={game.plies.length === 0}>
-              {copied ? "Copied" : "Copy PGN"}
+              {copied === "copied" ? "Copied" : copied === "failed" ? "Copy failed" : "Copy PGN"}
             </Button>
           </>
         }
@@ -199,15 +218,13 @@ export function AnalysisPage() {
               className="numeric mt-2 w-full resize-y rounded-[var(--radius)] border border-ink-2 bg-paper px-3 py-2 text-[length:var(--text-sm)] text-ink placeholder:text-ink-2"
             />
             {setupError ? <p className="mt-1 font-body text-[length:var(--text-sm)] text-ink">{setupError}</p> : null}
+            <p className="mt-1 font-body text-[length:var(--text-xs)] text-ink-2">Comments are kept; side lines are not.</p>
             <div className="mt-2 flex gap-1">
               <Button onClick={loadSetup}>Load</Button>
               <Button
                 variant="ghost"
                 className="whitespace-nowrap"
-                onClick={() => {
-                  setGame(newGame());
-                  setCursor(0);
-                }}
+                onClick={() => replaceGame(newGame(), 0)}
               >
                 New board
               </Button>
@@ -228,7 +245,7 @@ export function AnalysisPage() {
                 selected={selected}
                 onSquareClick={onSquareClick}
                 arrows={over ? [] : arrows}
-                label={`Board, ${sideToMove(fen) === "w" ? "White" : "Black"} to move`}
+                label={`Board, ${sideToMove(fen) === "w" ? "White" : "Black"} to move${check ? ", in check" : ""}`}
               />
             </div>
           </div>
@@ -272,7 +289,7 @@ export function AnalysisPage() {
             fen={fen}
             over={over}
             onRetry={() => setAttempt((n) => n + 1)}
-            onTurnOn={() => setEngineOn(true)}
+            onTurnOn={() => setEngine(true)}
           />
         </aside>
       </div>
