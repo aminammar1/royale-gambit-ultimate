@@ -1,22 +1,28 @@
 import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CHAMPION_QUOTES } from "../../app/quotes";
 import { useRotating } from "../../app/useRotating";
 import { Portrait } from "../../ui/Portrait";
 
 const EVERY_MS = 12000;
-const control = "flex size-8 items-center justify-center text-ink-2 hover:text-ink";
+const control = "flex size-8 items-center justify-center border border-ink-2 text-ink hover:border-ink";
 
 /**
  * The front page's pull quote: a band under the masthead with the champion's portrait, the line
  * set large in italic, and the name beneath. Turns every few seconds; holds under the pointer.
  */
+// Where the quotations stand, kept across visits to the front page: coming back continues the
+// round instead of starting again on the same quotation (Amine saw Botvinnik come back each time).
+let remembered = Math.floor(Math.random() * CHAMPION_QUOTES.length);
+
 export function ChampionQuote() {
   const reduce = useReducedMotion();
-  // Starts on a different quotation each day, then turns on its own.
-  const [today] = useState(() => Math.floor(Date.now() / 86_400_000));
-  const { index, step, paused, togglePaused, hold } = useRotating(CHAMPION_QUOTES.length, EVERY_MS, today);
+  const [start] = useState(() => remembered);
+  const { index, step, paused, togglePaused, hold } = useRotating(CHAMPION_QUOTES.length, EVERY_MS, start);
+  useEffect(() => {
+    remembered = index;
+  }, [index]);
   const quote = CHAMPION_QUOTES[index];
 
   return (
@@ -49,25 +55,28 @@ export function ChampionQuote() {
           </div>
         </motion.figure>
       </AnimatePresence>
-      <div className="flex flex-col items-center gap-1 self-start" aria-label="Quotations">
+      <div className="flex items-center gap-1 self-end" role="group" aria-label="Quotations">
         <button type="button" onClick={() => step(-1)} aria-label="Previous quotation" className={control}>
           <ChevronLeft aria-hidden size={16} strokeWidth={1.5} />
+        </button>
+        <span className="numeric min-w-12 text-center text-[length:var(--text-xs)] text-ink-2" aria-live="off">
+          {index + 1} / {CHAMPION_QUOTES.length}
+        </span>
+        <button type="button" onClick={() => step(1)} aria-label="Next quotation" className={control}>
+          <ChevronRight aria-hidden size={16} strokeWidth={1.5} />
         </button>
         <button
           type="button"
           onClick={togglePaused}
           aria-label={paused ? "Play the quotations" : "Pause the quotations"}
           aria-pressed={paused}
-          className={control}
+          className={`${control} ml-1`}
         >
           {paused ? (
             <Play aria-hidden size={14} strokeWidth={1.5} />
           ) : (
             <Pause aria-hidden size={14} strokeWidth={1.5} />
           )}
-        </button>
-        <button type="button" onClick={() => step(1)} aria-label="Next quotation" className={control}>
-          <ChevronRight aria-hidden size={16} strokeWidth={1.5} />
         </button>
       </div>
     </section>

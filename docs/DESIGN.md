@@ -15,16 +15,28 @@ Chess history printed on newspaper. Written summary of the Claude Design boards 
 
 Night (Amine, 2026-11-25, after trying a warm sepia night that tired the eyes): the neutral dark of chess sites players already use, modelled on endgame.ai. True greys with no warm cast; near-white text (16:1), secondary text 8.4:1, rules as white at about a fifth (2.0:1), the red of their error colour. The board keeps the Day colours in both editions. Portraits print at 90% brightness at night.
 
-No other hues in UI chrome; country flags (flag-icons) are content, always printed beside the country's name. Engine arrows use `--board-arrow` (best move) and `--board-arrow-2` (other lines): the Day `--ink-2` and `--rule`, fixed in both editions like the board, because ink at 70% vanished on the black squares (2026-11-26). Mistake arrows use `--accent`.
+No other hues in UI chrome; country flags (flag-icons) are content, always printed beside the country's name. Engine arrows: see Board themes below. Mistake arrows use `--accent`.
 
-### Board presets (square light / dark)
-| Preset | Light | Dark | Notes |
+### Board themes (Board & pieces, `board-customization.png`)
+Chosen in Settings → Board & pieces, saved on this machine, the same in both editions, applied to every board at once (`<html data-board>`; the values live in `tokens.css`).
+| Theme | Light | Dark | Notes |
 | --- | --- | --- | --- |
-| Newsprint (default) | `#E9E1CC` | `#1B1A17` | printed look from the boards: ink-black dark squares, paper light squares with a fine horizontal hatch (a repeating 1px line at about 8% ink, drawn inside the light squares only) |
-| Tournament Hall | `#E4DDC6` | `#7E8566` | muted olive, felt-and-wood hall |
-| Classic Wood | `#E2C9A1` | `#A77B52` | warm maple/walnut |
-| High Contrast | `#FFFFFF` | `#4F4F4F` | accessibility |
-Last-move highlight: `--ink` at 12%. Check: `--accent` at 35% radial. Legal-move dots: `--ink` at 22%.
+| Newspaper (default) | `#E9E1CC` | `#1B1A17` | black and white, the printed look: paper squares with a fine horizontal hatch, ink-black squares. Pieces carry a 1px paper outline so a black piece reads on a black square (Amine, 2026-11-26: without it the black pieces vanished) |
+| Newsprint | `#E8E2D4` | `#9C9483` | the same hatch on a softer grey |
+| Tournament Hall | `#E4DDC6` | `#7E8566` | muted olive, flat |
+| Classic Wood | `#E2C9A1` | `#A77B52` | warm maple/walnut, flat |
+| High Contrast | `#FFFFFF` | `#4F4F4F` | accessibility, flat |
+| Green | `#EEEED2` | `#769656` | the club board, flat |
+| Blue Ocean | `#DEE6EC` | `#6F8FAB` | flat |
+| Walnut | `#DDB88C` | `#7A5136` | dark wood, flat |
+| Champion | `#F4EBD0` | `#B0894C` | ivory and gold, flat |
+| Freestyle | `#E9E6DF` | `#3E5C76` | slate, flat |
+| Arcade | `#B9F3E4` | `#9A7FD1` | mint and lavender, flat |
+| Sakura | `#FDE8EC` | `#E5A3B4` | soft pinks, flat |
+
+The last seven are Amine's additions (2026-11-26), original palettes in the spirit of chess sites' boards; no brand art. **Piece sets:** Classic (react-chessboard's, outlined on Newspaper), the freely licensed Chessnut, Fantasy, Spatial, Celtic and Pixel (RhosGFX), and 3D Wood and 3D Classic (James Clarke's ray-traced Staunton renders, MIT, a raised view standing on each square), credited in `apps/desktop/src/assets/pieces/CREDITS.md`; GPL, share-alike and non-commercial sets are never bundled. Engine arrows are drawn by the app's own layer over the board. **Sounds:** wooden-board recordings (el_boss, CC0, `assets/sounds/CREDITS.md`) for a move, a capture and a new board; check and castle use the move's knock; a Sounds switch in Board & pieces, on by default. **Engine depth:** 12, 16, 20 (default), 24 or 28, chosen in the engine column and saved.
+
+Each theme says what prints on its squares: marks (last move 18%, the picked piece 30%, legal-move dots and capture rings 38%) in ink on light squares and in the theme's light colour on dark ones; coordinates likewise; engine arrows in the theme's arrow colour (best line 85%, others 40%). Check: `--accent` at 45% radial. Display switches: coordinates, last-move highlight, legal-move hints, arrows. Only the side to move can pick up a piece. Amine's print piece set joins the list when it lands; sounds and saved themes come with the rest of M2.
 
 ## Typography (all OFL, bundled locally via @fontsource; the app is offline)
 | Role | Font | Notes |
@@ -46,7 +58,7 @@ Type scale (rem): 0.75 · 0.875 · 1 · 1.125 · 1.375 · 1.75 · 2.25 · 3 (mas
 
 ## Motion
 - Durations 120–240 ms, `ease-out` or `cubic-bezier(0.2, 0, 0, 1)`. No springs with overshoot, no bounce, no scale-pop.
-- Pieces glide 150–200 ms. Panels fade and lift 4px, like a page settling. Respect `prefers-reduced-motion`.
+- Pieces glide 280 ms (Amine, 2026-11-26: smoother than the earlier 150–200 ms). Panels fade and lift 4px, like a page settling. Respect `prefers-reduced-motion`.
 
 ## Notation & marking
 - Move list in score-sheet form: `12. Nf3  Nc6`, numbered rows, tabular mono.
@@ -61,7 +73,7 @@ Every screen is a "page": masthead strip (page title, edition/date line, small a
 - Under 1280px wide (a tiled window is often ~950px) the nav narrows to an 80px rail: the icon with the name set small beneath, the logo alone, the Hall of Champions as one 48px portrait that steps on a click, and the player slot's badge. The window's minimum is 760×600.
 
 ## Start-up and sign-in (beyond the boards)
-- **Start screen** (`app/StartScreen.tsx`), every launch: first a newsreel intro, the eighteen champions in hard cuts (125 ms each, the year set large beneath), skipped by any key or click. Then the title page: three rows of champion portraits drifting sideways behind (16% opacity, 20% at night, still under reduced motion), and a panel built like the player card: a label header ("Royale Gambit · Day edition", the date) over a double rule, the logo and the nameplate on one line, a champion quotation between ink rules (portrait, a rule, the opening mark hanging), the **Start** button (Enter works), and a label footer ("Press Enter to start" · the server's state). Start reads "Getting ready…" until the card, keychain and server have answered. Every line has a fixed place, so the panel never moves or resizes while start-up answers. `index.html` paints `--paper` before the CSS loads, so the window never flashes white.
+- **Start screen** (`app/StartScreen.tsx`), every launch: first a newsreel intro, the eighteen champions in hard cuts (125 ms each, the year set large beneath), skipped by any key or click. Then the title page: three rows of champion portraits drifting sideways behind (16% opacity, 20% at night, still under reduced motion), laid out like a game's main menu as a front page (Amine, 2026-11-26, after a card, an open page and a band): one full-height paper column on the left, closed by a double rule, with the logo, the nameplate, an edition line, one champion quotation, a full-width **Start** (Enter works) and a status line, left-aligned; the champions fill the rest as a sharp photo spread at 42% (30% at night). No box over the pictures, no blur. Start reads "Getting ready…" until the card, keychain and server have answered; every line has a fixed place, so nothing moves meanwhile. `index.html` paints `--paper` before the CSS loads, so the window never flashes white.
 - **Quotations** (`app/quotes.ts`): short, commonly attributed lines from the champions. On the front page, a pull-quote band under the masthead (portrait, the line in Playfair italic with a hanging opening mark, the name beneath; turns every 12 s, holds under the pointer, previous/pause/next). Never invented quotes.
 - **Hall of Champions** turns by itself every 7 s. The portrait's frame stays put while the new photo fades in over the old one (photos decoded up front, so it never goes blank); the name hands over out-then-in with a 4px settle (never two names on top of each other). The caption is one line, "Champion · 1886". It holds under the pointer or focus, and has a Pause button (WCAG 2.2.2).
 - **Brand marks**: Lichess and Chess.com from Simple Icons (CC0), one colour in `currentColor`, so they print in ink; the brands' own hues never appear.

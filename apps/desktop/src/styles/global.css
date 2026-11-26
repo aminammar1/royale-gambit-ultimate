@@ -76,20 +76,17 @@
   }
 }
 
-/* Newsprint board preset: a fine horizontal hatch inside the light squares only. */
+/* Board squares in the chosen theme (tokens.css, Board themes). */
 @layer components {
   .board-light {
     background-color: var(--board-light);
-    background-image: repeating-linear-gradient(
-      to bottom,
-      transparent 0 3px,
-      color-mix(in srgb, var(--board-dark) 9%, transparent) 3px 4px
-    );
-    color: var(--board-dark);
+    background-image: var(--board-light-image);
+    color: var(--board-coord-light);
   }
   .board-dark {
     background-color: var(--board-dark);
-    color: var(--board-light);
+    background-image: var(--board-dark-image);
+    color: var(--board-coord-dark);
   }
 }
 

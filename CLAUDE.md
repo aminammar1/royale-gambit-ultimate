@@ -22,7 +22,7 @@ Always the latest stable release of every tool and library when you start (lates
 - Everything runs in Docker (ADR-18); the host needs no Go, Java or Python.
 - `make up` / `make down` / `make logs S=<service>` / `make watch` (rebuild on change) / `make infra` (backing stores only).
 - `make check-svc S=<name>` runs that service's checks inside its Docker `toolchain` stage; the Python template is `S=python` (Go services copy `services/analysis`).
-- `make clean` frees disk (Rust target, WebKit cache, unused Docker build cache); run it at the end of a day.
+- `make clean` frees disk (Rust target, WebKit cache, unused Docker build cache, unnamed Docker volumes left by Testcontainers); run it at the end of a day.
 - `make check` = everything. `make smoke` = templates in Docker + contract check. `make check-svc S=<name>` = one service. `make check-desktop` = the client.
 - Client (in `apps/desktop`): `pnpm tauri:dev`, `pnpm check` (typecheck + lint + vitest + `cargo test` + `cargo clippy -- -D warnings`).
 - **Run the check for what you changed before saying a task is done.**

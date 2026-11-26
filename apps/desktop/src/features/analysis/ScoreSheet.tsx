@@ -40,7 +40,7 @@ export function ScoreSheet({ game, cursor, onGo }: { game: Game; cursor: number;
         ref={move.ply === cursor ? current : undefined}
         onClick={() => onGo(move.ply)}
         aria-current={move.ply === cursor ? "step" : undefined}
-        className={`numeric w-full rounded-[var(--radius)] border px-2 py-1 text-left text-[length:var(--text-md)] ${
+        className={`numeric w-full rounded-[var(--radius)] border px-2.5 py-1.5 text-left text-[length:var(--text-lg)] ${
           move.ply === cursor ? "border-ink bg-paper-2 text-ink" : "border-transparent text-ink hover:bg-paper-2/60"
         }`}
       >
@@ -58,10 +58,13 @@ export function ScoreSheet({ game, cursor, onGo }: { game: Game; cursor: number;
     );
   }
   return (
-    <ol className="mt-2 max-h-[min(52vh,36rem)] overflow-y-auto" aria-label="Moves">
+    <ol className="mt-2 max-h-[min(46vh,30rem)] overflow-y-auto" aria-label="Moves">
       {list.map((r) => (
-        <li key={`${r.number}-${r.white?.ply ?? r.black?.ply}`} className="grid grid-cols-[2.5rem_1fr_1fr] items-center border-b border-rule">
-          <span className="numeric text-right text-[length:var(--text-sm)] text-ink-2">{r.number}.</span>
+        <li
+          key={`${r.number}-${r.white?.ply ?? r.black?.ply}`}
+          className="grid grid-cols-[2.75rem_1fr_1fr] items-center border-b border-rule"
+        >
+          <span className="numeric pr-1 text-right text-[length:var(--text-md)] text-ink-2">{r.number}.</span>
           {cell(r.white)}
           {cell(r.black)}
         </li>

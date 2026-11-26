@@ -8,8 +8,7 @@ export type EngineState =
   | { status: "done"; result: Analysis }
   | { status: "failed"; message: string; offline: boolean };
 
-/** How deep the server searches for the Analysis page, and how many lines it shows. */
-export const DEPTH = 20;
+/** How many lines the Analysis page shows; the depth is the player's (Board & pieces settings). */
 export const LINES = 3;
 
 /**
@@ -46,10 +45,12 @@ export function useServerAnalysis(
   enabled: boolean,
   /** Bump to search the same position again (Try again, or turning the engine back on). */
   attempt = 0,
+  /** How deep to search; a different depth is a different search. */
+  depth = 20,
 ): EngineState {
   // State is tagged with the search it belongs to; anything from an older search reads as a new
   // search just starting. The effect only sets state from timers and the engine's callbacks.
-  const position = `${startFen}|${moves.join(" ")}`;
+  const position = `${startFen}|${moves.join(" ")}|${depth}`;
   const key = `${position}|${attempt}`;
   const [state, setState] = useState<{ key: string; value: EngineState }>();
 
@@ -63,7 +64,7 @@ export function useServerAnalysis(
       const lines = new Map<number, EngineLine>();
       client
         .analyse(
-          { fen: startFen, moves: [...moves], depth: DEPTH, multipv: LINES },
+          { fen: startFen, moves: [...moves], depth, multipv: LINES },
           {
             signal: abort.signal,
             onInfo: (line) => {
@@ -84,7 +85,10 @@ export function useServerAnalysis(
           if (busy && tries < RETRIES && !abort.signal.aborted) timer = setTimeout(() => ask(tries + 1), RETRY_MS);
         });
     };
-    timer = setTimeout(() => (known && attempt === 0 ? set({ status: "done", result: known }) : ask(0)), known ? 0 : SETTLE_MS);
+    timer = setTimeout(
+      () => (known && attempt === 0 ? set({ status: "done", result: known }) : ask(0)),
+      known ? 0 : SETTLE_MS,
+    );
     return () => {
       clearTimeout(timer);
       abort.abort();

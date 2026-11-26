@@ -1,7 +1,12 @@
 import { useMemo, type CSSProperties } from "react";
 import { Chessboard } from "react-chessboard";
+import { useSettings, type BoardDisplay } from "../../db/settings";
+import { ArrowLayer } from "./ArrowLayer";
+import { piecesFor } from "./pieces";
 
 export type BoardArrow = { from: string; to: string; best: boolean };
+/** A square the picked piece can go to; a capture is drawn as a ring, a quiet move as a dot. */
+export type BoardTarget = { square: string; capture: boolean };
 
 type Props = {
   fen: string;
@@ -12,103 +17,112 @@ type Props = {
   lastMove?: { from: string; to: string };
   /** The king's square when the side to move is in check. */
   check?: string;
-  /** The square picked for click-to-move. */
+  /** The square of the picked piece (click or drag). */
   selected?: string;
+  /** Where the picked piece can go. */
+  targets?: readonly BoardTarget[];
   onSquareClick?: (square: string) => void;
+  /** A drag starts on `square`, or ends without a move (undefined). */
+  onPick?: (square: string | undefined) => void;
   arrows?: readonly BoardArrow[];
+  /** The board's display switches; the saved ones (Board & pieces) when left out. */
+  display?: BoardDisplay;
+  id?: string;
   label: string;
 };
 
-// The board keeps the Day colours in both editions (DESIGN.md), so it draws from the board
-// tokens, never from --ink, which turns near-white at night.
-const HATCH = "repeating-linear-gradient(to bottom, transparent 0 3px, color-mix(in srgb, var(--board-dark) 9%, transparent) 3px 4px)";
-const light: CSSProperties = { backgroundColor: "var(--board-light)", backgroundImage: HATCH };
-const dark: CSSProperties = { backgroundColor: "var(--board-dark)" };
+// Everything comes from the board theme's tokens (tokens.css, Board themes), which stay the same
+// in both editions: square colours and patterns, the colour marks take on each kind of square,
+// coordinates, arrows and the piece outline.
 const isLight = (square: string) => (square.charCodeAt(0) - 97 + Number(square[1])) % 2 === 0;
+const mark = (square: string, percent: number) =>
+  `color-mix(in srgb, var(${isLight(square) ? "--board-mark-light" : "--board-mark-dark"}) ${percent}%, transparent)`;
 
-/** A square's own colour with a tint laid over it, keeping the hatch on light squares. */
-function tinted(square: string, tint: string): CSSProperties {
-  const layer = `linear-gradient(${tint}, ${tint})`;
-  return isLight(square)
-    ? { backgroundColor: "var(--board-light)", backgroundImage: `${layer}, ${HATCH}` }
-    : { backgroundColor: "var(--board-dark)", backgroundImage: layer };
+/** A square's own colour and pattern with layers on top (the first painted on top). */
+function layered(square: string, layers: string[]): CSSProperties {
+  const light = isLight(square);
+  return {
+    backgroundColor: light ? "var(--board-light)" : "var(--board-dark)",
+    backgroundImage: [...layers, light ? "var(--board-light-image)" : "var(--board-dark-image)"].join(", "),
+  };
 }
+const tint = (square: string, percent: number) => `linear-gradient(${mark(square, percent)}, ${mark(square, percent)})`;
+const dot = (square: string) => `radial-gradient(circle, ${mark(square, 38)} 0 16%, transparent 17%)`;
+const ring = (square: string) =>
+  `radial-gradient(circle, transparent 0 74%, ${mark(square, 38)} 75% 92%, transparent 93%)`;
+
+const notation: CSSProperties = { fontFamily: "var(--font-mono)", fontSize: "0.75rem", fontWeight: 500 };
 
 /**
- * A token as an rgba() string. The board draws arrows with SVG fill/stroke attributes, where
- * var() does not resolve, so the colour is read from the token instead of written here.
+ * The board in the chosen theme (Board & pieces): coordinates in the corners, the last move and
+ * the picked piece tinted, legal moves as dots and captures as rings, check as a red glow, engine
+ * arrows (the best line stronger). Each can be switched off in Board & pieces. Only the side to
+ * move can pick up a piece.
  */
-function tokenColor(token: string, alpha: number): string {
-  const hex = getComputedStyle(document.documentElement).getPropertyValue(token).trim().replace("#", "");
-  const n = Number.parseInt(hex.length === 3 ? [...hex].map((c) => c + c).join("") : hex, 16);
-  if (Number.isNaN(n)) return `rgba(0, 0, 0, ${alpha})`;
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
-}
+export function ThemedBoard({
+  fen,
+  orientation,
+  onMove,
+  lastMove,
+  check,
+  selected,
+  targets = [],
+  onSquareClick,
+  onPick,
+  arrows = [],
+  display,
+  id = "board",
+  label,
+}: Props) {
+  const saved = useSettings((s) => s.display);
+  const show = display ?? saved;
+  const pieceSet = useSettings((s) => s.pieces);
+  const toMove = fen.split(" ")[1] === "b" ? "b" : "w";
 
-const notation: CSSProperties = {
-  fontFamily: "var(--font-mono)",
-  fontSize: "0.75rem",
-  fontWeight: 500,
-};
-
-/**
- * The Newsprint board (board "Part · playable board"): ink-black dark squares, hatched paper
- * light squares, coordinates in the corners, last move at 12% ink, check as a red glow. Engine
- * arrows: the best line in --board-arrow, the others in --board-arrow-2 (the Day --ink-2 and --rule,
- * fixed like the board: ink at 70% vanished on the black squares). Placeholder pieces until Amine's
- * print set arrives (ADR-04).
- */
-export function ThemedBoard({ fen, orientation, onMove, lastMove, check, selected, onSquareClick, arrows = [], label }: Props) {
   const squareStyles = useMemo(() => {
-    const s: Record<string, CSSProperties> = {};
-    const ink12 = "color-mix(in srgb, var(--board-dark) 12%, transparent)";
-    if (lastMove) {
-      s[lastMove.from] = tinted(lastMove.from, ink12);
-      s[lastMove.to] = tinted(lastMove.to, ink12);
+    const layers = new Map<string, string[]>();
+    const add = (square: string, layer: string) => layers.set(square, [layer, ...(layers.get(square) ?? [])]);
+    if (show.lastMove && lastMove) {
+      add(lastMove.from, tint(lastMove.from, 18));
+      add(lastMove.to, tint(lastMove.to, 18));
     }
-    if (selected) s[selected] = tinted(selected, "color-mix(in srgb, var(--board-dark) 22%, transparent)");
-    if (check) {
-      s[check] = {
-        ...tinted(check, "transparent"),
-        backgroundImage: `radial-gradient(circle, color-mix(in srgb, var(--accent) 35%, transparent) 0%, transparent 70%)${
-          isLight(check) ? `, ${HATCH}` : ""
-        }`,
-      };
-    }
-    return s;
-  }, [lastMove, check, selected]);
-
-  const boardArrows = useMemo(
-    () =>
-      arrows.map((a) => ({
-        startSquare: a.from,
-        endSquare: a.to,
-        // Mid-tone inks read on both square colours; ink itself vanishes on the black squares.
-        color: a.best ? tokenColor("--board-arrow", 0.9) : tokenColor("--board-arrow-2", 0.85),
-      })),
-    [arrows],
-  );
+    if (selected) add(selected, tint(selected, 30));
+    if (show.legalMoves) for (const t of targets) add(t.square, t.capture ? ring(t.square) : dot(t.square));
+    if (check)
+      add(check, "radial-gradient(circle, color-mix(in srgb, var(--accent) 45%, transparent) 0%, transparent 70%)");
+    return Object.fromEntries([...layers].map(([square, list]) => [square, layered(square, list)]));
+  }, [lastMove, check, selected, targets, show.lastMove, show.legalMoves]);
 
   return (
-    <div role="group" aria-label={label} className="border border-ink">
+    <div role="group" aria-label={label} className="relative border border-ink">
       <Chessboard
         options={{
-          id: "analysis-board",
+          id,
           position: fen,
           boardOrientation: orientation,
-          lightSquareStyle: light,
-          darkSquareStyle: dark,
+          pieces: piecesFor(pieceSet),
+          lightSquareStyle: { backgroundColor: "var(--board-light)", backgroundImage: "var(--board-light-image)" },
+          darkSquareStyle: { backgroundColor: "var(--board-dark)", backgroundImage: "var(--board-dark-image)" },
           squareStyles,
-          arrows: boardArrows,
           allowDrawingArrows: false,
-          animationDurationInMs: 150,
-          lightSquareNotationStyle: { ...notation, color: "var(--board-dark)" },
-          darkSquareNotationStyle: { ...notation, color: "var(--board-light)" },
-          onPieceDrop: ({ sourceSquare, targetSquare }) =>
-            targetSquare ? onMove(sourceSquare, targetSquare) : false,
+          // Smooth, not slow: a piece glides across the board (Amine asked for smoother moves).
+          animationDurationInMs: 280,
+          showNotation: show.coordinates,
+          lightSquareNotationStyle: { ...notation, color: "var(--board-coord-light)" },
+          darkSquareNotationStyle: { ...notation, color: "var(--board-coord-dark)" },
+          canDragPiece: ({ piece }) => piece.pieceType[0] === toMove,
+          onPieceDrag: ({ square }) => onPick?.(square ?? undefined),
+          onPieceDragCancel: () => onPick?.(undefined),
+          onPieceDrop: ({ sourceSquare, targetSquare }) => {
+            if (targetSquare) return onMove(sourceSquare, targetSquare);
+            onPick?.(undefined); // dropped off the board: the piece goes back, the pick ends
+            return false;
+          },
           onSquareClick: ({ square }) => onSquareClick?.(square),
         }}
       />
+      {/* Keyed by position: each position gets a fresh layer, so nothing drawn for the last one stays. */}
+      {show.arrows ? <ArrowLayer key={fen} arrows={arrows} flipped={orientation === "black"} /> : null}
     </div>
   );
 }

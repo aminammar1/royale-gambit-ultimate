@@ -136,57 +136,41 @@ function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) 
     >
       <div
         aria-hidden
-        className="absolute inset-0 flex flex-col justify-center gap-4 opacity-[0.16] grayscale [[data-edition=night]_&]:opacity-[0.13]"
+        className="absolute inset-0 flex flex-col justify-center gap-4 opacity-[0.42] grayscale [[data-edition=night]_&]:opacity-[0.3]"
       >
         <Row champions={CHAMPIONS} seconds={110} />
         <Row champions={[...CHAMPIONS.slice(third), ...CHAMPIONS.slice(0, third)]} seconds={90} reverse />
         <Row champions={[...CHAMPIONS.slice(2 * third), ...CHAMPIONS.slice(0, 2 * third)]} seconds={130} />
       </div>
 
-      <div className="relative flex h-full items-center justify-center overflow-y-auto px-6 py-8">
-        {/* Built like the player card: a double frame, a label header over a double rule, the
-            body in sections between ink rules, and a label footer. Every line has a fixed place,
-            so nothing moves while the card, the keychain and the server answer. */}
-        <motion.main
-          className="w-full max-w-[40rem] border-[3px] border-double border-ink bg-paper p-1"
-          initial={reduce ? false : { opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.24, delay: 0.1, ease: EASE }}
-        >
-          <div className="border border-ink px-8 pt-4 pb-3 max-[899px]:px-5">
-            <div className="flex items-baseline justify-between gap-4 border-b-[3px] border-double border-ink pb-2">
-              <span className="label truncate text-ink">Royale Gambit · {edition} edition</span>
-              <span className="label shrink-0 text-ink-2">{editionDate(new Date())}</span>
-            </div>
-
-            <div className="flex flex-col items-center pt-6 pb-5">
-              <img src={logo} alt="" className="block w-36 max-[899px]:w-28" draggable={false} />
-              <h1 className="mt-3 text-center font-masthead text-[length:var(--text-masthead)] leading-none font-black tracking-[-0.01em] whitespace-nowrap max-[899px]:text-[2.25rem]">
-                Royale Gambit Ultimate
-              </h1>
-            </div>
-
-            <figure className="grid grid-cols-[auto_minmax(0,1fr)] items-center border-y border-ink py-5">
-              <Portrait champion={quote.champion} className="h-20 w-16" />
-              <div className="ml-5 min-w-0 border-l border-rule pl-5">
-                {/* The opening mark hangs, so the words line up with the name beneath. */}
-                <blockquote className="font-masthead text-[length:var(--text-xl)] leading-[1.3] font-semibold italic [text-indent:-0.42em]">
-                  “{quote.text}”
-                </blockquote>
-                <figcaption className="mt-2 flex flex-wrap items-baseline gap-x-3">
-                  <span className="font-body text-[length:var(--text-md)] font-semibold">{quote.champion.name}</span>
-                  <span className="numeric text-[length:var(--text-xs)] text-ink-2">
-                    World champion from {quote.champion.since}
-                  </span>
-                </figcaption>
-              </div>
-            </figure>
+      {/* A game's main menu, as a front page: one full-height column of paper on the left,
+          closed by a double rule, holding the title and Start; the champions fill the rest as
+          a photo spread. No box floating over the pictures, no blur. */}
+      <div className="relative flex h-full">
+        <div className="flex h-full w-[min(32rem,46vw)] shrink-0 flex-col justify-center overflow-y-auto border-r-[3px] border-double border-ink bg-paper px-12 py-10 max-[899px]:px-8">
+          <motion.main
+            className="flex w-full flex-col items-start text-left"
+            initial={reduce ? false : { opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.24, delay: 0.1, ease: EASE }}
+          >
+            <img src={logo} alt="" className="block w-24" draggable={false} />
+            <h1 className="mt-4 font-masthead text-[length:var(--text-masthead)] leading-none font-black tracking-[-0.01em] max-[899px]:text-[2.25rem]">
+              Royale Gambit Ultimate
+            </h1>
+            <p className="label mt-3 flex w-full gap-3 border-t border-ink pt-2 text-ink-2">
+              <span>{edition} edition</span>
+              <span aria-hidden>·</span>
+              <span>{editionDate(new Date())}</span>
+            </p>
+            <p className="mt-6 font-masthead text-[length:var(--text-lg)] leading-snug italic">“{quote.text}”</p>
+            <p className="mt-1 font-body text-[length:var(--text-sm)] text-ink-2">{quote.champion.name}</p>
 
             <button
               type="button"
               disabled={!ready}
               onClick={onStart}
-              className={`label mt-5 w-full rounded-[var(--radius)] border py-3.5 text-[length:var(--text-md)] tracking-[0.2em] transition-colors duration-150 ${
+              className={`label mt-8 w-full rounded-[var(--radius)] border py-3.5 text-[length:var(--text-md)] tracking-[0.25em] transition-colors duration-150 ${
                 ready
                   ? "border-ink bg-ink text-paper hover:bg-paper hover:text-ink"
                   : "cursor-wait border-ink-2 bg-paper-2 text-ink-2"
@@ -194,13 +178,13 @@ function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) 
             >
               {ready ? "Start" : "Getting ready…"}
             </button>
-
-            <div className="label mt-4 flex justify-between gap-4 border-t border-rule pt-3 text-ink-2">
-              <span>{ready ? "Press Enter to start" : "Reading your card"}</span>
+            <p className="label mt-3 flex gap-3 text-ink-2">
+              <span>{ready ? "Press Enter" : "Reading your card"}</span>
+              <span aria-hidden>·</span>
               <span role="status">{SERVER_LINE[server]}</span>
-            </div>
-          </div>
-        </motion.main>
+            </p>
+          </motion.main>
+        </div>
       </div>
     </motion.div>
   );
