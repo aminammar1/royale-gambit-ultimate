@@ -11,7 +11,11 @@ const ON_OFF: &[&str] = &["on", "off"];
 
 /// Every key the app stores, with the values it accepts.
 const ALLOWED: &[(&str, &[&str])] = &[
-    ("board_theme", &["newspaper", "newsprint", "tournament", "wood", "contrast"]),
+    (
+        "board_theme",
+        &["newspaper", "newsprint", "tournament", "green", "ocean", "wood", "walnut", "champion", "freestyle", "arcade", "sakura", "contrast"],
+    ),
+    ("board_pieces", &["classic", "chessnut", "fantasy", "spatial", "celtic", "rhosgfx"]),
     ("board_coordinates", ON_OFF),
     ("board_last_move", ON_OFF),
     ("board_legal_moves", ON_OFF),

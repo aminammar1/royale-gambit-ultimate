@@ -1,6 +1,8 @@
 import { useMemo, type CSSProperties } from "react";
-import { Chessboard, defaultPieces, type PieceRenderObject } from "react-chessboard";
+import { Chessboard } from "react-chessboard";
 import { useSettings, type BoardDisplay } from "../../db/settings";
+import { ArrowLayer } from "./ArrowLayer";
+import { piecesFor } from "./pieces";
 
 export type BoardArrow = { from: string; to: string; best: boolean };
 /** A square the picked piece can go to; a capture is drawn as a ring, a quiet move as a dot. */
@@ -46,33 +48,10 @@ function layered(square: string, layers: string[]): CSSProperties {
 }
 const tint = (square: string, percent: number) => `linear-gradient(${mark(square, percent)}, ${mark(square, percent)})`;
 const dot = (square: string) => `radial-gradient(circle, ${mark(square, 38)} 0 16%, transparent 17%)`;
-const ring = (square: string) => `radial-gradient(circle, transparent 0 74%, ${mark(square, 38)} 75% 92%, transparent 93%)`;
-
-/**
- * A token as an rgba() string. The board draws arrows with SVG fill/stroke attributes, where
- * var() does not resolve, so the colour is read from the token instead of written here.
- */
-function tokenColor(token: string, alpha: number): string {
-  const hex = getComputedStyle(document.documentElement).getPropertyValue(token).trim().replace("#", "");
-  const n = Number.parseInt(hex.length === 3 ? [...hex].map((c) => c + c).join("") : hex, 16);
-  if (Number.isNaN(n)) return `rgba(0, 0, 0, ${alpha})`;
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
-}
+const ring = (square: string) =>
+  `radial-gradient(circle, transparent 0 74%, ${mark(square, 38)} 75% 92%, transparent 93%)`;
 
 const notation: CSSProperties = { fontFamily: "var(--font-mono)", fontSize: "0.75rem", fontWeight: 500 };
-
-/**
- * The placeholder pieces with the theme's outline: on Newspaper a paper line around every piece,
- * so a black piece stays readable on a black square, as the print silhouettes on the board do.
- * Amine's print set replaces them (ADR-04).
- */
-const outlinedPieces: PieceRenderObject = Object.fromEntries(
-  Object.entries(defaultPieces).map(([name, render]) => [
-    name,
-    (props?: Parameters<typeof render>[0]) =>
-      render({ ...props, svgStyle: { ...props?.svgStyle, filter: "var(--board-piece-filter)" } }),
-  ]),
-);
 
 /**
  * The board in the chosen theme (Board & pieces): coordinates in the corners, the last move and
@@ -97,7 +76,7 @@ export function ThemedBoard({
 }: Props) {
   const saved = useSettings((s) => s.display);
   const show = display ?? saved;
-  const theme = useSettings((s) => s.boardTheme);
+  const pieceSet = useSettings((s) => s.pieces);
   const toMove = fen.split(" ")[1] === "b" ? "b" : "w";
 
   const squareStyles = useMemo(() => {
@@ -109,36 +88,22 @@ export function ThemedBoard({
     }
     if (selected) add(selected, tint(selected, 30));
     if (show.legalMoves) for (const t of targets) add(t.square, t.capture ? ring(t.square) : dot(t.square));
-    if (check) add(check, "radial-gradient(circle, color-mix(in srgb, var(--accent) 45%, transparent) 0%, transparent 70%)");
+    if (check)
+      add(check, "radial-gradient(circle, color-mix(in srgb, var(--accent) 45%, transparent) 0%, transparent 70%)");
     return Object.fromEntries([...layers].map(([square, list]) => [square, layered(square, list)]));
   }, [lastMove, check, selected, targets, show.lastMove, show.legalMoves]);
 
-  const boardArrows = useMemo(
-    () =>
-      show.arrows
-        ? arrows.map((a) => ({
-            startSquare: a.from,
-            endSquare: a.to,
-            color: tokenColor("--board-arrow", a.best ? 0.85 : 0.4),
-          }))
-        : [],
-    // The theme changes the arrow colour token.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [arrows, show.arrows, theme],
-  );
-
   return (
-    <div role="group" aria-label={label} className="border border-ink">
+    <div role="group" aria-label={label} className="relative border border-ink">
       <Chessboard
         options={{
           id,
           position: fen,
           boardOrientation: orientation,
-          pieces: outlinedPieces,
+          pieces: piecesFor(pieceSet),
           lightSquareStyle: { backgroundColor: "var(--board-light)", backgroundImage: "var(--board-light-image)" },
           darkSquareStyle: { backgroundColor: "var(--board-dark)", backgroundImage: "var(--board-dark-image)" },
           squareStyles,
-          arrows: boardArrows,
           allowDrawingArrows: false,
           animationDurationInMs: 150,
           showNotation: show.coordinates,
@@ -155,6 +120,7 @@ export function ThemedBoard({
           onSquareClick: ({ square }) => onSquareClick?.(square),
         }}
       />
+      {show.arrows ? <ArrowLayer arrows={arrows} flipped={orientation === "black"} /> : null}
     </div>
   );
 }

@@ -131,3 +131,68 @@
   --board-arrow: #1b1a17;
   --board-piece-filter: none;
 }
+
+/* More themes (Amine, 2026-11-26): original palettes in the spirit of what chess sites offer. */
+[data-board="green"] {
+  --board-light: #eeeed2;
+  --board-dark: #769656;
+  --board-light-image: none;
+  --board-mark-dark: #1b1a17;
+  --board-coord-dark: #eeeed2;
+  --board-arrow: #1b1a17;
+  --board-piece-filter: none;
+}
+[data-board="ocean"] {
+  --board-light: #dee6ec;
+  --board-dark: #6f8fab;
+  --board-light-image: none;
+  --board-mark-dark: #1b1a17;
+  --board-coord-dark: #dee6ec;
+  --board-arrow: #1b1a17;
+  --board-piece-filter: none;
+}
+[data-board="walnut"] {
+  --board-light: #ddb88c;
+  --board-dark: #7a5136;
+  --board-light-image: none;
+  --board-mark-dark: #f1e2cc;
+  --board-coord-dark: #ddb88c;
+  --board-arrow: #1b1a17;
+  --board-piece-filter: none;
+}
+[data-board="champion"] {
+  --board-light: #f4ebd0;
+  --board-dark: #b0894c;
+  --board-light-image: none;
+  --board-mark-dark: #1b1a17;
+  --board-coord-dark: #f4ebd0;
+  --board-arrow: #1b1a17;
+  --board-piece-filter: none;
+}
+[data-board="freestyle"] {
+  --board-light: #e9e6df;
+  --board-dark: #3e5c76;
+  --board-light-image: none;
+  --board-mark-dark: #e9e6df;
+  --board-coord-dark: #e9e6df;
+  --board-arrow: #1b1a17;
+  --board-piece-filter: none;
+}
+[data-board="arcade"] {
+  --board-light: #b9f3e4;
+  --board-dark: #9a7fd1;
+  --board-light-image: none;
+  --board-mark-dark: #ffffff;
+  --board-coord-dark: #b9f3e4;
+  --board-arrow: #1b1a17;
+  --board-piece-filter: none;
+}
+[data-board="sakura"] {
+  --board-light: #fde8ec;
+  --board-dark: #e5a3b4;
+  --board-light-image: none;
+  --board-mark-dark: #1b1a17;
+  --board-coord-dark: #fde8ec;
+  --board-arrow: #1b1a17;
+  --board-piece-filter: none;
+}

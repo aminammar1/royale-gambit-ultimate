@@ -77,19 +77,25 @@ export function EngineColumn({ state, fen, over, onRetry, onTurnOn, onPlay }: Pr
               <span className="numeric text-[length:var(--text-2xl)] leading-none font-medium whitespace-nowrap">
                 {bestSan ? `${moveNumberLabel(fen)} ${bestSan}` : "…"}
               </span>
-              <span className="numeric text-[length:var(--text-xl)] leading-none whitespace-nowrap">{best ? formatScore(best.score) : ""}</span>
+              <span className="numeric text-[length:var(--text-xl)] leading-none whitespace-nowrap">
+                {best ? formatScore(best.score) : ""}
+              </span>
             </button>
           </div>
 
           <p className="label mt-6 border-b-[3px] border-double border-ink pb-2 text-ink-2">Top three lines</p>
           <ol aria-label="Top three lines">
             {lines.length === 0 ? (
-              <li className="py-3 font-body text-[length:var(--text-sm)] text-ink-2 italic">The engine is reading the position…</li>
+              <li className="py-3 font-body text-[length:var(--text-sm)] text-ink-2 italic">
+                The engine is reading the position…
+              </li>
             ) : (
               lines.map((l) => (
                 <li key={l.multipv} className="grid grid-cols-[1.25rem_4rem_1fr] gap-x-2 border-b border-rule py-3">
                   <span className="numeric text-[length:var(--text-sm)] text-ink-2">{l.multipv}</span>
-                  <span className={`numeric text-[length:var(--text-sm)] ${l.multipv === 1 ? "font-semibold text-ink" : "text-ink"}`}>
+                  <span
+                    className={`numeric text-[length:var(--text-sm)] ${l.multipv === 1 ? "font-semibold text-ink" : "text-ink"}`}
+                  >
                     {formatScore(l.score)}
                   </span>
                   <span className="numeric text-[length:var(--text-sm)] leading-relaxed text-ink">
@@ -113,7 +119,8 @@ export function EngineColumn({ state, fen, over, onRetry, onTurnOn, onPlay }: Pr
           </ol>
           {state.status === "done" ? (
             <p className="label mt-3 text-ink-2">
-              {state.result.engine.name} {state.result.engine.version} · server{state.result.cached ? " · from the cache" : ""}
+              {state.result.engine.name} {state.result.engine.version} · server
+              {state.result.cached ? " · from the cache" : ""}
             </p>
           ) : null}
         </>

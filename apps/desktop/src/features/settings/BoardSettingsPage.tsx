@@ -3,10 +3,11 @@ import { Link } from "react-router";
 import { useEdition } from "../../app/edition";
 import { editionDate } from "../../app/editionDate";
 import { fenAt, legalTargets, load } from "../../chess/game";
-import { BOARD_THEMES, settingsDb, useSettings } from "../../db/settings";
+import { BOARD_THEMES, PIECE_SETS, settingsDb, useSettings, type PieceSet } from "../../db/settings";
 import { Masthead } from "../../ui/Masthead";
 import { ThemedBoard } from "../board/ThemedBoard";
-import { BOARD_THEME_COLOURS, BOARD_THEME_NAMES, DISPLAY_ROWS } from "./boardThemes";
+import { pieceImage } from "../board/pieces";
+import { BOARD_THEME_COLOURS, BOARD_THEME_NAMES, DISPLAY_ROWS, PIECE_SET_NAMES } from "./boardThemes";
 
 /** The preview of the board: after 3… a6 of a Ruy Lopez, the knight on f3 picked. */
 const PREVIEW = load("1. e4 e5 2. Nf3 Nc6 3. Bb5 a6");
@@ -23,16 +24,37 @@ function Swatch({ theme }: { theme: (typeof BOARD_THEMES)[number] }) {
   );
 }
 
+/** A white king and a black queen of `set`, on the chosen board's light square. */
+function PieceSample({ set }: { set: PieceSet }) {
+  if (set === "classic") {
+    return (
+      <span
+        aria-hidden
+        className="board-light flex size-11 shrink-0 items-center justify-center border border-ink-2 font-masthead text-[1.6rem] leading-none"
+      >
+        ♔♛
+      </span>
+    );
+  }
+  return (
+    <span aria-hidden className="board-light flex size-11 shrink-0 items-center justify-center border border-ink-2">
+      <img src={pieceImage(set, "wK")} alt="" className="size-5" />
+      <img src={pieceImage(set, "bQ")} alt="" className="size-5" />
+    </span>
+  );
+}
+
 /**
  * Board & pieces (board design/newsprint/board-customization.png, M2, pulled forward): the
  * square colours on the left, a live preview in the middle, the display switches on the right.
- * Saved on this machine, applied to every board at once. Piece sets wait for Amine's print art
- * (ADR-04); sounds and saved themes come with the rest of M2.
+ * Saved on this machine, applied to every board at once. Piece sets: the free ones bundled in
+ * src/assets/pieces until Amine's print set lands (ADR-04); sounds and saved themes come later.
  */
 export function BoardSettingsPage() {
   const edition = useEdition();
   const theme = useSettings((s) => s.boardTheme);
   const display = useSettings((s) => s.display);
+  const pieces = useSettings((s) => s.pieces);
   const game = PREVIEW.ok ? PREVIEW.game : undefined;
   const fen = game ? fenAt(game, game.plies.length) : "";
   const last = game?.plies.at(-1);
@@ -46,7 +68,11 @@ export function BoardSettingsPage() {
         dateline={[`${edition} edition`, editionDate(new Date()), "Applies to every board", "Live preview"]}
         actions={
           <>
-            <button type="button" onClick={settingsDb.resetBoard} className="label text-ink underline-offset-4 hover:underline">
+            <button
+              type="button"
+              onClick={settingsDb.resetBoard}
+              className="label text-ink underline-offset-4 hover:underline"
+            >
               Reset
             </button>
             <Link to="/settings" className="label text-ink underline-offset-4 hover:underline">
@@ -55,12 +81,12 @@ export function BoardSettingsPage() {
           </>
         }
       />
-      <div className="grid grid-cols-[17rem_minmax(0,1fr)_17rem] py-8 max-[1279px]:grid-cols-[15rem_minmax(0,1fr)] max-[1279px]:gap-y-8">
+      <div className="grid grid-cols-[25rem_minmax(0,1fr)_16rem] py-8 max-[1279px]:grid-cols-[23rem_minmax(0,1fr)] max-[1279px]:gap-y-8">
         <section aria-labelledby="squares" className="pr-6">
           <h2 id="squares" className="border-b border-ink pb-3 font-masthead text-[length:var(--text-2xl)] font-bold">
             Square colours
           </h2>
-          <div role="radiogroup" aria-labelledby="squares" className="mt-4 flex flex-col gap-2">
+          <div role="radiogroup" aria-labelledby="squares" className="mt-4 grid grid-cols-2 gap-2">
             {BOARD_THEMES.map((t) => (
               <button
                 key={t}
@@ -68,25 +94,47 @@ export function BoardSettingsPage() {
                 role="radio"
                 aria-checked={theme === t}
                 onClick={() => settingsDb.setBoardTheme(t)}
-                className={`flex items-center gap-3 rounded-[var(--radius)] border px-3 py-2.5 text-left ${
+                title={BOARD_THEME_COLOURS[t]}
+                className={`flex items-center gap-2 rounded-[var(--radius)] border px-2 py-2 text-left ${
                   theme === t ? "border-ink bg-paper-2" : "border-ink-2 hover:border-ink"
                 }`}
               >
                 <Swatch theme={t} />
-                <span className="min-w-0 flex-1">
-                  <span className="block font-body text-[length:var(--text-lg)] font-semibold text-ink">{BOARD_THEME_NAMES[t]}</span>
-                  <span className="numeric block text-[length:var(--text-xs)] text-ink-2">{BOARD_THEME_COLOURS[t]}</span>
+                <span className="min-w-0 flex-1 font-body text-[length:var(--text-sm)] font-semibold whitespace-nowrap text-ink">
+                  {BOARD_THEME_NAMES[t]}
                 </span>
-                {theme === t ? (
-                  <span aria-hidden className="text-[length:var(--text-lg)] text-ink">
-                    ✓
-                  </span>
-                ) : null}
               </button>
             ))}
           </div>
-          <p className="mt-6 font-body text-[length:var(--text-sm)] text-ink-2">
-            Pieces are placeholders, outlined so they read on any square, until the print set lands.
+
+          <h2
+            id="pieces"
+            className="mt-8 border-b border-ink pb-3 font-masthead text-[length:var(--text-2xl)] font-bold"
+          >
+            Piece set
+          </h2>
+          <div role="radiogroup" aria-labelledby="pieces" className="mt-4 grid grid-cols-2 gap-2">
+            {PIECE_SETS.map((set) => (
+              <button
+                key={set}
+                type="button"
+                role="radio"
+                aria-checked={pieces === set}
+                onClick={() => settingsDb.setPieces(set)}
+                title={PIECE_SET_NAMES[set].by}
+                className={`flex items-center gap-2 rounded-[var(--radius)] border px-2 py-2 text-left ${
+                  pieces === set ? "border-ink bg-paper-2" : "border-ink-2 hover:border-ink"
+                }`}
+              >
+                <PieceSample set={set} />
+                <span className="min-w-0 flex-1 font-body text-[length:var(--text-sm)] font-semibold whitespace-nowrap text-ink">
+                  {PIECE_SET_NAMES[set].name}
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-4 font-body text-[length:var(--text-xs)] text-ink-2">
+            Free sets, credited in the app&apos;s sources. Your own print set joins them when it lands.
           </p>
         </section>
 
@@ -106,9 +154,11 @@ export function BoardSettingsPage() {
                 label="Preview board"
               />
             ) : null}
-            <p className="numeric mt-3 flex justify-between text-[length:var(--text-sm)] text-ink-2">
+            <p className="numeric mt-3 flex justify-between gap-4 text-[length:var(--text-sm)] text-ink-2">
               <span>Preview · after 3… a6 · Nf3 picked</span>
-              <span>{BOARD_THEME_NAMES[theme]}</span>
+              <span>
+                {BOARD_THEME_NAMES[theme]} · {PIECE_SET_NAMES[pieces].name}
+              </span>
             </p>
           </div>
         </section>

@@ -39,7 +39,8 @@ const navButton =
 
 /** Typing in a field keeps the arrow keys and F for the field. */
 const typing = (target: EventTarget | null) =>
-  target instanceof HTMLElement && (target.tagName === "TEXTAREA" || target.tagName === "INPUT" || target.isContentEditable);
+  target instanceof HTMLElement &&
+  (target.tagName === "TEXTAREA" || target.tagName === "INPUT" || target.isContentEditable);
 
 /**
  * The Analysis page (board `analysis.png`): the moves on the left, the board with its eval bar in
@@ -57,7 +58,7 @@ export function AnalysisPage() {
   const [promotion, setPromotion] = useState<{ from: string; to: string }>();
   const [setup, setSetup] = useState("");
   const [setupError, setSetupError] = useState<string>();
-  const [copied, setCopied] = useState<"copied" | "failed">();
+  const [copied, setCopied] = useState<{ what: "FEN" | "PGN"; ok: boolean }>();
 
   const fen = fenAt(game, cursor);
   const moves = useMemo(() => ucisUpTo(game, cursor), [game, cursor]);
@@ -79,11 +80,14 @@ export function AnalysisPage() {
     l.pv[0] ? [{ from: l.pv[0].slice(0, 2), to: l.pv[0].slice(2, 4), best: l.multipv === 1 }] : [],
   );
 
-  const go = useCallback((ply: number) => {
-    setCursor(Math.max(0, Math.min(ply, game.plies.length)));
-    setSelected(undefined);
-    setPromotion(undefined);
-  }, [game.plies.length]);
+  const go = useCallback(
+    (ply: number) => {
+      setCursor(Math.max(0, Math.min(ply, game.plies.length)));
+      setSelected(undefined);
+      setPromotion(undefined);
+    },
+    [game.plies.length],
+  );
 
   const tryMove = (from: string, to: string, piece?: string): boolean => {
     if (!piece && isPromotion(fen, from, to)) {
@@ -163,15 +167,18 @@ export function AnalysisPage() {
     setSetup("");
   };
 
-  const copyPgn = async () => {
+  /** Copies the position on the board (FEN) or the whole game (PGN), and says so. */
+  const copy = async (what: "FEN" | "PGN") => {
     try {
-      await navigator.clipboard.writeText(toPgn(game));
-      setCopied("copied");
+      await navigator.clipboard.writeText(what === "FEN" ? fen : toPgn(game));
+      setCopied({ what, ok: true });
     } catch {
-      setCopied("failed");
+      setCopied({ what, ok: false });
     }
     setTimeout(() => setCopied(undefined), 2000);
   };
+  const copyLabel = (what: "FEN" | "PGN") =>
+    copied?.what === what ? (copied.ok ? "Copied" : "Copy failed") : `Copy ${what}`;
 
   /** A new game on the board: nothing picked, no promotion waiting, no old error. */
   const replaceGame = (next: Game, at: number) => {
@@ -189,7 +196,8 @@ export function AnalysisPage() {
   };
 
   const moveLabel = last ? `${moveNumberLabel(fenAt(game, cursor - 1))} ${last.san}` : "Start position";
-  const engineName = engine.status === "done" ? `${engine.result.engine.name} ${engine.result.engine.version}` : "Stockfish";
+  const engineName =
+    engine.status === "done" ? `${engine.result.engine.name} ${engine.result.engine.version}` : "Stockfish";
   const status = engine.status === "off" ? "off" : engine.status === "done" ? "done" : "thinking";
 
   return (
@@ -221,17 +229,29 @@ export function AnalysisPage() {
             <Button variant="ghost" onClick={() => setFlipped((v) => !v)} aria-keyshortcuts="F">
               Flip
             </Button>
-            <Button variant="ghost" onClick={() => void copyPgn()} disabled={game.plies.length === 0}>
-              {copied === "copied" ? "Copied" : copied === "failed" ? "Copy failed" : "Copy PGN"}
-            </Button>
           </>
         }
       />
 
-      <div className="grid gap-y-8 py-6 [grid-template-areas:'moves_board_engine'] grid-cols-[12.5rem_minmax(0,1fr)_19rem] max-[1279px]:grid-cols-[minmax(0,1fr)_17rem] max-[1279px]:[grid-template-areas:'board_engine''board_moves']">
-        <section aria-label="Moves" className="border-rule pr-5 [grid-area:moves] max-[1279px]:border-l max-[1279px]:pr-0 max-[1279px]:pl-6">
-          <Kicker>Moves</Kicker>
+      <div className="grid gap-y-8 py-6 [grid-template-areas:'moves_board_engine'] grid-cols-[17rem_minmax(0,1fr)_19rem] max-[1279px]:grid-cols-[minmax(0,1fr)_18rem] max-[1279px]:[grid-template-areas:'board_engine''board_moves']">
+        <section
+          aria-label="Moves"
+          className="border-rule pr-5 [grid-area:moves] max-[1279px]:border-l max-[1279px]:pr-0 max-[1279px]:pl-6"
+        >
+          <Kicker aside={game.plies.length > 0 ? `${Math.ceil(game.plies.length / 2)} moves` : undefined}>Moves</Kicker>
           <ScoreSheet game={game} cursor={cursor} onGo={go} />
+          <div className="mt-4 grid grid-cols-2 gap-2" aria-label="Export">
+            <Button onClick={() => void copy("FEN")} title="The position on the board, to paste anywhere">
+              {copyLabel("FEN")}
+            </Button>
+            <Button
+              onClick={() => void copy("PGN")}
+              disabled={game.plies.length === 0}
+              title="The whole game with its moves"
+            >
+              {copyLabel("PGN")}
+            </Button>
+          </div>
 
           <div className="mt-8">
             <label htmlFor="setup" className="label text-ink-2">
@@ -247,23 +267,30 @@ export function AnalysisPage() {
               className="numeric mt-2 w-full resize-y rounded-[var(--radius)] border border-ink-2 bg-paper px-3 py-2 text-[length:var(--text-sm)] text-ink placeholder:text-ink-2"
             />
             {setupError ? <p className="mt-1 font-body text-[length:var(--text-sm)] text-ink">{setupError}</p> : null}
-            <p className="mt-1 font-body text-[length:var(--text-xs)] text-ink-2">Comments are kept; side lines are not.</p>
+            <p className="mt-1 font-body text-[length:var(--text-xs)] text-ink-2">
+              Comments are kept; side lines are not.
+            </p>
             <div className="mt-2 flex gap-1">
               <Button onClick={loadSetup}>Load</Button>
-              <Button
-                variant="ghost"
-                className="whitespace-nowrap"
-                onClick={() => replaceGame(newGame(), 0)}
-              >
+              <Button variant="ghost" className="whitespace-nowrap" onClick={() => replaceGame(newGame(), 0)}>
                 New board
               </Button>
             </div>
           </div>
         </section>
 
-        <section aria-label="Board" className="border-rule px-6 [grid-area:board] min-[1280px]:border-x max-[1279px]:pr-6 max-[1279px]:pl-0">
+        <section
+          aria-label="Board"
+          className="border-rule px-6 [grid-area:board] min-[1280px]:border-x max-[1279px]:pr-6 max-[1279px]:pl-0"
+        >
           <div className="mx-auto flex w-full max-w-[min(100%,calc(100vh-14rem))] items-stretch gap-3">
-            <EvalBar score={lines[0]?.score} wdl={lines[0]?.wdl} depth={lines[0]?.depth} flipped={flipped} result={result} />
+            <EvalBar
+              score={lines[0]?.score}
+              wdl={lines[0]?.wdl}
+              depth={lines[0]?.depth}
+              flipped={flipped}
+              result={result}
+            />
             <div className="min-w-0 flex-1">
               <ThemedBoard
                 fen={fen}
@@ -282,10 +309,18 @@ export function AnalysisPage() {
           </div>
 
           {promotion ? (
-            <div role="dialog" aria-label="Promote the pawn" className="mx-auto mt-4 flex max-w-[min(100%,calc(100vh-14rem))] items-center gap-2">
+            <div
+              role="dialog"
+              aria-label="Promote the pawn"
+              className="mx-auto mt-4 flex max-w-[min(100%,calc(100vh-14rem))] items-center gap-2"
+            >
               <span className="label mr-2 text-ink-2">Promote to</span>
               {PROMOTIONS.map(([piece, name]) => (
-                <Button key={piece} onClick={() => tryMove(promotion.from, promotion.to, piece)} autoFocus={piece === "q"}>
+                <Button
+                  key={piece}
+                  onClick={() => tryMove(promotion.from, promotion.to, piece)}
+                  autoFocus={piece === "q"}
+                >
                   {name}
                 </Button>
               ))}
@@ -297,16 +332,44 @@ export function AnalysisPage() {
 
           <div className="mx-auto mt-4 flex max-w-[min(100%,calc(100vh-14rem))] items-center justify-between border-t border-rule pt-4">
             <div className="flex gap-2">
-              <button type="button" className={navButton} onClick={() => go(0)} disabled={cursor === 0} aria-label="First move" aria-keyshortcuts="Home">
+              <button
+                type="button"
+                className={navButton}
+                onClick={() => go(0)}
+                disabled={cursor === 0}
+                aria-label="First move"
+                aria-keyshortcuts="Home"
+              >
                 <ChevronFirst aria-hidden size={18} strokeWidth={1.5} />
               </button>
-              <button type="button" className={navButton} onClick={() => go(cursor - 1)} disabled={cursor === 0} aria-label="Previous move" aria-keyshortcuts="ArrowLeft">
+              <button
+                type="button"
+                className={navButton}
+                onClick={() => go(cursor - 1)}
+                disabled={cursor === 0}
+                aria-label="Previous move"
+                aria-keyshortcuts="ArrowLeft"
+              >
                 <ChevronLeft aria-hidden size={18} strokeWidth={1.5} />
               </button>
-              <button type="button" className={navButton} onClick={() => go(cursor + 1)} disabled={cursor === game.plies.length} aria-label="Next move" aria-keyshortcuts="ArrowRight">
+              <button
+                type="button"
+                className={navButton}
+                onClick={() => go(cursor + 1)}
+                disabled={cursor === game.plies.length}
+                aria-label="Next move"
+                aria-keyshortcuts="ArrowRight"
+              >
                 <ChevronRight aria-hidden size={18} strokeWidth={1.5} />
               </button>
-              <button type="button" className={navButton} onClick={() => go(game.plies.length)} disabled={cursor === game.plies.length} aria-label="Last move" aria-keyshortcuts="End">
+              <button
+                type="button"
+                className={navButton}
+                onClick={() => go(game.plies.length)}
+                disabled={cursor === game.plies.length}
+                aria-label="Last move"
+                aria-keyshortcuts="End"
+              >
                 <ChevronLast aria-hidden size={18} strokeWidth={1.5} />
               </button>
             </div>

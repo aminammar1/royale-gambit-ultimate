@@ -7,7 +7,13 @@ describe("saved settings", () => {
   });
 
   it("read the stored rows and ignore what this version does not know", () => {
-    const s = fromRows({ board_theme: "wood", board_arrows: "off", edition: "night", board_coordinates: "maybe", board_theme_x: "neon" });
+    const s = fromRows({
+      board_theme: "wood",
+      board_arrows: "off",
+      edition: "night",
+      board_coordinates: "maybe",
+      board_theme_x: "neon",
+    });
     expect(s.boardTheme).toBe("wood");
     expect(s.edition).toBe("night");
     expect(s.display).toEqual({ coordinates: true, lastMove: true, legalMoves: true, arrows: false });

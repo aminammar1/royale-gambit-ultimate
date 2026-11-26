@@ -1,9 +1,26 @@
 import { invoke } from "@tauri-apps/api/core";
 import { create } from "zustand";
 
-/** The board presets of design/newsprint/board-customization.png, Newspaper first. */
-export const BOARD_THEMES = ["newspaper", "newsprint", "tournament", "wood", "contrast"] as const;
+/** Board themes: the presets of design/newsprint/board-customization.png (Newspaper first), then the extra palettes Amine asked for. */
+export const BOARD_THEMES = [
+  "newspaper",
+  "newsprint",
+  "tournament",
+  "green",
+  "ocean",
+  "wood",
+  "walnut",
+  "champion",
+  "freestyle",
+  "arcade",
+  "sakura",
+  "contrast",
+] as const;
 export type BoardTheme = (typeof BOARD_THEMES)[number];
+
+/** Piece sets: react-chessboard's own, then the freely licensed sets in src/assets/pieces. */
+export const PIECE_SETS = ["classic", "chessnut", "fantasy", "spatial", "celtic", "rhosgfx"] as const;
+export type PieceSet = (typeof PIECE_SETS)[number];
 
 /** What the board shows besides the pieces (Board & pieces, "Display"). */
 export type BoardDisplay = {
@@ -19,12 +36,14 @@ type SettingsState = {
   /** False until the local store answered; the defaults show meanwhile. */
   loaded: boolean;
   boardTheme: BoardTheme;
+  pieces: PieceSet;
   display: BoardDisplay;
   edition: EditionSetting;
 };
 
 export const DEFAULTS: Omit<SettingsState, "loaded"> = {
   boardTheme: "newspaper",
+  pieces: "classic",
   display: { coordinates: true, lastMove: true, legalMoves: true, arrows: true },
   edition: "system",
 };
@@ -41,6 +60,7 @@ const DISPLAY_KEYS: Record<keyof BoardDisplay, string> = {
 /** Reads the stored rows over the defaults; a value this version does not know is ignored. */
 export function fromRows(rows: Record<string, string>): Omit<SettingsState, "loaded"> {
   const theme = rows.board_theme as BoardTheme | undefined;
+  const pieces = rows.board_pieces as PieceSet | undefined;
   const edition = rows.edition as EditionSetting | undefined;
   const display = { ...DEFAULTS.display };
   for (const [name, key] of Object.entries(DISPLAY_KEYS) as [keyof BoardDisplay, string][]) {
@@ -48,6 +68,7 @@ export function fromRows(rows: Record<string, string>): Omit<SettingsState, "loa
   }
   return {
     boardTheme: theme && BOARD_THEMES.includes(theme) ? theme : DEFAULTS.boardTheme,
+    pieces: pieces && PIECE_SETS.includes(pieces) ? pieces : DEFAULTS.pieces,
     display,
     edition: edition === "day" || edition === "night" || edition === "system" ? edition : DEFAULTS.edition,
   };
@@ -76,6 +97,10 @@ export const settingsDb = {
     useSettings.setState({ boardTheme: theme });
     void save("board_theme", theme);
   },
+  setPieces: (set: PieceSet) => {
+    useSettings.setState({ pieces: set });
+    void save("board_pieces", set);
+  },
   setDisplay: (name: keyof BoardDisplay, on: boolean) => {
     useSettings.setState((s) => ({ display: { ...s.display, [name]: on } }));
     void save(DISPLAY_KEYS[name], on ? "on" : "off");
@@ -87,6 +112,8 @@ export const settingsDb = {
   /** Back to the defaults, saved (Board & pieces, "Reset"). */
   resetBoard: () => {
     settingsDb.setBoardTheme(DEFAULTS.boardTheme);
-    for (const name of Object.keys(DISPLAY_KEYS) as (keyof BoardDisplay)[]) settingsDb.setDisplay(name, DEFAULTS.display[name]);
+    settingsDb.setPieces(DEFAULTS.pieces);
+    for (const name of Object.keys(DISPLAY_KEYS) as (keyof BoardDisplay)[])
+      settingsDb.setDisplay(name, DEFAULTS.display[name]);
   },
 };

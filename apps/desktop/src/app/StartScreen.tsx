@@ -143,63 +143,53 @@ function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) 
         <Row champions={[...CHAMPIONS.slice(2 * third), ...CHAMPIONS.slice(0, 2 * third)]} seconds={130} />
       </div>
 
+      {/* One paper wash behind the title: the champions stay sharp at the edges and step back
+          behind the words, instead of a box or patches. */}
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-[radial-gradient(ellipse_42%_46%_at_center,var(--paper)_55%,transparent_100%)]"
+      />
       <div className="relative flex h-full items-center justify-center overflow-y-auto px-6 py-8">
-        {/* Built like the player card: a double frame, a label header over a double rule, the
-            body in sections between ink rules, and a label footer. Every line has a fixed place,
-            so nothing moves while the card, the keychain and the server answer. */}
+        {/* No box: the title page is the page itself, like a newspaper's front, over the
+            champions drifting behind. Every line has a fixed place, so nothing moves while the
+            card, the keychain and the server answer. */}
         <motion.main
-          className="w-full max-w-[30rem] border-[3px] border-double border-ink bg-paper p-1"
+          className="flex w-full max-w-[34rem] flex-col items-center text-center"
           initial={reduce ? false : { opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.24, delay: 0.1, ease: EASE }}
         >
-          <div className="border border-ink px-6 pt-3 pb-3 max-[899px]:px-5">
-            <div className="flex items-baseline justify-between gap-4 border-b-[3px] border-double border-ink pb-2">
-              <span className="label truncate text-ink">Royale Gambit · {edition} edition</span>
-              <span className="label shrink-0 text-ink-2">{editionDate(new Date())}</span>
-            </div>
+          <img src={logo} alt="" className="block w-32" draggable={false} />
+          <h1 className="mt-4 font-masthead text-[length:var(--text-masthead)] leading-none font-black tracking-[-0.01em] whitespace-nowrap max-[899px]:text-[2.25rem]">
+            Royale Gambit Ultimate
+          </h1>
+          <p className="label mt-4 flex w-full justify-center gap-3 border-y-[3px] border-double border-ink py-2 text-ink-2">
+            <span>{edition} edition</span>
+            <span aria-hidden>·</span>
+            <span>{editionDate(new Date())}</span>
+          </p>
+          <p className="mt-5 max-w-[30rem] font-masthead text-[length:var(--text-lg)] leading-snug italic">
+            “{quote.text}”
+          </p>
+          <p className="mt-1 font-body text-[length:var(--text-sm)] text-ink-2">{quote.champion.name}</p>
 
-            <div className="flex flex-col items-center pt-4 pb-4">
-              <img src={logo} alt="" className="block w-24" draggable={false} />
-              <h1 className="mt-2 text-center font-masthead text-[length:var(--text-3xl)] leading-none font-black tracking-[-0.01em] whitespace-nowrap">
-                Royale Gambit Ultimate
-              </h1>
-            </div>
-
-            <figure className="grid grid-cols-[auto_minmax(0,1fr)] items-center border-y border-ink py-4">
-              <Portrait champion={quote.champion} className="h-16 w-12" />
-              <div className="ml-4 min-w-0 border-l border-rule pl-4">
-                {/* The opening mark hangs, so the words line up with the name beneath. */}
-                <blockquote className="font-masthead text-[length:var(--text-lg)] leading-[1.3] font-semibold italic [text-indent:-0.42em]">
-                  “{quote.text}”
-                </blockquote>
-                <figcaption className="mt-2 flex flex-wrap items-baseline gap-x-3">
-                  <span className="font-body text-[length:var(--text-sm)] font-semibold">{quote.champion.name}</span>
-                  <span className="numeric text-[length:var(--text-xs)] text-ink-2">
-                    World champion from {quote.champion.since}
-                  </span>
-                </figcaption>
-              </div>
-            </figure>
-
-            <button
-              type="button"
-              disabled={!ready}
-              onClick={onStart}
-              className={`label mt-4 w-full rounded-[var(--radius)] border py-3 text-[length:var(--text-md)] tracking-[0.2em] transition-colors duration-150 ${
-                ready
-                  ? "border-ink bg-ink text-paper hover:bg-paper hover:text-ink"
-                  : "cursor-wait border-ink-2 bg-paper-2 text-ink-2"
-              }`}
-            >
-              {ready ? "Start" : "Getting ready…"}
-            </button>
-
-            <div className="label mt-3 flex justify-between gap-4 border-t border-rule pt-2.5 text-ink-2">
-              <span>{ready ? "Press Enter to start" : "Reading your card"}</span>
-              <span role="status">{SERVER_LINE[server]}</span>
-            </div>
-          </div>
+          <button
+            type="button"
+            disabled={!ready}
+            onClick={onStart}
+            className={`label mt-8 w-64 rounded-[var(--radius)] border py-3.5 text-[length:var(--text-md)] tracking-[0.25em] transition-colors duration-150 ${
+              ready
+                ? "border-ink bg-ink text-paper hover:bg-paper hover:text-ink"
+                : "cursor-wait border-ink-2 bg-paper-2 text-ink-2"
+            }`}
+          >
+            {ready ? "Start" : "Getting ready…"}
+          </button>
+          <p className="label mt-3 flex gap-3 text-ink-2">
+            <span>{ready ? "Press Enter" : "Reading your card"}</span>
+            <span aria-hidden>·</span>
+            <span role="status">{SERVER_LINE[server]}</span>
+          </p>
         </motion.main>
       </div>
     </motion.div>

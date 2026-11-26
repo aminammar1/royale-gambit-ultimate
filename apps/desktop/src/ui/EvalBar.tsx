@@ -119,7 +119,10 @@ export function EvalBar({ score, wdl, depth, flipped, result }: Props) {
       </button>
 
       {shown ? (
-        <div id="eval-panel" className="absolute top-0 left-full z-20 ml-2 w-56 border border-ink bg-paper p-3 text-ink">
+        <div
+          id="eval-panel"
+          className="absolute top-0 left-full z-20 ml-2 w-56 border border-ink bg-paper p-3 text-ink"
+        >
           {result ? (
             <p className="numeric text-[length:var(--text-md)]">Game over · {result}</p>
           ) : score ? (
