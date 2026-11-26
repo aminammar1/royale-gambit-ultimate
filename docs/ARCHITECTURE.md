@@ -43,7 +43,7 @@ Each service has the same top-level shape: `README.md` (one screen), `Dockerfile
 
 ## Authentication
 - Sign-in by email code or link, guest tokens, then Lichess and Chess.com linking (all in `auth-profile`).
-- JWT signed with RS256, access token 15 minutes, refresh token 30 days and rotated on use. Public keys are served as JWKS. The gateway and every service verify the signature; they do not call `auth-profile` per request.
+- JWT signed with RS256, access token 15 minutes, refresh token 30 days and rotated on use. Public keys are served as JWKS. The gateway and every service verify the signature; they do not call `auth-profile` per request. *Exception (M4, 2026-11-26):* `analysis` holds no user data and trusts the gateway's check; it listens only on the internal network (and 127.0.0.1 in dev). How internal callers (`review`, `bots`) prove who they are is decided in M5, with the first one.
 - Claims: `sub` (user id, UUIDv7), `role` (`guest` | `user`), `scope`. Guests get low quotas and their data stays on the device.
 - Client stores the refresh token in the OS keychain (Rust), never in SQLite or the web layer.
 

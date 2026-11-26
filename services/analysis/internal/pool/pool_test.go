@@ -247,8 +247,31 @@ func TestRefusedPositionIsNotRetried(t *testing.T) {
 	if _, err := p.Do(context.Background(), pool.Live, req("bad"), nil); !errors.Is(err, engine.ErrRejected) {
 		t.Fatalf("want ErrRejected, got %v", err)
 	}
-	// One start for the first engine, one replacement taken for the next job: never two for this one.
-	if r.starts.Load() != 1 || r.closed.Load() != 1 {
+	// The job ran once: one engine closed, and at most its one replacement started.
+	time.Sleep(50 * time.Millisecond)
+	if r.closed.Load() < 1 || r.starts.Load() > 2 {
 		t.Fatalf("starts %d closed %d", r.starts.Load(), r.closed.Load())
+	}
+}
+
+// After a refused position the worker starts a new engine at once: readiness comes back
+// without waiting for another job.
+func TestReadyComesBackWithoutANewJob(t *testing.T) {
+	r := &rig{refuse: true}
+	p, err := pool.New(context.Background(), 1, 10, r.factory, quiet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+	_, _ = p.Do(context.Background(), pool.Live, req("bad"), nil)
+	deadline := time.Now().Add(2 * time.Second)
+	for p.Ready() != 1 {
+		if time.Now().After(deadline) {
+			t.Fatalf("ready %d, starts %d", p.Ready(), r.starts.Load())
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if r.starts.Load() != 2 {
+		t.Fatalf("starts %d, want the first engine and its replacement", r.starts.Load())
 	}
 }

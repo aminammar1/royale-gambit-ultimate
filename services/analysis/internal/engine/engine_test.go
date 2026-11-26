@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -51,7 +52,11 @@ func TestIdentifiesItself(t *testing.T) {
 func TestStartPositionThreeLines(t *testing.T) {
 	e := start(t)
 	var infos int
-	res, err := e.Search(context.Background(), request(t, startFEN, nil, 10, 3), func(uci.Line) { infos++ })
+	last := map[int]uci.Line{}
+	res, err := e.Search(context.Background(), request(t, startFEN, nil, 10, 3), func(l uci.Line) {
+		infos++
+		last[l.MultiPV] = l
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,6 +66,12 @@ func TestStartPositionThreeLines(t *testing.T) {
 	for i, l := range res.Lines {
 		if l.MultiPV != i+1 || len(l.PV) == 0 || l.Score.CP == nil || len(l.WDL) != 3 {
 			t.Fatalf("line %d: %+v", i, l)
+		}
+	}
+	// The last info reported for each line is the line in the result.
+	for _, l := range res.Lines {
+		if got := last[l.MultiPV]; got.Depth != l.Depth || !slices.Equal(got.PV, l.PV) {
+			t.Fatalf("last info for line %d: %+v, result %+v", l.MultiPV, got, l)
 		}
 	}
 	// The best move must be legal in the position, and be the first move of line 1.

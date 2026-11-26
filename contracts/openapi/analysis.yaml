@@ -23,6 +23,12 @@ info:
       last line of every depth), then `event: result` with the same body as the JSON answer.
     - `/batch`: `event: result` per position as soon as it is done (`index` says which), then
       `event: done`. Positions are answered in any order.
+    - A stream starts within about 5 s, with SSE comment lines (`: searching`) while nothing
+      else is ready, so a proxy never waits long for headers. A failure after the stream started
+      comes as `event: error` with a problem body.
+
+    A JSON answer waits for the whole search. Through the gateway it must start within 30 s, so a
+    batch larger than a few positions should be streamed.
 paths:
   /health/live:
     get:
@@ -105,7 +111,7 @@ components:
         multipv: { type: integer, minimum: 1, maximum: 5, default: 3, examples: [1] }
     Position:
       type: object
-      additionalProperties: false
+      description: Closed by the schema that uses it (unevaluatedProperties), so it combines with Search.
       required: [fen]
       properties:
         fen:
@@ -133,7 +139,9 @@ components:
               type: array
               minItems: 1
               maxItems: 300
-              items: { $ref: "#/components/schemas/Position" }
+              items:
+                allOf: [{ $ref: "#/components/schemas/Position" }]
+                unevaluatedProperties: false
       unevaluatedProperties: false
     Score:
       description: White's view. Exactly one of `cp` or `mate`.

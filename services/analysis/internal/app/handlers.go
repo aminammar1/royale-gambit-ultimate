@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -17,14 +18,26 @@ func wantsStream(c *gin.Context) bool {
 	return strings.Contains(c.GetHeader("Accept"), "text/event-stream")
 }
 
-// stream writes server-sent events. Headers go out with the first event, so an error that
-// comes first can still be answered as a plain problem with its status.
+// keepAlive is how often a quiet stream writes a comment. The first one also sends the
+// headers, well inside the gateway's 30 s wait for them, while a refusal that comes at once
+// (a full queue) is still answered as a plain 503.
+var keepAlive = 5 * time.Second
+
+// stream writes server-sent events. Headers go out with the first event or keep-alive, so an
+// error that comes first can still be answered as a plain problem with its status.
 type stream struct {
 	c       *gin.Context
 	started bool
 }
 
-func (s *stream) event(name string, v any) {
+// comment writes an SSE comment, which clients ignore: it keeps proxies from timing out.
+func (s *stream) comment(text string) {
+	s.start()
+	_, _ = fmt.Fprintf(s.c.Writer, ": %s\n\n", text)
+	s.c.Writer.Flush()
+}
+
+func (s *stream) start() {
 	if !s.started {
 		h := s.c.Writer.Header()
 		h.Set("Content-Type", "text/event-stream")
@@ -33,6 +46,10 @@ func (s *stream) event(name string, v any) {
 		s.c.Status(http.StatusOK)
 		s.started = true
 	}
+}
+
+func (s *stream) event(name string, v any) {
+	s.start()
 	data, _ := json.Marshal(v)
 	_, _ = fmt.Fprintf(s.c.Writer, "event: %s\ndata: %s\n\n", name, data)
 	s.c.Writer.Flush()
@@ -95,8 +112,12 @@ func (srv *server) positions(c *gin.Context) {
 		done <- outcome{a, err}
 	}()
 	st := &stream{c: c}
+	tick := time.NewTicker(keepAlive)
+	defer tick.Stop()
 	for {
 		select {
+		case <-tick.C:
+			st.comment("searching")
 		case l := <-infos:
 			st.event("info", l)
 		case o := <-done:
@@ -183,16 +204,23 @@ func (srv *server) batch(c *gin.Context) {
 		return
 	}
 	st := &stream{c: c}
-	for range ps {
-		o := <-out
-		if o.err != nil {
-			cancel()
-			srv.streamFail(st, o.err)
-			return
+	tick := time.NewTicker(keepAlive)
+	defer tick.Stop()
+	for left := len(ps); left > 0; {
+		select {
+		case <-tick.C:
+			st.comment("searching")
+		case o := <-out:
+			left--
+			if o.err != nil {
+				cancel()
+				srv.streamFail(st, o.err)
+				return
+			}
+			i := o.i
+			o.a.Index = &i
+			st.event("result", o.a)
 		}
-		i := o.i
-		o.a.Index = &i
-		st.event("result", o.a)
 	}
 	st.event("done", gin.H{"count": len(ps)})
 }

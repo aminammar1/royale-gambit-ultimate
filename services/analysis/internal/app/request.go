@@ -25,7 +25,7 @@ const (
 	maxFEN        = 100
 	maxMoves      = 600
 	maxPositions  = 300
-	maxBody       = 1 << 20
+	maxBody       = 4 << 20 // the contract's largest batch (300 x 600 moves) is about 1.5 MB
 )
 
 var uciMove = regexp.MustCompile(`^[a-h][1-8][a-h][1-8][qrbn]?$`)

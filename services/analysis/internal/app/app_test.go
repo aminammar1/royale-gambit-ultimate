@@ -34,6 +34,7 @@ const startFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 // fakeEngines answers every search with one line, after sending two info lines.
 type fakeEngines struct {
+	delay  time.Duration
 	calls  atomic.Int32
 	err    error
 	ready  int
@@ -44,6 +45,7 @@ type fakeEngines struct {
 func (f *fakeEngines) Do(_ context.Context, _ pool.Priority, req engine.Request, onInfo func(uci.Line)) (engine.Result, error) {
 	f.calls.Add(1)
 	f.last.Store(req)
+	time.Sleep(f.delay)
 	if f.err != nil {
 		return engine.Result{}, f.err
 	}
@@ -434,4 +436,20 @@ func TestEngineRefusalIsABadPosition(t *testing.T) {
 	srv := serve(t, &fakeEngines{err: engine.ErrRejected}, &mapStore{m: map[string][]byte{}})
 	expectProblem(t, post(t, srv.URL+"/v1/analysis/positions", `{"fen":"`+startFEN+`"}`, ""),
 		http.StatusBadRequest, "invalid-position")
+}
+
+// A slow search still starts its stream early: headers and a comment go out before the first
+// result, so the gateway's wait for headers never runs out.
+func TestSlowStreamStartsEarly(t *testing.T) {
+	defer app.SetKeepAlive(50 * time.Millisecond)()
+	srv := serve(t, &fakeEngines{delay: 300 * time.Millisecond}, &mapStore{m: map[string][]byte{}})
+	began := time.Now()
+	resp := post(t, srv.URL+"/v1/analysis/batch", `{"depth":4,"positions":[{"fen":"`+startFEN+`"}]}`, "text/event-stream")
+	if waited := time.Since(began); waited > 200*time.Millisecond {
+		t.Fatalf("headers after %s", waited)
+	}
+	raw, _ := io.ReadAll(resp.Body)
+	if !strings.HasPrefix(string(raw), ": searching") || !strings.Contains(string(raw), "event: done") {
+		t.Fatalf("stream %q", raw)
+	}
 }

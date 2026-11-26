@@ -273,8 +273,15 @@ func (e *Engine) Search(ctx context.Context, req Request, onInfo func(uci.Line))
 				if stopErr != nil {
 					return Result{}, stopErr
 				}
+				// The last line of each slot is always reported, even when the throttle held it.
+				for slot := 1; slot <= req.MultiPV; slot++ {
+					if l, ok := best[slot]; ok && !sameLine(shown[slot], l) {
+						report(l)
+					}
+				}
 				r := result(best, move)
-				r.Capped = capped
+				// The cap may fire as the search ends on its own: capped only if a line fell short.
+				r.Capped = capped && shortOf(r.Lines, req.Depth)
 				return r, nil
 			}
 			l, ok := uci.ParseInfo(raw)
@@ -310,6 +317,18 @@ func (e *Engine) Search(ctx context.Context, req Request, onInfo func(uci.Line))
 	}
 }
 
+func shortOf(lines []uci.Line, depth int) bool {
+	if len(lines) == 0 {
+		return true
+	}
+	for _, l := range lines {
+		if l.Depth < depth {
+			return true
+		}
+	}
+	return false
+}
+
 func sameLine(a, b uci.Line) bool {
 	return a.MultiPV == b.MultiPV && a.Depth == b.Depth && slices.Equal(a.PV, b.PV)
 }
@@ -324,6 +343,7 @@ func result(best map[int]uci.Line, move string) Result {
 			continue
 		}
 		first[l.PV[0]] = true
+		l.MultiPV = len(r.Lines) + 1 // numbered 1, 2, 3 with no gap
 		r.Lines = append(r.Lines, l)
 	}
 	if len(r.Lines) > 0 {

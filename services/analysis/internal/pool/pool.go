@@ -166,6 +166,13 @@ func (p *Pool) Do(ctx context.Context, prio Priority, req engine.Request, onInfo
 	select {
 	case o := <-j.done:
 		return o.res, o.err
+	case <-p.quit:
+		// Closing: if no worker took the job, none will (Close may have drained before it came).
+		if j.state.CompareAndSwap(queuedJob, abandonedJob) {
+			return engine.Result{}, ErrClosed
+		}
+		o := <-j.done
+		return o.res, o.err
 	case <-ctx.Done():
 		if j.state.CompareAndSwap(queuedJob, abandonedJob) {
 			return engine.Result{}, ctx.Err() // no worker took it, and none will
@@ -180,7 +187,9 @@ func (p *Pool) Do(ctx context.Context, prio Priority, req engine.Request, onInfo
 	}
 }
 
-func (p *Pool) next() (*job, bool) {
+// next waits for a job, live first. It returns (nil, true) when wake fires first (a worker
+// without an engine uses it to try again), and (nil, false) when the pool closes.
+func (p *Pool) next(wake <-chan time.Time) (*job, bool) {
 	select {
 	case j := <-p.live:
 		return j, true
@@ -191,10 +200,17 @@ func (p *Pool) next() (*job, bool) {
 		return j, true
 	case j := <-p.batch:
 		return j, true
+	case <-wake:
+		return nil, true
 	case <-p.quit:
 		return nil, false
 	}
 }
+
+const (
+	minBackoff = time.Second
+	maxBackoff = 30 * time.Second
+)
 
 func (p *Pool) work(n int, s Searcher) {
 	defer p.wg.Done()
@@ -204,10 +220,26 @@ func (p *Pool) work(n int, s Searcher) {
 			_ = s.Close()
 		}
 	}()
+	backoff := minBackoff
 	for {
-		j, ok := p.next()
+		// An engine that died is replaced at once, not at the next job: readiness must come
+		// back on its own. While it cannot start, jobs get ErrUnavailable and it is tried again
+		// with a growing pause.
+		var wake <-chan time.Time
+		if s == nil {
+			if s = p.restart(n); s == nil {
+				wake = time.After(backoff)
+				backoff = min(2*backoff, maxBackoff)
+			} else {
+				backoff = minBackoff
+			}
+		}
+		j, ok := p.next(wake)
 		if !ok {
 			return
+		}
+		if j == nil {
+			continue
 		}
 		queued.WithLabelValues(j.prio.String()).Dec()
 		if !j.state.CompareAndSwap(queuedJob, runningJob) {
