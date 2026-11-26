@@ -10,6 +10,13 @@ const problem = (problemType: string, extra: Partial<Extract<ApiError, { kind: "
 });
 
 describe("describeError", () => {
+  it("words the engine's problems and the gateway's own failures", () => {
+    expect(describeError(problem("engine-busy", { status: 503 }))).toBe("Every engine is busy · trying again shortly");
+    expect(describeError(problem("invalid-position", { status: 400, detail: "move 1 (e2e5) is not legal" }))).toBe(
+      "move 1 (e2e5) is not legal",
+    );
+    expect(describeError(problem("blank", { status: 502, title: "Bad Gateway" }))).toBe("The server did not answer · try again soon");
+  });
   it("counts down the tries left on a wrong code", () => {
     expect(describeError(problem("code-invalid", { attemptsLeft: 3 }))).toBe("That code is not right · 3 tries left");
     expect(describeError(problem("code-invalid", { attemptsLeft: 1 }))).toBe("That code is not right · 1 try left");

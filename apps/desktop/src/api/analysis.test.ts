@@ -80,7 +80,11 @@ describe("analyse", () => {
     const calls: string[] = [];
     const fetch = vi.fn(async (url: string, init: RequestInit) => {
       calls.push(url);
-      if (url.endsWith("/v1/auth/guest")) return json(201, { access_token: "guest", expires_in: 900, refresh_token: "r" });
+      if (url.endsWith("/v1/auth/guest")) {
+        // auth-profile answers JSON only: asking it for a stream is a 406.
+        expect(new Headers(init.headers).get("accept")).toBe("application/json");
+        return json(201, { access_token: "guest", expires_in: 900, refresh_token: "r" });
+      }
       expect(auth(init)).toBe("Bearer guest");
       return sse(["result", result]);
     });

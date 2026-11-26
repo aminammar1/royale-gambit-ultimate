@@ -20,7 +20,7 @@ chess.js in the client (the only rules engine there), python-chess in Python ser
 ## ADR-05: Engine runs in two places, on purpose
 - **Local Stockfish sidecar** (Rust, UCI) powers the Analysis page: instant, offline, free.
 - **`analysis` service** (Go) runs a Stockfish pool for server flows: review, bots, coach, and later mobile. It caches results per position.
-Both normalize scores to White's view once. The latest stable Stockfish release (pinned and checksum-verified when M3 starts), one build per OS/arch. The web layer never gets shell or process permissions.
+Both normalize scores to White's view once. The latest stable Stockfish release (pinned and checksum-verified when M3 starts), one build per OS/arch. The web layer never gets shell or process permissions. *Amended 2026-11-26 (Amine's decision):* until M3 ships the local sidecar, the Analysis page runs on the `analysis` service through the gateway (a guest gets a guest token), so the server engine can be tried from the app; M3 makes the local engine the default and keeps the server one as the fallback when no local engine runs.
 
 ## ADR-06: Data stores
 SQLite locally (Rust, `rusqlite`). PostgreSQL in the cloud with **one database per service**. Redis for rebuildable data only (cache, rate limits). RabbitMQ for events and jobs. No MongoDB. A service never reads another service's tables.

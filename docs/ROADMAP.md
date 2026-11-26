@@ -66,6 +66,8 @@ Milestone status: P1 ☑ · P2 ☐ · M0 ☐ · M1 ☐ · M2 ☐ · M3 ☐ · M4
 - Analysis page: paste FEN/PGN or set up a position; eval bar; best-move box; top 3 lines as a printed table; best-move arrow; variations (mainline + one level); engine on/off, depth and infinite.
 **Accept:** Rust tests for UCI parsing (cp, mate, bounds, multipv, wdl) and perspective; integration test starts the real binary and gets `bestmove`; UI stays at 60 fps during infinite analysis; no zombie processes after quit.
 
+*Pulled forward (2026-11-26) from M1 and M3, ahead of both:* the `src/chess` game model over chess.js (play, FEN/PGN in, PGN out, engine lines in SAN), the themed `react-chessboard` (Newsprint preset, last move, check, engine arrows, click or drag, promotion choice) and the Analysis page from `analysis.png` (score sheet, eval bar, best move, top three lines, Flip, Copy PGN, set up a position), running on the server engine (ADR-05 amended). Left for M1: the local game, clocks and saving games. Left for M3: the local Stockfish sidecar, infinite analysis, variations.
+
 ## M4: `analysis` service
 - Go service from the template (the first Go service after the gateway): Stockfish process pool, priority queue (live over batch), `POST /v1/analysis/positions`, `POST /v1/analysis/batch`, SSE stream, Redis cache keyed by EPD + depth + multipv + engine version, White-normalized scores, pool restart on crash.
 - Stockfish binary in the image, version pinned and checked at start.

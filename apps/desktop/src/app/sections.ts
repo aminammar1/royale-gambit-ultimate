@@ -38,12 +38,8 @@ export const SECTIONS: readonly Section[] = [
     board: true,
     path: "/analyze",
     label: "Analyze",
-    kicker: "Analysis",
-    title: "Analysis board",
-    opensIn: {
-      milestone: "M3",
-      what: "Local Stockfish: eval bar, best move and the top three lines, printed as a table.",
-    },
+    kicker: "Analyze",
+    title: "Analysis",
   },
   {
     icon: ChartSpline,

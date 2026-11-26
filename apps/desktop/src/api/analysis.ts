@@ -37,15 +37,21 @@ export function createAnalysisClient(deps: AnalysisClientDeps) {
 
   async function guestToken(): Promise<string> {
     if (guest && guest.expiresAt - 30_000 > now()) return guest.token;
-    const response = await post("/v1/auth/guest", undefined);
+    const response = await post("/v1/auth/guest", undefined, undefined, undefined, "application/json");
     if (!response.ok) throw await readProblem(response);
     const pair = (await response.json()) as { access_token: string; expires_in: number };
     guest = { token: pair.access_token, expiresAt: now() + pair.expires_in * 1000 };
     return guest.token;
   }
 
-  async function post(path: string, json: string | undefined, token?: string, signal?: AbortSignal) {
-    const headers = new Headers({ accept: "text/event-stream" });
+  async function post(
+    path: string,
+    json: string | undefined,
+    token?: string,
+    signal?: AbortSignal,
+    accept = "text/event-stream",
+  ) {
+    const headers = new Headers({ accept });
     if (token) headers.set("authorization", `Bearer ${token}`);
     if (json !== undefined) headers.set("content-type", "application/json");
     try {

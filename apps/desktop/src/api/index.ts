@@ -15,6 +15,8 @@ export const api = createApiClient({
   refresh: renewAccessToken,
 });
 
+export type { Analysis, EngineLine } from "./analysis";
+
 /** The engine on the server, streamed; a guest without an account gets a guest token. */
 export const analysis = createAnalysisClient({
   baseUrl: () => (gatewayUrl ??= auth.gatewayUrl()),
