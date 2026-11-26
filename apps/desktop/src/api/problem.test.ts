@@ -58,7 +58,7 @@ describe("toApiError", () => {
 describe("readProblem", () => {
   it("reads problem+json into the same shape the Rust core sends", async () => {
     const response = new Response(
-      JSON.stringify({ type: "https://royal-gambit.dev/problems/last-identity", title: "Cannot unlink", status: 409 }),
+      JSON.stringify({ type: "https://royale-gambit.dev/problems/last-identity", title: "Cannot unlink", status: 409 }),
       { status: 409, headers: { "content-type": "application/problem+json" } },
     );
     expect(await readProblem(response)).toEqual({

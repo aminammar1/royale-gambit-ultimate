@@ -28,7 +28,7 @@ The token is forwarded unchanged, and the service verifies it again. Redis check
 | `PORT` | `8080` | |
 | `UPSTREAM_AUTH_PROFILE_URL` | (required) | `http://auth-profile:8081` |
 | `JWKS_URL` | (required) | auth-profile's `/.well-known/jwks.json` |
-| `JWT_ISSUER` | `royal-gambit` | |
+| `JWT_ISSUER` | `royale-gambit` | |
 | `REDIS_URL` | (required) | rate-limit counters; if Redis is down, requests pass with a warning |
 | `CORS_ORIGINS` | none | comma-separated, e.g. `http://localhost:1420,tauri://localhost` |
 | `RATE_IP_PER_MIN`, `RATE_SIGNIN_PER_MIN`, `RATE_GUEST_PER_MIN`, `RATE_USER_PER_MIN` | 300, 20, 60, 300 | requests per minute |

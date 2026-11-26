@@ -86,7 +86,7 @@ check-desktop:
 # databases, the toolchain caches) are never touched.
 clean:
 	cd apps/desktop/src-tauri && cargo clean
-	rm -rf apps/desktop/node_modules/.vite "$$HOME/.local/share/dev.royalgambit.ultimate/WebKitCache"
+	rm -rf apps/desktop/node_modules/.vite "$$HOME/.local/share/dev.royalegambit.ultimate/WebKitCache"
 	-docker builder prune -f
 	-docker image prune -f
 	@df -h /

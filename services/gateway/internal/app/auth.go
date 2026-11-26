@@ -45,6 +45,6 @@ func authenticate(verifier TokenVerifier) gin.HandlerFunc {
 }
 
 func unauthorized(c *gin.Context, detail string) {
-	c.Header("WWW-Authenticate", `Bearer realm="royal-gambit"`)
+	c.Header("WWW-Authenticate", `Bearer realm="royale-gambit"`)
 	httpx.WriteProblem(c, http.StatusUnauthorized, detail)
 }

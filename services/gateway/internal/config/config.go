@@ -36,7 +36,7 @@ func Load() (Config, error) {
 		ServiceName: getenv("SERVICE_NAME", "gateway"),
 		Port:        getenv("PORT", "8080"),
 		JWKSURL:     os.Getenv("JWKS_URL"),
-		Issuer:      getenv("JWT_ISSUER", "royal-gambit"),
+		Issuer:      getenv("JWT_ISSUER", "royale-gambit"),
 		CORSOrigins: list(os.Getenv("CORS_ORIGINS")),
 	}
 	var err error

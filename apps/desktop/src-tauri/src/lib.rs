@@ -18,7 +18,7 @@ pub fn run() {
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
-            app.manage(db::Database::open(&dir.join("royal-gambit.sqlite3"))?);
+            app.manage(db::Database::open(&dir.join("royale-gambit.sqlite3"))?);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

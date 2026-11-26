@@ -18,7 +18,7 @@ func TestDefaultsAreTheDocumentedOnes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Port != "8080" || cfg.Issuer != "royal-gambit" || cfg.Limits.IP != 300 || cfg.Limits.SignIn != 20 ||
+	if cfg.Port != "8080" || cfg.Issuer != "royale-gambit" || cfg.Limits.IP != 300 || cfg.Limits.SignIn != 20 ||
 		cfg.Limits.Guest != 60 || cfg.Limits.User != 300 || len(cfg.CORSOrigins) != 0 {
 		t.Fatalf("defaults: %+v", cfg)
 	}

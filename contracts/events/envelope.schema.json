@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://royal-gambit.dev/contracts/events/envelope.schema.json",
+  "$id": "https://royale-gambit.dev/contracts/events/envelope.schema.json",
   "title": "Event envelope",
   "description": "Every message on the rg.events topic exchange. Routing key = type. `data` is validated against contracts/events/<type>.schema.json.",
   "type": "object",
