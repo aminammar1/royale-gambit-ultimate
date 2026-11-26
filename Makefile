@@ -69,7 +69,7 @@ in-toolchain:
 	docker build -q --target toolchain -t $(TOOLCHAIN_IMAGE) $(DIR) >/dev/null
 	docker run --rm -u 0 -v rg-cache:/cache $(TOOLCHAIN_IMAGE) sh -c 'mkdir -p /cache/home && chown -R $(shell id -u):$(shell id -g) /cache/home /cache' 
 	docker run --rm -u $(shell id -u):$(shell id -g) --group-add $(DOCKER_GID) \
-	  -v $(abspath $(DIR)):/src -w /src -v rg-cache:/cache \
+	  -v $(abspath $(DIR)):/src -w /src -v rg-cache:/cache -v $(abspath contracts):/contracts:ro \
 	  -v /var/run/docker.sock:/var/run/docker.sock --add-host host.docker.internal:host-gateway \
 	  -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal \
 	  -e HOME=/cache/home -e GOMODCACHE=/cache/go/mod -e GOCACHE=/cache/go/build \
