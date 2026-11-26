@@ -228,11 +228,16 @@ func TestBadRequests(t *testing.T) {
 		"move not uci":       {`{"fen":"` + startFEN + `","moves":["e4"]}`, "invalid-request"},
 		"illegal move":       {`{"fen":"` + startFEN + `","moves":["e2e5"]}`, "invalid-position"},
 		"no king":            {`{"fen":"8/8/8/8/8/8/8/4K3 w - - 0 1"}`, "invalid-position"},
+		"moves null":         {`{"fen":"` + startFEN + `","moves":null}`, "invalid-request"},
+		"depth null":         {`{"fen":"` + startFEN + `","depth":null}`, "invalid-request"},
+		"multipv null":       {`{"fen":"` + startFEN + `","multipv":null}`, "invalid-request"},
+		"depth not a number": {`{"fen":"` + startFEN + `","depth":"deep"}`, "invalid-request"},
 	} {
 		t.Run(name, func(t *testing.T) { expectProblem(t, post(t, url, c.body, ""), http.StatusBadRequest, c.kind) })
 	}
 	batch := srv.URL + "/v1/analysis/batch"
 	expectProblem(t, post(t, batch, `{"positions":[]}`, ""), http.StatusBadRequest, "invalid-request")
+	expectProblem(t, post(t, batch, `{"positions":[{"fen":"`+startFEN+`","moves":null}]}`, ""), http.StatusBadRequest, "invalid-request")
 	p := expectProblem(t, post(t, batch, `{"positions":[{"fen":"`+startFEN+`"},{"fen":"bad"}]}`, ""),
 		http.StatusBadRequest, "invalid-position")
 	if !strings.HasPrefix(p.Detail, "position 1:") {

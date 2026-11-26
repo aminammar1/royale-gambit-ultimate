@@ -32,15 +32,39 @@ var uciMove = regexp.MustCompile(`^[a-h][1-8][a-h][1-8][qrbn]?$`)
 
 var cacheKey = cache.Key
 
+// optInt is an optional number: absent is fine, `null` is not (the contract says integer).
+type optInt struct {
+	v   int
+	set bool
+}
+
+func (o *optInt) UnmarshalJSON(b []byte) error {
+	if string(b) == "null" {
+		return errors.New("must be a number, not null")
+	}
+	o.set = true
+	return json.Unmarshal(b, &o.v)
+}
+
+// moveList is an optional array of moves: absent is fine, `null` is not.
+type moveList []string
+
+func (m *moveList) UnmarshalJSON(b []byte) error {
+	if string(b) == "null" {
+		return errors.New("moves must be an array, not null")
+	}
+	return json.Unmarshal(b, (*[]string)(m))
+}
+
 type searchIn struct {
-	Depth      *int `json:"depth"`
-	MovetimeMs *int `json:"movetime_ms"`
-	MultiPV    *int `json:"multipv"`
+	Depth      optInt `json:"depth"`
+	MovetimeMs optInt `json:"movetime_ms"`
+	MultiPV    optInt `json:"multipv"`
 }
 
 type positionIn struct {
 	FEN   string   `json:"fen"`
-	Moves []string `json:"moves"`
+	Moves moveList `json:"moves"`
 }
 
 type positionRequest struct {
@@ -73,26 +97,26 @@ func invalidRequest(format string, a ...any) error {
 
 func (in searchIn) check() (search, error) {
 	s := search{Depth: defaultDepth, MultiPV: 3}
-	if in.Depth != nil && in.MovetimeMs != nil {
+	if in.Depth.set && in.MovetimeMs.set {
 		return s, invalidRequest("give depth or movetime_ms, not both")
 	}
-	if in.Depth != nil {
-		if *in.Depth < 1 || *in.Depth > maxDepth {
+	if in.Depth.set {
+		if in.Depth.v < 1 || in.Depth.v > maxDepth {
 			return s, invalidRequest("depth must be between 1 and %d", maxDepth)
 		}
-		s.Depth = *in.Depth
+		s.Depth = in.Depth.v
 	}
-	if in.MovetimeMs != nil {
-		if *in.MovetimeMs < minMovetimeMs || *in.MovetimeMs > maxMovetimeMs {
+	if in.MovetimeMs.set {
+		if in.MovetimeMs.v < minMovetimeMs || in.MovetimeMs.v > maxMovetimeMs {
 			return s, invalidRequest("movetime_ms must be between %d and %d", minMovetimeMs, maxMovetimeMs)
 		}
-		s.Depth, s.MovetimeMs = 0, *in.MovetimeMs
+		s.Depth, s.MovetimeMs = 0, in.MovetimeMs.v
 	}
-	if in.MultiPV != nil {
-		if *in.MultiPV < 1 || *in.MultiPV > maxMultiPV {
+	if in.MultiPV.set {
+		if in.MultiPV.v < 1 || in.MultiPV.v > maxMultiPV {
 			return s, invalidRequest("multipv must be between 1 and %d", maxMultiPV)
 		}
-		s.MultiPV = *in.MultiPV
+		s.MultiPV = in.MultiPV.v
 	}
 	return s, nil
 }
