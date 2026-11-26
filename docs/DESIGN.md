@@ -15,7 +15,7 @@ Chess history printed on newspaper. Written summary of the Claude Design boards 
 
 Night (Amine, 2026-11-25, after trying a warm sepia night that tired the eyes): the neutral dark of chess sites players already use, modelled on endgame.ai. True greys with no warm cast; near-white text (16:1), secondary text 8.4:1, rules as white at about a fifth (2.0:1), the red of their error colour. The board keeps the Day colours in both editions. Portraits print at 90% brightness at night.
 
-No other hues in UI chrome; country flags (flag-icons) are content, always printed beside the country's name. Engine arrows use `--ink` at 70% (best move) and `--ink-2` (other lines). Mistake arrows use `--accent`.
+No other hues in UI chrome; country flags (flag-icons) are content, always printed beside the country's name. Engine arrows use `--board-arrow` (best move) and `--board-arrow-2` (other lines): the Day `--ink-2` and `--rule`, fixed in both editions like the board, because ink at 70% vanished on the black squares (2026-11-26). Mistake arrows use `--accent`.
 
 ### Board presets (square light / dark)
 | Preset | Light | Dark | Notes |

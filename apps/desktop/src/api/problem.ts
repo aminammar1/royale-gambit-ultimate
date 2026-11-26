@@ -100,7 +100,15 @@ function describeProblem(error: Extract<ApiError, { kind: "problem" }>): string 
     case "refresh-invalid":
     case "refresh-reused":
       return "Your session ended · sign in again";
+    case "engine-busy":
+      return "Every engine is busy · trying again shortly";
+    case "engine-unavailable":
+      return "The engine is not running · try again soon";
+    case "invalid-position":
+      return error.detail ?? "The engine cannot analyse this position";
   }
   if (error.status === 429) return "Too many tries · wait a minute";
+  // The gateway's own answers when a service is down or too slow.
+  if (error.status === 502 || error.status === 504) return "The server did not answer · try again soon";
   return error.title;
 }
