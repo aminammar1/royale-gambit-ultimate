@@ -136,45 +136,41 @@ function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) 
     >
       <div
         aria-hidden
-        className="absolute inset-0 flex flex-col justify-center gap-4 opacity-[0.16] grayscale [[data-edition=night]_&]:opacity-[0.13]"
+        className="absolute inset-0 flex flex-col justify-center gap-4 opacity-[0.42] grayscale [[data-edition=night]_&]:opacity-[0.3]"
       >
         <Row champions={CHAMPIONS} seconds={110} />
         <Row champions={[...CHAMPIONS.slice(third), ...CHAMPIONS.slice(0, third)]} seconds={90} reverse />
         <Row champions={[...CHAMPIONS.slice(2 * third), ...CHAMPIONS.slice(0, 2 * third)]} seconds={130} />
       </div>
 
-      <div className="relative flex h-full items-center overflow-y-auto py-8">
-        {/* A full-width band of paper between double rules, like a front page's banner: the
-            champions stay sharp above and below it. No box, no blur. */}
-        <div className="w-full border-y-[3px] border-double border-ink bg-paper px-6 py-8">
-          {/* No box: the title page is the page itself, like a newspaper's front, over the
-            champions drifting behind. Every line has a fixed place, so nothing moves while the
-            card, the keychain and the server answer. */}
+      {/* A game's main menu, as a front page: one full-height column of paper on the left,
+          closed by a double rule, holding the title and Start; the champions fill the rest as
+          a photo spread. No box floating over the pictures, no blur. */}
+      <div className="relative flex h-full">
+        <div className="flex h-full w-[min(32rem,46vw)] shrink-0 flex-col justify-center overflow-y-auto border-r-[3px] border-double border-ink bg-paper px-12 py-10 max-[899px]:px-8">
           <motion.main
-            className="mx-auto flex w-full max-w-[34rem] flex-col items-center text-center"
+            className="flex w-full flex-col items-start text-left"
             initial={reduce ? false : { opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.24, delay: 0.1, ease: EASE }}
           >
             <img src={logo} alt="" className="block w-24" draggable={false} />
-            <h1 className="mt-4 font-masthead text-[length:var(--text-masthead)] leading-none font-black tracking-[-0.01em] whitespace-nowrap max-[899px]:text-[2.25rem]">
+            <h1 className="mt-4 font-masthead text-[length:var(--text-masthead)] leading-none font-black tracking-[-0.01em] max-[899px]:text-[2.25rem]">
               Royale Gambit Ultimate
             </h1>
-            <p className="label mt-3 flex w-full justify-center gap-3 border-t border-ink pt-2 text-ink-2">
+            <p className="label mt-3 flex w-full gap-3 border-t border-ink pt-2 text-ink-2">
               <span>{edition} edition</span>
               <span aria-hidden>·</span>
               <span>{editionDate(new Date())}</span>
             </p>
-            <p className="mt-5 max-w-[30rem] font-masthead text-[length:var(--text-lg)] leading-snug italic">
-              “{quote.text}”
-            </p>
+            <p className="mt-6 font-masthead text-[length:var(--text-lg)] leading-snug italic">“{quote.text}”</p>
             <p className="mt-1 font-body text-[length:var(--text-sm)] text-ink-2">{quote.champion.name}</p>
 
             <button
               type="button"
               disabled={!ready}
               onClick={onStart}
-              className={`label mt-6 w-64 rounded-[var(--radius)] border py-3.5 text-[length:var(--text-md)] tracking-[0.25em] transition-colors duration-150 ${
+              className={`label mt-8 w-full rounded-[var(--radius)] border py-3.5 text-[length:var(--text-md)] tracking-[0.25em] transition-colors duration-150 ${
                 ready
                   ? "border-ink bg-ink text-paper hover:bg-paper hover:text-ink"
                   : "cursor-wait border-ink-2 bg-paper-2 text-ink-2"

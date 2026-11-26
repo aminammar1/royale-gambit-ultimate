@@ -10,7 +10,7 @@ Staunton folders are not free).
 | chessnut | Alexis Luengas (https://github.com/LexLuengas/chessnut-pieces) | Apache License 2.0 |
 | fantasy, spatial, celtic | Maurizio Monge (https://github.com/maurimo/chess-art) | MIT |
 | rhosgfx | RhosGFX (https://rhosgfx.itch.io/) | CC0 1.0 |
-| staunton-wood, staunton-basic | James Clarke, "Opensource 3D Staunton Chess Pieces" (https://github.com/clarkerubber/Staunton-Pieces), `Renders/<Wood|Basic>/Scaled/180`, renamed to `wK.png`... | MIT, Copyright (c) 2014 clarkerubber |
+| staunton-wood, staunton-basic | James Clarke, "Opensource 3D Staunton Chess Pieces" (https://github.com/clarkerubber/Staunton-Pieces), `Renders/<Wood|Basic>/Scaled/180`, renamed to `wK.png`... and cropped to square by `scripts/fit_3d_pieces.py` | MIT, Copyright (c) 2014 clarkerubber |
 
 The default "Classic" set is react-chessboard's own (MIT). Sets under GPL, share-alike or
 non-commercial licences (cburnett, merida, staunty, california...) are not bundled.

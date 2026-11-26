@@ -6,9 +6,6 @@ const files = import.meta.glob<string>("../../assets/pieces/*/*.{svg,png}", { ea
 const fileOf = (set: string, name: string) =>
   files[`../../assets/pieces/${set}/${name}.svg`] ?? files[`../../assets/pieces/${set}/${name}.png`];
 
-/** The 3D renders (a raised view, taller than wide). */
-const tall = (set: PieceSet) => set.startsWith("staunton-");
-
 const NAMES = ["wK", "wQ", "wR", "wB", "wN", "wP", "bK", "bQ", "bR", "bB", "bN", "bP"] as const;
 
 /**
@@ -27,16 +24,10 @@ function imageSet(set: Exclude<PieceSet, "classic">): PieceRenderObject {
   return Object.fromEntries(
     NAMES.map((name) => {
       const src = fileOf(set, name);
-      // The 3D renders are taller than wide (a raised view): fit them whole, standing on the
-      // bottom of their square, so the back rank is never cut by the board's edge.
-      const style: React.CSSProperties = tall(set)
-        ? {
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-            objectPosition: "center 85%",
-            transform: "scale(1.08)",
-          }
+      // 3D renders stand a little taller than their square, rising over the one behind, as
+      // 3D sets do on chess sites; flat sets fill their square.
+      const style: React.CSSProperties = set.startsWith("staunton-")
+        ? { width: "100%", height: "100%", transform: "scale(1.08)", transformOrigin: "50% 96%" }
         : { width: "100%", height: "100%" };
       return [
         name,
