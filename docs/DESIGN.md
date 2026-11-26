@@ -26,8 +26,17 @@ Chosen in Settings → Board & pieces, saved on this machine, the same in both e
 | Tournament Hall | `#E4DDC6` | `#7E8566` | muted olive, flat |
 | Classic Wood | `#E2C9A1` | `#A77B52` | warm maple/walnut, flat |
 | High Contrast | `#FFFFFF` | `#4F4F4F` | accessibility, flat |
+| Green | `#EEEED2` | `#769656` | the club board, flat |
+| Blue Ocean | `#DEE6EC` | `#6F8FAB` | flat |
+| Walnut | `#DDB88C` | `#7A5136` | dark wood, flat |
+| Champion | `#F4EBD0` | `#B0894C` | ivory and gold, flat |
+| Freestyle | `#E9E6DF` | `#3E5C76` | slate, flat |
+| Arcade | `#B9F3E4` | `#9A7FD1` | mint and lavender, flat |
+| Sakura | `#FDE8EC` | `#E5A3B4` | soft pinks, flat |
 
-Each theme says what prints on its squares: marks (last move 18%, the picked piece 30%, legal-move dots and capture rings 38%) in ink on light squares and in the theme's light colour on dark ones; coordinates likewise; engine arrows in the theme's arrow colour (best line 85%, others 40%). Check: `--accent` at 45% radial. Display switches: coordinates, last-move highlight, legal-move hints, arrows. Only the side to move can pick up a piece. Piece sets (print silhouettes, outline, letters), sounds and saved themes come with the print art and the rest of M2.
+The last seven are Amine's additions (2026-11-26), original palettes in the spirit of chess sites' boards; no brand art. **Piece sets:** Classic (react-chessboard's, outlined on Newspaper) and the freely licensed Chessnut, Fantasy, Spatial, Celtic and Pixel (RhosGFX), credited in `apps/desktop/src/assets/pieces/CREDITS.md`; GPL, share-alike and non-commercial sets are never bundled. Engine arrows are drawn by the app's own layer over the board.
+
+Each theme says what prints on its squares: marks (last move 18%, the picked piece 30%, legal-move dots and capture rings 38%) in ink on light squares and in the theme's light colour on dark ones; coordinates likewise; engine arrows in the theme's arrow colour (best line 85%, others 40%). Check: `--accent` at 45% radial. Display switches: coordinates, last-move highlight, legal-move hints, arrows. Only the side to move can pick up a piece. Amine's print piece set joins the list when it lands; sounds and saved themes come with the rest of M2.
 
 ## Typography (all OFL, bundled locally via @fontsource; the app is offline)
 | Role | Font | Notes |
@@ -64,7 +73,7 @@ Every screen is a "page": masthead strip (page title, edition/date line, small a
 - Under 1280px wide (a tiled window is often ~950px) the nav narrows to an 80px rail: the icon with the name set small beneath, the logo alone, the Hall of Champions as one 48px portrait that steps on a click, and the player slot's badge. The window's minimum is 760×600.
 
 ## Start-up and sign-in (beyond the boards)
-- **Start screen** (`app/StartScreen.tsx`), every launch: first a newsreel intro, the eighteen champions in hard cuts (125 ms each, the year set large beneath), skipped by any key or click. Then the title page: three rows of champion portraits drifting sideways behind (16% opacity, 20% at night, still under reduced motion), and a panel built like the player card: a label header ("Royale Gambit · Day edition", the date) over a double rule, the logo and the nameplate on one line, a champion quotation between ink rules (portrait, a rule, the opening mark hanging), the **Start** button (Enter works), and a label footer ("Press Enter to start" · the server's state). Start reads "Getting ready…" until the card, keychain and server have answered. Every line has a fixed place, so the panel never moves or resizes while start-up answers. `index.html` paints `--paper` before the CSS loads, so the window never flashes white.
+- **Start screen** (`app/StartScreen.tsx`), every launch: first a newsreel intro, the eighteen champions in hard cuts (125 ms each, the year set large beneath), skipped by any key or click. Then the title page: three rows of champion portraits drifting sideways behind (16% opacity, 20% at night, still under reduced motion), and no card (Amine, 2026-11-26: a box read as a dialog): the page itself is the title, with the logo, the nameplate, an edition line between double rules, one champion quotation, the **Start** button (Enter works) and a status line ("Press Enter · Server online"), over one paper wash that lets the champions step back behind the words. Start reads "Getting ready…" until the card, keychain and server have answered; every line has a fixed place, so nothing moves meanwhile. `index.html` paints `--paper` before the CSS loads, so the window never flashes white.
 - **Quotations** (`app/quotes.ts`): short, commonly attributed lines from the champions. On the front page, a pull-quote band under the masthead (portrait, the line in Playfair italic with a hanging opening mark, the name beneath; turns every 12 s, holds under the pointer, previous/pause/next). Never invented quotes.
 - **Hall of Champions** turns by itself every 7 s. The portrait's frame stays put while the new photo fades in over the old one (photos decoded up front, so it never goes blank); the name hands over out-then-in with a 4px settle (never two names on top of each other). The caption is one line, "Champion · 1886". It holds under the pointer or focus, and has a Pause button (WCAG 2.2.2).
 - **Brand marks**: Lichess and Chess.com from Simple Icons (CC0), one colour in `currentColor`, so they print in ink; the brands' own hues never appear.
