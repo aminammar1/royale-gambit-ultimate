@@ -4,4 +4,4 @@ scrape_configs:
   - job_name: services
     metrics_path: /metrics
     static_configs:
-      - targets: [template-go:8101, template-py:8102, auth-profile:8081, gateway:8080]
+      - targets: [template-py:8102, auth-profile:8081, analysis:8084, gateway:8080]

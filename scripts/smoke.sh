@@ -27,7 +27,7 @@ check_metrics() {
 
 json_field() { python3 -c "import json,sys; print(json.load(sys.stdin)[\"$1\"])"; }
 
-for port in 8101 8102; do
+for port in 8102; do
   base="http://localhost:$port"
   echo "== template $base"
   curl -fsS "$base/health/live" >/dev/null
@@ -62,6 +62,16 @@ curl -fsS -X PUT -H "Authorization: Bearer $token" -H 'Content-Type: application
 check_metrics "$base"
 contract_check auth-profile.yaml "$base" --header "Authorization: Bearer $token"
 
+start='rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+base=http://localhost:8084
+echo "== analysis $base"
+curl -fsS "$base/health/ready" >/dev/null
+best=$(curl -fsS -H 'Content-Type: application/json' -d "{\"fen\":\"$start\",\"depth\":8,\"multipv\":1}" \
+  "$base/v1/analysis/positions" | json_field bestmove)
+[[ $best =~ ^[a-h][1-8][a-h][1-8]$ ]] || { echo "   bestmove '$best' from the start position"; fail=1; }
+check_metrics "$base"
+contract_check analysis.yaml "$base"
+
 # The real path from the desktop app: everything through the gateway.
 gw=http://localhost:8080
 echo "== gateway $gw"
@@ -86,7 +96,18 @@ status=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer not.a.
 [[ $status == 401 ]] || { echo "   a bad token got $status at the gateway, want 401"; fail=1; }
 status=$(curl -s -o /dev/null -w '%{http_code}' "$gw/.well-known/jwks.json")
 [[ $status == 404 ]] || { echo "   the JWKS is public through the gateway ($status)"; fail=1; }
+# Analysis through the gateway: a guest token is enough; none is not.
+guest=$(curl -fsS -X POST "$gw/v1/auth/guest" | json_field access_token)
+body="{\"fen\":\"$start\",\"moves\":[\"e2e4\"],\"depth\":6,\"multipv\":2}"
+side=$(curl -fsS -H "Authorization: Bearer $guest" -H 'Content-Type: application/json' -d "$body" \
+  "$gw/v1/analysis/positions" | json_field side_to_move)
+[[ $side == b ]] || { echo "   analysis through the gateway: side_to_move '$side', want b"; fail=1; }
+events=$(curl -fsSN -H "Authorization: Bearer $guest" -H 'Accept: text/event-stream' -H 'Content-Type: application/json' \
+  -d "{\"fen\":\"$start\",\"depth\":7,\"multipv\":1}" "$gw/v1/analysis/positions" | grep -c '^event: result' || true)
+[[ $events == 1 ]] || { echo "   analysis stream through the gateway: $events result events, want 1"; fail=1; }
+status=$(curl -s -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -d "$body" "$gw/v1/analysis/positions")
+[[ $status == 401 ]] || { echo "   analysis without a token got $status at the gateway, want 401"; fail=1; }
 check_metrics "$gw"
-echo "   email sign-in, identities, profile and token check through the gateway ok"
+echo "   email sign-in, identities, profile, analysis and token checks through the gateway ok"
 
 exit $fail

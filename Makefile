@@ -3,7 +3,7 @@ SHELL := /bin/bash
 COMPOSE := docker compose --env-file .env -f infra/compose/docker-compose.yml
 # Every service folder that has a Makefile: real services and the language templates.
 SERVICES := $(patsubst %/Makefile,%,$(wildcard services/*/Makefile services/_templates/*/Makefile))
-# S=<name> resolves to services/<name>, or services/_templates/<name> for templates (S=go|python).
+# S=<name> resolves to services/<name>, or services/_templates/<name> for the Python template (S=python).
 svc = $(firstword $(wildcard services/$(S) services/_templates/$(S)))
 
 .PHONY: help env infra up watch down logs check check-svc fmt-svc check-desktop smoke ps clean
