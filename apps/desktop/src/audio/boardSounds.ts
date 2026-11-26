@@ -2,7 +2,7 @@
 // bundles them (src/assets/sounds/<kind>.ogg, credited there); otherwise a synthesised knock of
 // filtered noise and a short low thump, close enough to a piece on a wooden board. No React.
 
-export type BoardSound = "move" | "capture" | "check" | "castle";
+export type BoardSound = "move" | "capture" | "check" | "castle" | "start";
 
 const recorded = import.meta.glob<string>("../assets/sounds/*.{ogg,mp3,wav}", { eager: true, import: "default" });
 const sampleUrl = (kind: BoardSound) => Object.entries(recorded).find(([path]) => path.includes(`/${kind}.`))?.[1];
@@ -77,6 +77,9 @@ function synth(ctx: AudioContext, kind: BoardSound) {
     case "check":
       knock(ctx, t, 0.8, 1.15);
       break;
+    case "start":
+      for (let i = 0; i < 5; i++) knock(ctx, t + i * 0.035, 0.35 + 0.1 * (i % 2), 0.9 + 0.05 * i);
+      break;
   }
 }
 
@@ -84,7 +87,8 @@ function synth(ctx: AudioContext, kind: BoardSound) {
 export async function playBoardSound(kind: BoardSound): Promise<void> {
   const ctx = audio();
   if (!ctx) return;
-  const url = sampleUrl(kind) ?? (kind === "castle" ? sampleUrl("move") : undefined);
+  // The recordings have a move and a capture: check and castle use the move's knock.
+  const url = sampleUrl(kind) ?? (kind === "check" || kind === "castle" ? sampleUrl("move") : undefined);
   const sample = url ? await load(ctx, url) : undefined;
   if (!sample) {
     synth(ctx, kind);

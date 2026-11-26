@@ -19,7 +19,16 @@ export const BOARD_THEMES = [
 export type BoardTheme = (typeof BOARD_THEMES)[number];
 
 /** Piece sets: react-chessboard's own, then the freely licensed sets in src/assets/pieces. */
-export const PIECE_SETS = ["classic", "chessnut", "fantasy", "spatial", "celtic", "rhosgfx"] as const;
+export const PIECE_SETS = [
+  "classic",
+  "chessnut",
+  "fantasy",
+  "spatial",
+  "celtic",
+  "rhosgfx",
+  "staunton-wood",
+  "staunton-basic",
+] as const;
 export type PieceSet = (typeof PIECE_SETS)[number];
 
 /** How deep the engine searches on the Analysis page (half-moves). */

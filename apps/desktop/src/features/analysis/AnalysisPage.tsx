@@ -187,6 +187,7 @@ export function AnalysisPage() {
 
   /** A new game on the board: nothing picked, no promotion waiting, no old error. */
   const replaceGame = (next: Game, at: number) => {
+    if (useSettings.getState().sounds) void playBoardSound("start");
     setGame(next);
     setCursor(at);
     setSelected(undefined);

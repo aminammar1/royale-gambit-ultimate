@@ -34,7 +34,7 @@ Chosen in Settings → Board & pieces, saved on this machine, the same in both e
 | Arcade | `#B9F3E4` | `#9A7FD1` | mint and lavender, flat |
 | Sakura | `#FDE8EC` | `#E5A3B4` | soft pinks, flat |
 
-The last seven are Amine's additions (2026-11-26), original palettes in the spirit of chess sites' boards; no brand art. **Piece sets:** Classic (react-chessboard's, outlined on Newspaper) and the freely licensed Chessnut, Fantasy, Spatial, Celtic and Pixel (RhosGFX), credited in `apps/desktop/src/assets/pieces/CREDITS.md`; GPL, share-alike and non-commercial sets are never bundled. Engine arrows are drawn by the app's own layer over the board.
+The last seven are Amine's additions (2026-11-26), original palettes in the spirit of chess sites' boards; no brand art. **Piece sets:** Classic (react-chessboard's, outlined on Newspaper), the freely licensed Chessnut, Fantasy, Spatial, Celtic and Pixel (RhosGFX), and 3D Wood and 3D Classic (James Clarke's ray-traced Staunton renders, MIT, a raised view standing on each square), credited in `apps/desktop/src/assets/pieces/CREDITS.md`; GPL, share-alike and non-commercial sets are never bundled. Engine arrows are drawn by the app's own layer over the board. **Sounds:** wooden-board recordings (el_boss, CC0, `assets/sounds/CREDITS.md`) for a move, a capture and a new board; check and castle use the move's knock; a Sounds switch in Board & pieces, on by default. **Engine depth:** 12, 16, 20 (default), 24 or 28, chosen in the engine column and saved.
 
 Each theme says what prints on its squares: marks (last move 18%, the picked piece 30%, legal-move dots and capture rings 38%) in ink on light squares and in the theme's light colour on dark ones; coordinates likewise; engine arrows in the theme's arrow colour (best line 85%, others 40%). Check: `--accent` at 45% radial. Display switches: coordinates, last-move highlight, legal-move hints, arrows. Only the side to move can pick up a piece. Amine's print piece set joins the list when it lands; sounds and saved themes come with the rest of M2.
 
@@ -58,7 +58,7 @@ Type scale (rem): 0.75 · 0.875 · 1 · 1.125 · 1.375 · 1.75 · 2.25 · 3 (mas
 
 ## Motion
 - Durations 120–240 ms, `ease-out` or `cubic-bezier(0.2, 0, 0, 1)`. No springs with overshoot, no bounce, no scale-pop.
-- Pieces glide 150–200 ms. Panels fade and lift 4px, like a page settling. Respect `prefers-reduced-motion`.
+- Pieces glide 280 ms (Amine, 2026-11-26: smoother than the earlier 150–200 ms). Panels fade and lift 4px, like a page settling. Respect `prefers-reduced-motion`.
 
 ## Notation & marking
 - Move list in score-sheet form: `12. Nf3  Nc6`, numbered rows, tabular mono.

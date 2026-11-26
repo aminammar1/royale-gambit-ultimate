@@ -48,4 +48,6 @@ export const PIECE_SET_NAMES: Record<PieceSet, { name: string; by: string }> = {
   spatial: { name: "Spatial", by: "Maurizio Monge · MIT" },
   celtic: { name: "Celtic", by: "Maurizio Monge · MIT" },
   rhosgfx: { name: "Pixel", by: "RhosGFX · CC0" },
+  "staunton-wood": { name: "3D Wood", by: "James Clarke · MIT" },
+  "staunton-basic": { name: "3D Classic", by: "James Clarke · MIT" },
 };

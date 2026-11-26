@@ -1,8 +1,13 @@
 import { defaultPieces, type PieceRenderObject } from "react-chessboard";
 import type { PieceSet } from "../../db/settings";
 
-// The bundled sets, by file: src/assets/pieces/<set>/<colour><piece>.svg (credits there).
-const files = import.meta.glob<string>("../../assets/pieces/*/*.svg", { eager: true, import: "default" });
+// The bundled sets, by file: src/assets/pieces/<set>/<colour><piece>.svg or .png (credits there).
+const files = import.meta.glob<string>("../../assets/pieces/*/*.{svg,png}", { eager: true, import: "default" });
+const fileOf = (set: string, name: string) =>
+  files[`../../assets/pieces/${set}/${name}.svg`] ?? files[`../../assets/pieces/${set}/${name}.png`];
+
+/** The 3D renders (a raised view, taller than wide). */
+const tall = (set: PieceSet) => set.startsWith("staunton-");
 
 const NAMES = ["wK", "wQ", "wR", "wB", "wN", "wP", "bK", "bQ", "bR", "bB", "bN", "bP"] as const;
 
@@ -21,11 +26,22 @@ const classic: PieceRenderObject = Object.fromEntries(
 function imageSet(set: Exclude<PieceSet, "classic">): PieceRenderObject {
   return Object.fromEntries(
     NAMES.map((name) => {
-      const src = files[`../../assets/pieces/${set}/${name}.svg`];
+      const src = fileOf(set, name);
+      // The 3D renders are taller than wide (a raised view): fit them whole, standing on the
+      // bottom of their square, so the back rank is never cut by the board's edge.
+      const style: React.CSSProperties = tall(set)
+        ? {
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            objectPosition: "center 85%",
+            transform: "scale(1.08)",
+          }
+        : { width: "100%", height: "100%" };
       return [
         name,
         (props?: { svgStyle?: React.CSSProperties }) => (
-          <img src={src} alt="" draggable={false} style={{ width: "100%", height: "100%", ...props?.svgStyle }} />
+          <img src={src} alt="" draggable={false} style={{ ...style, ...props?.svgStyle }} />
         ),
       ];
     }),
@@ -46,5 +62,5 @@ export function piecesFor(set: PieceSet): PieceRenderObject {
 
 /** A picture of one piece of `set`, for the Board & pieces list. */
 export function pieceImage(set: Exclude<PieceSet, "classic">, name: (typeof NAMES)[number]): string | undefined {
-  return files[`../../assets/pieces/${set}/${name}.svg`];
+  return fileOf(set, name);
 }

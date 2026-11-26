@@ -13,9 +13,34 @@ const ON_OFF: &[&str] = &["on", "off"];
 const ALLOWED: &[(&str, &[&str])] = &[
     (
         "board_theme",
-        &["newspaper", "newsprint", "tournament", "green", "ocean", "wood", "walnut", "champion", "freestyle", "arcade", "sakura", "contrast"],
+        &[
+            "newspaper",
+            "newsprint",
+            "tournament",
+            "green",
+            "ocean",
+            "wood",
+            "walnut",
+            "champion",
+            "freestyle",
+            "arcade",
+            "sakura",
+            "contrast",
+        ],
     ),
-    ("board_pieces", &["classic", "chessnut", "fantasy", "spatial", "celtic", "rhosgfx"]),
+    (
+        "board_pieces",
+        &[
+            "classic",
+            "chessnut",
+            "fantasy",
+            "spatial",
+            "celtic",
+            "rhosgfx",
+            "staunton-wood",
+            "staunton-basic",
+        ],
+    ),
     ("board_coordinates", ON_OFF),
     ("board_last_move", ON_OFF),
     ("board_legal_moves", ON_OFF),
@@ -84,9 +109,18 @@ mod tests {
     #[test]
     fn unknown_keys_and_values_are_refused() {
         let db = Database::in_memory();
-        assert!(matches!(set(&db, "favourite_colour", "red"), Err(DbError::Invalid { .. })));
-        assert!(matches!(set(&db, "board_theme", "neon"), Err(DbError::Invalid { .. })));
-        assert!(matches!(set(&db, "edition", ""), Err(DbError::Invalid { .. })));
+        assert!(matches!(
+            set(&db, "favourite_colour", "red"),
+            Err(DbError::Invalid { .. })
+        ));
+        assert!(matches!(
+            set(&db, "board_theme", "neon"),
+            Err(DbError::Invalid { .. })
+        ));
+        assert!(matches!(
+            set(&db, "edition", ""),
+            Err(DbError::Invalid { .. })
+        ));
         assert!(all(&db).unwrap().is_empty());
     }
 }
