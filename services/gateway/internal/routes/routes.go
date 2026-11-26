@@ -5,6 +5,7 @@ package routes
 import (
 	"net/url"
 	"strings"
+	"time"
 )
 
 // Auth says what the gateway demands from a request before forwarding it.
@@ -25,6 +26,9 @@ type Route struct {
 	// SignIn marks the routes anonymous callers use to get a token; they get a tighter
 	// per-IP rate limit.
 	SignIn bool
+	// Timeout is how long the service may take to start answering; 0 means the gateway's
+	// default. A stream may then run for as long as it likes.
+	Timeout time.Duration
 }
 
 // Table is the full routing table. Order does not matter: the longest prefix wins.
@@ -43,17 +47,29 @@ func (t Table) Match(path string) (Route, bool) {
 	return best, found
 }
 
-// P2 is the table for the services that exist at P2: only auth-profile. A service joins
-// the table in the milestone that creates it.
-func P2(authProfile *url.URL) Table {
+// Upstreams are the services the gateway routes to.
+type Upstreams struct {
+	AuthProfile *url.URL
+	Analysis    *url.URL
+}
+
+// AnalysisTimeout lets a deep search answer as JSON (SERVICES.md: analysis calls get 30 s).
+const AnalysisTimeout = 30 * time.Second
+
+// Build is the table for the services that exist. A service joins it in the milestone that
+// creates it.
+func Build(u Upstreams) Table {
 	return Table{
 		// Refresh and logout: a token may come along but is not needed.
-		{Prefix: "/v1/auth", Upstream: authProfile},
+		{Prefix: "/v1/auth", Upstream: u.AuthProfile},
 		// The routes that hand out tokens to anonymous callers get the tight per-IP budget.
-		{Prefix: "/v1/auth/guest", Upstream: authProfile, SignIn: true},
-		{Prefix: "/v1/auth/email", Upstream: authProfile, SignIn: true},
-		{Prefix: "/v1/auth/lichess", Upstream: authProfile, SignIn: true},
-		{Prefix: "/v1/auth/identities", Upstream: authProfile, Auth: Required},
-		{Prefix: "/v1/profile", Upstream: authProfile, Auth: Required},
+		{Prefix: "/v1/auth/guest", Upstream: u.AuthProfile, SignIn: true},
+		{Prefix: "/v1/auth/email", Upstream: u.AuthProfile, SignIn: true},
+		{Prefix: "/v1/auth/lichess", Upstream: u.AuthProfile, SignIn: true},
+		{Prefix: "/v1/auth/identities", Upstream: u.AuthProfile, Auth: Required},
+		{Prefix: "/v1/profile", Upstream: u.AuthProfile, Auth: Required},
+		// Engine time is the costliest thing we give away: a token (a guest's is fine) and the
+		// per-user rate limit, always.
+		{Prefix: "/v1/analysis", Upstream: u.Analysis, Auth: Required, Timeout: AnalysisTimeout},
 	}
 }

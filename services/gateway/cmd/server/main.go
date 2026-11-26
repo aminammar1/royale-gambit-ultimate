@@ -59,7 +59,7 @@ func run() error {
 		Handler: app.New(app.Options{
 			Service:         cfg.ServiceName,
 			Log:             log,
-			Routes:          routes.P2(cfg.AuthProfile),
+			Routes:          routes.Build(routes.Upstreams{AuthProfile: cfg.AuthProfile, Analysis: cfg.Analysis}),
 			Verifier:        verifier,
 			Limiter:         limiter,
 			Limits:          cfg.Limits,

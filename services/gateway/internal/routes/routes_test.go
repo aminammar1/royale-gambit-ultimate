@@ -32,9 +32,10 @@ func TestLongestPrefixWinsOnSegmentBoundaries(t *testing.T) {
 	}
 }
 
-func TestTheP2TableGuardsWhatNeedsGuarding(t *testing.T) {
+func TestTheTableGuardsWhatNeedsGuarding(t *testing.T) {
 	authProfile, _ := url.Parse("http://auth-profile:8081")
-	table := routes.P2(authProfile)
+	analysis, _ := url.Parse("http://analysis:8084")
+	table := routes.Build(routes.Upstreams{AuthProfile: authProfile, Analysis: analysis})
 	cases := []struct {
 		path   string
 		auth   routes.Auth
@@ -52,6 +53,15 @@ func TestTheP2TableGuardsWhatNeedsGuarding(t *testing.T) {
 		if !ok || r.Auth != c.auth || r.SignIn != c.signIn || r.Upstream != authProfile {
 			t.Errorf("%s: got %+v (found %v), want auth %v sign-in %v", c.path, r, ok, c.auth, c.signIn)
 		}
+	}
+	for _, path := range []string{"/v1/analysis/positions", "/v1/analysis/batch"} {
+		r, ok := table.Match(path)
+		if !ok || r.Upstream != analysis || r.Auth != routes.Required || r.SignIn || r.Timeout != routes.AnalysisTimeout {
+			t.Errorf("%s: got %+v (found %v)", path, r, ok)
+		}
+	}
+	if _, ok := table.Match("/v1/analysis-x"); ok {
+		t.Error("prefixes match whole segments only")
 	}
 	if _, ok := table.Match("/.well-known/jwks.json"); ok {
 		t.Error("the JWKS is for services, not for the public")

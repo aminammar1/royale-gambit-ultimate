@@ -27,19 +27,31 @@ type Proxy struct {
 	byPrefix map[string]*httputil.ReverseProxy
 }
 
-// New builds the proxies. A service must start answering within timeout; the body may
-// then stream for as long as it likes (server-sent events).
+// New builds the proxies. A service must start answering within its route's timeout (the
+// default when the route sets none); the body may then stream for as long as it likes
+// (server-sent events).
 func New(table routes.Table, timeout time.Duration, log *slog.Logger) *Proxy {
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.Proxy = nil // never route service traffic through an HTTP_PROXY from the env
-	transport.ResponseHeaderTimeout = timeout
-	transport.DialContext = (&net.Dialer{Timeout: timeout}).DialContext
-	transport.MaxIdleConnsPerHost = 32
+	transports := map[time.Duration]*http.Transport{} // one per header timeout, shared by routes
+	transportFor := func(d time.Duration) *http.Transport {
+		if d <= 0 {
+			d = timeout
+		}
+		if t, ok := transports[d]; ok {
+			return t
+		}
+		t := http.DefaultTransport.(*http.Transport).Clone()
+		t.Proxy = nil // never route service traffic through an HTTP_PROXY from the env
+		t.ResponseHeaderTimeout = d
+		t.DialContext = (&net.Dialer{Timeout: timeout}).DialContext
+		t.MaxIdleConnsPerHost = 32
+		transports[d] = t
+		return t
+	}
 
 	p := &Proxy{byPrefix: make(map[string]*httputil.ReverseProxy, len(table))}
 	for _, route := range table {
 		p.byPrefix[route.Prefix] = &httputil.ReverseProxy{
-			Transport:     transport,
+			Transport:     transportFor(route.Timeout),
 			FlushInterval: -1, // pass server-sent events through as they come
 			Rewrite: func(pr *httputil.ProxyRequest) {
 				// Rewrite starts from a copy without the client's X-Forwarded-* headers;

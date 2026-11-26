@@ -101,10 +101,17 @@ func guarded(t *testing.T, jwks *jwksServer, up *upstream) *httptest.Server {
 		t.Fatal(err)
 	}
 	u, _ := url.Parse(up.URL)
-	return startGateway(t, app.Options{Verifier: verifier, Routes: routes.Table{
+	table := routes.Table{
 		{Prefix: "/v1/auth", Upstream: u, Auth: routes.Optional},
 		{Prefix: "/v1/profile", Upstream: u, Auth: routes.Required},
-	}})
+	}
+	// The analysis route exactly as the real table has it.
+	for _, r := range routes.Build(routes.Upstreams{AuthProfile: u, Analysis: u}) {
+		if r.Prefix == "/v1/analysis" {
+			table = append(table, r)
+		}
+	}
+	return startGateway(t, app.Options{Verifier: verifier, Routes: table})
 }
 
 func get(t *testing.T, url, bearer string) *http.Response {
@@ -164,7 +171,7 @@ func TestABadTokenNeverReachesAService(t *testing.T) {
 		"not bearer":     "Basic dXNlcjpwYXNz",
 	}
 	for name, bearer := range bad {
-		for _, path := range []string{"/v1/profile", "/v1/auth/refresh"} {
+		for _, path := range []string{"/v1/profile", "/v1/auth/refresh", "/v1/analysis/positions"} {
 			resp := get(t, gw.URL+path, bearer)
 			assertProblem(t, resp, http.StatusUnauthorized)
 			if resp.Header.Get("WWW-Authenticate") == "" {
@@ -182,6 +189,10 @@ func TestARequiredRouteNeedsAToken(t *testing.T) {
 	gw := guarded(t, newJWKS(t, newKey(t, "k1")), up)
 
 	assertProblem(t, get(t, gw.URL+"/v1/profile", ""), http.StatusUnauthorized)
+	assertProblem(t, get(t, gw.URL+"/v1/analysis/positions", ""), http.StatusUnauthorized)
+	if n := up.hits.Load(); n != 0 {
+		t.Fatalf("an anonymous call reached a guarded service %d times", n)
+	}
 	if resp := get(t, gw.URL+"/v1/auth/guest", ""); resp.StatusCode != http.StatusAccepted {
 		t.Fatalf("optional route without a token: status %d, want it forwarded", resp.StatusCode)
 	}
