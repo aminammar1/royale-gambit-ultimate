@@ -15,16 +15,16 @@ Chess history printed on newspaper. Written summary of the Claude Design boards 
 
 Night (Amine, 2026-11-25, after trying a warm sepia night that tired the eyes): the neutral dark of chess sites players already use, modelled on endgame.ai. True greys with no warm cast; near-white text (16:1), secondary text 8.4:1, rules as white at about a fifth (2.0:1), the red of their error colour. The board keeps the Day colours in both editions. Portraits print at 90% brightness at night.
 
-No other hues in UI chrome; country flags (flag-icons) are content, always printed beside the country's name. Engine arrows use `--board-arrow` (best move) and `--board-arrow-2` (other lines): the Day `--ink-2` and `--rule`, fixed in both editions like the board, because ink at 70% vanished on the black squares (2026-11-26). Mistake arrows use `--accent`.
+No other hues in UI chrome; country flags (flag-icons) are content, always printed beside the country's name. Engine arrows: see the board presets below (board ink, which reads on the grey and paper squares alike). Mistake arrows use `--accent`.
 
 ### Board presets (square light / dark)
 | Preset | Light | Dark | Notes |
 | --- | --- | --- | --- |
-| Newsprint (default) | `#E9E1CC` | `#1B1A17` | printed look from the boards: ink-black dark squares, paper light squares with a fine horizontal hatch (a repeating 1px line at about 8% ink, drawn inside the light squares only) |
+| Newsprint (default) | `#E9E1CC` | `#8F877A` | printed look: printer's grey dark squares, paper light squares with a fine horizontal hatch (a repeating 1px line at about 8% board ink, drawn inside the light squares only). Amine, 2026-11-26: the boards' ink-black dark squares hid the black pieces |
 | Tournament Hall | `#E4DDC6` | `#7E8566` | muted olive, felt-and-wood hall |
 | Classic Wood | `#E2C9A1` | `#A77B52` | warm maple/walnut |
 | High Contrast | `#FFFFFF` | `#4F4F4F` | accessibility |
-Last-move highlight: `--ink` at 12%. Check: `--accent` at 35% radial. Legal-move dots: `--ink` at 22%.
+Everything printed on the board uses `--board-ink` (`#1B1A17`, the same in both editions): last move at 14%, the picked piece at 26%, legal-move dots and capture rings at 30%, engine arrows at 75% (best) and 35% (others). Check: `--accent` at 45% radial. Only the side to move can pick up a piece.
 
 ## Typography (all OFL, bundled locally via @fontsource; the app is offline)
 | Role | Font | Notes |

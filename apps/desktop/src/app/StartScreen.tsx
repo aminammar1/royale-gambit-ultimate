@@ -148,33 +148,33 @@ function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) 
             body in sections between ink rules, and a label footer. Every line has a fixed place,
             so nothing moves while the card, the keychain and the server answer. */}
         <motion.main
-          className="w-full max-w-[40rem] border-[3px] border-double border-ink bg-paper p-1"
+          className="w-full max-w-[30rem] border-[3px] border-double border-ink bg-paper p-1"
           initial={reduce ? false : { opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.24, delay: 0.1, ease: EASE }}
         >
-          <div className="border border-ink px-8 pt-4 pb-3 max-[899px]:px-5">
+          <div className="border border-ink px-6 pt-3 pb-3 max-[899px]:px-5">
             <div className="flex items-baseline justify-between gap-4 border-b-[3px] border-double border-ink pb-2">
               <span className="label truncate text-ink">Royale Gambit · {edition} edition</span>
               <span className="label shrink-0 text-ink-2">{editionDate(new Date())}</span>
             </div>
 
-            <div className="flex flex-col items-center pt-6 pb-5">
-              <img src={logo} alt="" className="block w-36 max-[899px]:w-28" draggable={false} />
-              <h1 className="mt-3 text-center font-masthead text-[length:var(--text-masthead)] leading-none font-black tracking-[-0.01em] whitespace-nowrap max-[899px]:text-[2.25rem]">
+            <div className="flex flex-col items-center pt-4 pb-4">
+              <img src={logo} alt="" className="block w-24" draggable={false} />
+              <h1 className="mt-2 text-center font-masthead text-[length:var(--text-3xl)] leading-none font-black tracking-[-0.01em] whitespace-nowrap">
                 Royale Gambit Ultimate
               </h1>
             </div>
 
-            <figure className="grid grid-cols-[auto_minmax(0,1fr)] items-center border-y border-ink py-5">
-              <Portrait champion={quote.champion} className="h-20 w-16" />
-              <div className="ml-5 min-w-0 border-l border-rule pl-5">
+            <figure className="grid grid-cols-[auto_minmax(0,1fr)] items-center border-y border-ink py-4">
+              <Portrait champion={quote.champion} className="h-16 w-12" />
+              <div className="ml-4 min-w-0 border-l border-rule pl-4">
                 {/* The opening mark hangs, so the words line up with the name beneath. */}
-                <blockquote className="font-masthead text-[length:var(--text-xl)] leading-[1.3] font-semibold italic [text-indent:-0.42em]">
+                <blockquote className="font-masthead text-[length:var(--text-lg)] leading-[1.3] font-semibold italic [text-indent:-0.42em]">
                   “{quote.text}”
                 </blockquote>
                 <figcaption className="mt-2 flex flex-wrap items-baseline gap-x-3">
-                  <span className="font-body text-[length:var(--text-md)] font-semibold">{quote.champion.name}</span>
+                  <span className="font-body text-[length:var(--text-sm)] font-semibold">{quote.champion.name}</span>
                   <span className="numeric text-[length:var(--text-xs)] text-ink-2">
                     World champion from {quote.champion.since}
                   </span>
@@ -186,7 +186,7 @@ function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) 
               type="button"
               disabled={!ready}
               onClick={onStart}
-              className={`label mt-5 w-full rounded-[var(--radius)] border py-3.5 text-[length:var(--text-md)] tracking-[0.2em] transition-colors duration-150 ${
+              className={`label mt-4 w-full rounded-[var(--radius)] border py-3 text-[length:var(--text-md)] tracking-[0.2em] transition-colors duration-150 ${
                 ready
                   ? "border-ink bg-ink text-paper hover:bg-paper hover:text-ink"
                   : "cursor-wait border-ink-2 bg-paper-2 text-ink-2"
@@ -195,7 +195,7 @@ function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) 
               {ready ? "Start" : "Getting ready…"}
             </button>
 
-            <div className="label mt-4 flex justify-between gap-4 border-t border-rule pt-3 text-ink-2">
+            <div className="label mt-3 flex justify-between gap-4 border-t border-rule pt-2.5 text-ink-2">
               <span>{ready ? "Press Enter to start" : "Reading your card"}</span>
               <span role="status">{SERVER_LINE[server]}</span>
             </div>

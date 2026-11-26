@@ -8,8 +8,10 @@ import {
   load,
   moveNumberLabel,
   newGame,
+  legalTargets,
   normalizeStart,
   numberedLine,
+  numberedMoves,
   outcome,
   play,
   pvToSan,
@@ -185,5 +187,26 @@ describe("outcome", () => {
     expect(outcome("7k/6Q1/6K1/8/8/8/8/8 b - - 0 1")).toBe("checkmate");
     expect(outcome("7k/5Q2/6K1/8/8/8/8/8 b - - 0 1")).toBe("stalemate");
     expect(outcome(START_FEN)).toBeUndefined();
+  });
+});
+
+describe("board help", () => {
+  it("lists where a piece can go, captures marked, nothing for the side not to move", () => {
+    const fen = "4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1";
+    expect(legalTargets(fen, "e4")).toEqual(
+      expect.arrayContaining([
+        { square: "e5", capture: false },
+        { square: "d5", capture: true },
+      ]),
+    );
+    expect(legalTargets(fen, "d5")).toEqual([]);
+  });
+
+  it("splits a line into numbered moves", () => {
+    expect(numberedMoves("8 b - - 0 19", ["Nxe4", "Qd2", "Nf6"])).toEqual([
+      { number: "19…", san: "Nxe4" },
+      { number: "20.", san: "Qd2" },
+      { number: undefined, san: "Nf6" },
+    ]);
   });
 });

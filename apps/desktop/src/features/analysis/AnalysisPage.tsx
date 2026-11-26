@@ -6,6 +6,7 @@ import {
   fenAt,
   inCheck,
   isPromotion,
+  legalTargets,
   outcome,
   kingSquare,
   load,
@@ -90,7 +91,10 @@ export function AnalysisPage() {
       return false;
     }
     const next = play(game, cursor, from, to, piece);
-    if (!next) return false;
+    if (!next) {
+      setSelected(undefined); // a dropped piece that did not move leaves no dots behind
+      return false;
+    }
     setGame(next);
     setCursor(cursor + 1);
     setSelected(undefined);
@@ -99,9 +103,33 @@ export function AnalysisPage() {
   };
 
   // Click-to-move: the first click picks a square, the second plays there or picks again.
+  // Where the picked piece can go: dots on the board, for a click or a drag.
+  const targets = useMemo(() => (selected ? legalTargets(fen, selected) : []), [fen, selected]);
+
+  // Click-to-move: pick a piece of the side to move, then a dot; another of your pieces picks
+  // that one instead; anything else drops the pick.
   const onSquareClick = (square: string) => {
-    if (selected && selected !== square && tryMove(selected, square)) return;
-    setSelected(selected === square ? undefined : square);
+    if (selected && targets.some((t) => t.square === square)) {
+      tryMove(selected, square);
+      return;
+    }
+    setSelected(square !== selected && legalTargets(fen, square).length > 0 ? square : undefined);
+  };
+
+  /** Plays engine moves from the current position, crossing out what came after. */
+  const playLine = (ucis: string[]) => {
+    let next = game;
+    let at = cursor;
+    for (const uci of ucis) {
+      const played = play(next, at, uci.slice(0, 2), uci.slice(2, 4), uci[4]);
+      if (!played) break;
+      next = played;
+      at += 1;
+    }
+    setGame(next);
+    setCursor(at);
+    setSelected(undefined);
+    setPromotion(undefined);
   };
 
   useEffect(() => {
@@ -234,7 +262,7 @@ export function AnalysisPage() {
 
         <section aria-label="Board" className="border-rule px-6 [grid-area:board] min-[1280px]:border-x max-[1279px]:pr-6 max-[1279px]:pl-0">
           <div className="mx-auto flex w-full max-w-[min(100%,calc(100vh-14rem))] items-stretch gap-3">
-            <EvalBar score={lines[0]?.score} flipped={flipped} result={result} />
+            <EvalBar score={lines[0]?.score} wdl={lines[0]?.wdl} depth={lines[0]?.depth} flipped={flipped} result={result} />
             <div className="min-w-0 flex-1">
               <ThemedBoard
                 fen={fen}
@@ -243,7 +271,9 @@ export function AnalysisPage() {
                 lastMove={last ? { from: last.from, to: last.to } : undefined}
                 check={check}
                 selected={selected}
+                targets={targets}
                 onSquareClick={onSquareClick}
+                onPick={setSelected}
                 arrows={over ? [] : arrows}
                 label={`Board, ${sideToMove(fen) === "w" ? "White" : "Black"} to move${check ? ", in check" : ""}`}
               />
@@ -290,6 +320,7 @@ export function AnalysisPage() {
             over={over}
             onRetry={() => setAttempt((n) => n + 1)}
             onTurnOn={() => setEngine(true)}
+            onPlay={playLine}
           />
         </aside>
       </div>

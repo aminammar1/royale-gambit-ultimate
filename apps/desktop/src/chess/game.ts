@@ -84,6 +84,16 @@ export function play(game: Game, cursor: number, from: string, to: string, promo
   }
 }
 
+/** Where the piece on `from` can go in `fen` (none when it is not that side's turn). */
+export function legalTargets(fen: string, from: string): { square: string; capture: boolean }[] {
+  const chess = new Chess(fen);
+  const seen = new Map<string, boolean>();
+  for (const m of chess.moves({ square: from as never, verbose: true })) {
+    seen.set(m.to, (seen.get(m.to) ?? false) || m.isCapture());
+  }
+  return [...seen].map(([square, capture]) => ({ square, capture }));
+}
+
 /** True when moving from `from` to `to` in `fen` is a pawn reaching the last rank. */
 export function isPromotion(fen: string, from: string, to: string): boolean {
   const chess = new Chess(fen);
@@ -164,6 +174,20 @@ export function pvToSan(fen: string, pv: readonly string[]): string[] {
 export function moveNumberLabel(fen: string): string {
   const [, side, , , , full] = fen.split(" ");
   return side === "w" ? `${full}.` : `${full}…`;
+}
+
+/** A SAN line split into moves, each with the number printed before it, when one is: the parts
+ *  of "19… Nxe4 20. Qd2 Nf6" are ("19…", Nxe4), ("20.", Qd2), (none, Nf6). */
+export function numberedMoves(fen: string, sans: readonly string[]): { number?: string; san: string }[] {
+  const [, side, , , , fullText] = fen.split(" ");
+  let full = Number(fullText);
+  let white = side === "w";
+  return sans.map((san, i) => {
+    const number = white ? `${full}.` : i === 0 ? `${full}…` : undefined;
+    if (!white) full += 1;
+    white = !white;
+    return { number, san };
+  });
 }
 
 /** A SAN line printed with move numbers: "20. Nxe4 Rxe4 21. Bxe4" or "19… Nxe4 20. Qd2". */

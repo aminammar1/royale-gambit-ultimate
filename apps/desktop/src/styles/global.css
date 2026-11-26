@@ -83,9 +83,9 @@
     background-image: repeating-linear-gradient(
       to bottom,
       transparent 0 3px,
-      color-mix(in srgb, var(--board-dark) 9%, transparent) 3px 4px
+      color-mix(in srgb, var(--board-ink) 9%, transparent) 3px 4px
     );
-    color: var(--board-dark);
+    color: var(--board-ink);
   }
   .board-dark {
     background-color: var(--board-dark);
