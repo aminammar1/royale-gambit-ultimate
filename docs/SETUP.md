@@ -10,9 +10,9 @@ Latest stable of everything (ADR-17); Java uses the latest LTS. Exact versions a
 | Rust (rustup) | desktop Rust core (M0) | official installer from rustup.rs (default profile includes clippy, rustfmt) |
 | Tauri Linux libraries | desktop build (M0) | `pacman -S --needed webkit2gtk-4.1 base-devel curl wget file openssl libayatana-appindicator librsvg xdotool` |
 
-Toolchains pinned in Dockerfiles (latest stable on 2026-11-25): Go 1.27.4, Python 3.15.2 with uv 0.13.9, Temurin JDK 25 LTS; infra images Postgres 19, Redis 8.8, RabbitMQ 4.4, Mailpit 1.34.
+Toolchains pinned in Dockerfiles (latest stable on 2026-11-25): Go 1.27.4, Python 3.15.2 with uv 0.13.9, Temurin JDK 25 LTS; infra images Postgres 19, Redis 8.8, RabbitMQ 4.4, Mailpit 1.34. Stockfish 19 (official `stockfish-linux-x86-64-universal` release, SHA-256 pinned) is baked into the `analysis` image (2026-11-26).
 
-Compose profiles: none (infra only), `full` (all services), `templates` (the three templates, for `make smoke` and CI), `obs` (OpenTelemetry collector, Jaeger, Prometheus, Grafana).
+Compose profiles: none (infra only), `full` (all services), `templates` (the Python template, for `make smoke` and CI), `obs` (OpenTelemetry collector, Jaeger, Prometheus, Grafana).
 
 ## Real email in dev
 

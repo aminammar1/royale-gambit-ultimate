@@ -4,7 +4,7 @@ The whole product, in order, built as **vertical slices**: each milestone delive
 
 **Rules**
 - Build only the current milestone. Later ones are listed so you know where the app is going. Never create a service, table or screen "for later".
-- A service is created in the milestone that first needs it, from its language template, with its contract written first (`contracts/openapi/<name>.yaml`).
+- A service is created in the milestone that first needs it, from its language's template or reference service (ADR-12), with its contract written first (`contracts/openapi/<name>.yaml`).
 - Every milestone ends with `make check` green and `make up` still starting everything.
 
 | Version | Theme | Milestones | Status |
@@ -20,7 +20,7 @@ The whole product, in order, built as **vertical slices**: each milestone delive
 | **v2.1** | AI coach | M17 | ☐ |
 | **v3.0** | Mobile | M18 | ☐ |
 
-Milestone status: P1 ☑ · P2 ☐ · M0 ☐ · M1 ☐ · M2 ☐ · M3 ☐ · M4 ☐ · M5 ☐ · M6 ☐ · M7 ☐
+Milestone status: P1 ☑ · P2 ☐ · M0 ☐ · M1 ☐ · M2 ☐ · M3 ☐ · M4 ☑ · M5 ☐ · M6 ☐ · M7 ☐
 
 ---
 
@@ -70,6 +70,7 @@ Milestone status: P1 ☑ · P2 ☐ · M0 ☐ · M1 ☐ · M2 ☐ · M3 ☐ · M4
 - Go service from the template (the first Go service after the gateway): Stockfish process pool, priority queue (live over batch), `POST /v1/analysis/positions`, `POST /v1/analysis/batch`, SSE stream, Redis cache keyed by EPD + depth + multipv + engine version, White-normalized scores, pool restart on crash.
 - Stockfish binary in the image, version pinned and checked at start.
 **Accept:** the same UCI parser fixtures as M3 pass; cache hit under 20 ms p95; killing a Stockfish process mid-request recovers; a load test of 50 concurrent batches does not starve a live request; no zombie processes.
+*Pulled forward (2026-11-26, Amine works out of order), before M3:* built as specified, with Stockfish 19. Its UCI parsing fixtures live in `contracts/fixtures/uci/` and are the ones M3's Rust parser must pass. The Go template was retired after it (ADR-12): `services/analysis` is the Go reference. The cache key also holds the 50-move count and a fingerprint of the positions since the last capture or pawn move, because Stockfish's answer depends on both (Amine, 2026-11-26, after the chess review showed a repetition poisoning the plain position's entry).
 
 ## M5: `review` service and Review page
 - FastAPI service from the template: `POST /v1/reviews` (PGN only; a game id is accepted from M8) returns 202; worker consumes `review.requested`, calls `analysis` per batch, computes win%, classification, accuracy, key moments (numbers, glyphs and the best move; no written commentary, that belongs to the coach in M17); SSE progress; cancel; `review.completed`.

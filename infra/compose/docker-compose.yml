@@ -2,7 +2,7 @@
 #   (none)     infrastructure only: postgres, redis, rabbitmq, mailpit   -> make infra
 # Every service runs in Docker (ADR-18); ports are published on localhost for inspection only.
 #   full       + every real service container                           -> make up
-#   templates  + the Go and Python template services (CI smoke test)
+#   templates  + the Python template service (CI smoke test)
 #   obs        + OpenTelemetry collector, Jaeger, Prometheus, Grafana
 name: royale-gambit
 
@@ -36,7 +36,7 @@ services:
       PGHOST: postgres
       PGUSER: ${POSTGRES_USER}
       PGPASSWORD: ${POSTGRES_PASSWORD}
-      SERVICE_DATABASES: template_go template_py auth_profile
+      SERVICE_DATABASES: template_py auth_profile
     volumes: ["../db/init-databases.sh:/init-databases.sh:ro"]
     command: ["sh", "/init-databases.sh"]
     restart: "no"
@@ -80,6 +80,7 @@ services:
     build: ../../services/gateway
     depends_on:
       auth-profile: { condition: service_healthy }
+      analysis: { condition: service_healthy }
       redis: { condition: service_healthy }
     develop:
       watch:
@@ -87,6 +88,7 @@ services:
     environment:
       PORT: "8080"
       UPSTREAM_AUTH_PROFILE_URL: http://auth-profile:8081
+      UPSTREAM_ANALYSIS_URL: http://analysis:8084
       JWKS_URL: http://auth-profile:8081/.well-known/jwks.json
       REDIS_URL: redis://redis:6379/0
       # Vite dev server, then the packaged app's origins (macOS/Linux, Windows).
@@ -127,21 +129,28 @@ services:
       JWT_EPHEMERAL_KEY: "true"
     ports: ["127.0.0.1:8081:8081"]
 
-  # ---- templates (copied to create real services; never deployed)
-  template-go:
-    <<: *service-defaults
-    profiles: [templates]
-    build: ../../services/_templates/go
+  analysis:
+    restart: unless-stopped
+    profiles: [full]
+    build: ../../services/analysis
+    depends_on:
+      redis: { condition: service_healthy }
     develop:
       watch:
-        - { action: rebuild, path: ../../services/_templates/go }
+        - { action: rebuild, path: ../../services/analysis }
     environment:
-      PORT: "8101"
-      DATABASE_URL: postgres://template_go:template_go@postgres:5432/template_go?sslmode=disable
-      MIGRATE_ON_START: "true"
+      PORT: "8084"
+      REDIS_URL: redis://redis:6379/1
+      # Two engines, one thread each: analysis never takes more than two cores (ADR-05).
+      ENGINE_POOL_SIZE: "2"
+      ENGINE_THREADS: "1"
+      ENGINE_HASH_MB: "64"
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_IN_DOCKER:-}
-    ports: ["127.0.0.1:8101:8101"]
+    cpus: 2
+    mem_limit: 512m
+    ports: ["127.0.0.1:8084:8084"]
 
+  # ---- template (copied to create a Python service; never deployed)
   template-py:
     <<: *service-defaults
     profiles: [templates]
@@ -155,7 +164,6 @@ services:
       MIGRATE_ON_START: "true"
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_IN_DOCKER:-}
     ports: ["127.0.0.1:8102:8102"]
-
 
   # ---- observability
   otel-collector:

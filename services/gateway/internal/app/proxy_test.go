@@ -198,3 +198,28 @@ func TestAServiceThatHangsIs504(t *testing.T) {
 	defer resp.Body.Close()
 	assertProblem(t, resp, http.StatusGatewayTimeout)
 }
+
+// A route's own timeout beats the default: analysis may think for 30 s before it answers.
+func TestARouteMayWaitLongerThanTheDefault(t *testing.T) {
+	slow := newUpstream(t, func(w http.ResponseWriter) { time.Sleep(300 * time.Millisecond); okJSON(w) })
+	u, _ := url.Parse(slow.URL)
+	gw := startGateway(t, app.Options{UpstreamTimeout: 100 * time.Millisecond, Routes: routes.Table{
+		{Prefix: "/v1/profile", Upstream: u},
+		{Prefix: "/v1/slow", Upstream: u, Timeout: time.Second},
+	}})
+
+	resp, err := http.Get(gw.URL + "/v1/slow/thing")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("status %d, want the slow answer", resp.StatusCode)
+	}
+	resp, err = http.Get(gw.URL + "/v1/profile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	assertProblem(t, resp, http.StatusGatewayTimeout)
+}

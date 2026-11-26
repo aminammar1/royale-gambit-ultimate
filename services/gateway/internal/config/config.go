@@ -20,6 +20,7 @@ type Config struct {
 	ServiceName     string
 	Port            string
 	AuthProfile     *url.URL // UPSTREAM_AUTH_PROFILE_URL
+	Analysis        *url.URL // UPSTREAM_ANALYSIS_URL
 	JWKSURL         string
 	Issuer          string
 	Redis           *redis.Options
@@ -41,6 +42,9 @@ func Load() (Config, error) {
 	}
 	var err error
 	if c.AuthProfile, err = absoluteURL("UPSTREAM_AUTH_PROFILE_URL"); err != nil {
+		errs = append(errs, err)
+	}
+	if c.Analysis, err = absoluteURL("UPSTREAM_ANALYSIS_URL"); err != nil {
 		errs = append(errs, err)
 	}
 	if _, err := absoluteURL("JWKS_URL"); err != nil {
@@ -72,7 +76,7 @@ func absoluteURL(key string) (*url.URL, error) {
 	raw := os.Getenv(key)
 	u, err := url.Parse(raw)
 	if raw == "" || err != nil || u.Scheme == "" || u.Host == "" {
-		return nil, fmt.Errorf("%s must be an absolute URL such as http://auth-profile:8081/...", key)
+		return nil, fmt.Errorf("%s must be an absolute URL such as http://auth-profile:8081", key)
 	}
 	return u, nil
 }

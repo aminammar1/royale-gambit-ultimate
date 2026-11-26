@@ -21,7 +21,7 @@ Always the latest stable release of every tool and library when you start (lates
 ## Commands (created in P1 and M0; keep this list true)
 - Everything runs in Docker (ADR-18); the host needs no Go, Java or Python.
 - `make up` / `make down` / `make logs S=<service>` / `make watch` (rebuild on change) / `make infra` (backing stores only).
-- `make check-svc S=<name>` runs that service's checks inside its Docker `toolchain` stage; templates are `S=go|python`.
+- `make check-svc S=<name>` runs that service's checks inside its Docker `toolchain` stage; the Python template is `S=python` (Go services copy `services/analysis`).
 - `make clean` frees disk (Rust target, WebKit cache, unused Docker build cache); run it at the end of a day.
 - `make check` = everything. `make smoke` = templates in Docker + contract check. `make check-svc S=<name>` = one service. `make check-desktop` = the client.
 - Client (in `apps/desktop`): `pnpm tauri:dev`, `pnpm check` (typecheck + lint + vitest + `cargo test` + `cargo clippy -- -D warnings`).
@@ -40,7 +40,7 @@ Always the latest stable release of every tool and library when you start (lates
 - TypeScript strict, no `any` without a comment. Rust: no `unwrap()` outside tests.
 
 ## How to work
-- New service: copy `services/_templates/<language>`, then follow the checklist in `docs/SERVICES.md`.
+- New service: copy `services/_templates/python` (Python) or `services/analysis` (Go, minus its engine packages), then follow the checklist in `docs/SERVICES.md`.
 - Integration tests use Testcontainers, not mocks of the database or broker.
 - UI work: screenshots in **both** editions next to the matching board in `design/newsprint/`.
 - After changes to chess logic, review math or engine code, ask the `chess-correctness-reviewer` subagent to review the diff.

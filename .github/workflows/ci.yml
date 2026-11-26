@@ -25,10 +25,10 @@ jobs:
         with:
           # One filter per service folder; add a line when a service is created.
           filters: |
-            go: ['services/_templates/go/**']
             python: ['services/_templates/python/**']
             auth-profile: ['services/auth-profile/**', 'contracts/openapi/auth-profile.yaml', 'contracts/events/**']
             gateway: ['services/gateway/**']
+            analysis: ['services/analysis/**', 'contracts/openapi/analysis.yaml', 'contracts/fixtures/uci/**', 'contracts/fixtures/pgn/**']
             infra: ['infra/**', 'contracts/**', 'Makefile', 'scripts/**', '.github/workflows/**']
       - id: list
         run: echo "services=$(jq -c 'map(select(. != "infra"))' <<< '${{ steps.filter.outputs.changes }}')" >> "$GITHUB_OUTPUT"
