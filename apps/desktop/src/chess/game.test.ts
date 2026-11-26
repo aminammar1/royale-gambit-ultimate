@@ -10,7 +10,6 @@ import {
   newGame,
   legalTargets,
   normalizeStart,
-  numberedLine,
   numberedMoves,
   outcome,
   play,
@@ -20,6 +19,7 @@ import {
   type Game,
 } from "./game";
 import { formatScore, whiteWinPercent } from "./score";
+import { sideStanding } from "../ui/EvalBar";
 import operaGame from "../../../../contracts/fixtures/pgn/opera-game.pgn?raw";
 import rulesTour from "../../../../contracts/fixtures/pgn/rules-tour.pgn?raw";
 
@@ -106,8 +106,7 @@ describe("engine lines", () => {
   });
 
   it("numbers a line from White or from Black", () => {
-    expect(numberedLine("8 w - - 0 20", ["Nxe4", "Rxe4", "Bxe4"])).toBe("20. Nxe4 Rxe4 21. Bxe4");
-    expect(numberedLine("8 b - - 0 19", ["Nxe4", "Qd2", "Nf6"])).toBe("19… Nxe4 20. Qd2 Nf6");
+    expect(numberedMoves("8 w - - 0 20", ["Nxe4", "Rxe4", "Bxe4"]).map((m) => m.number)).toEqual(["20.", undefined, "21."]);
     expect(moveNumberLabel(START_FEN)).toBe("1.");
     expect(moveNumberLabel("8 b - - 0 19")).toBe("19…");
   });
@@ -200,6 +199,9 @@ describe("board help", () => {
       ]),
     );
     expect(legalTargets(fen, "d5")).toEqual([]);
+    expect(legalTargets("4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 2", "e5")).toEqual(
+      expect.arrayContaining([{ square: "d6", capture: true }]),
+    );
   });
 
   it("splits a line into numbered moves", () => {
@@ -208,5 +210,16 @@ describe("board help", () => {
       { number: "20.", san: "Qd2" },
       { number: undefined, san: "Nf6" },
     ]);
+  });
+});
+
+describe("each side's standing", () => {
+  it("is said in words, never as a second signed number", () => {
+    expect(sideStanding({ cp: 376 }, "white")).toBe("better by 3.76");
+    expect(sideStanding({ cp: 376 }, "black")).toBe("worse by 3.76");
+    expect(sideStanding({ mate: 3 }, "white")).toBe("mates in 3");
+    expect(sideStanding({ mate: 3 }, "black")).toBe("is mated in 3");
+    expect(sideStanding({ mate: -2 }, "black")).toBe("mates in 2");
+    expect(sideStanding({ cp: 0 }, "black")).toBe("level");
   });
 });

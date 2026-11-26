@@ -89,7 +89,8 @@ export function legalTargets(fen: string, from: string): { square: string; captu
   const chess = new Chess(fen);
   const seen = new Map<string, boolean>();
   for (const m of chess.moves({ square: from as never, verbose: true })) {
-    seen.set(m.to, (seen.get(m.to) ?? false) || m.isCapture());
+    // chess.js counts en passant apart from captures; on the board it is one.
+    seen.set(m.to, (seen.get(m.to) ?? false) || m.isCapture() || m.isEnPassant());
   }
   return [...seen].map(([square, capture]) => ({ square, capture }));
 }
@@ -188,21 +189,6 @@ export function numberedMoves(fen: string, sans: readonly string[]): { number?: 
     white = !white;
     return { number, san };
   });
-}
-
-/** A SAN line printed with move numbers: "20. Nxe4 Rxe4 21. Bxe4" or "19… Nxe4 20. Qd2". */
-export function numberedLine(fen: string, sans: readonly string[]): string {
-  const [, side, , , , fullText] = fen.split(" ");
-  let full = Number(fullText);
-  let white = side === "w";
-  const parts: string[] = [];
-  sans.forEach((san, i) => {
-    if (white) parts.push(`${full}. ${san}`);
-    else parts.push(i === 0 ? `${full}… ${san}` : san);
-    if (!white) full += 1;
-    white = !white;
-  });
-  return parts.join(" ");
 }
 
 /** The side to move in `fen`. */

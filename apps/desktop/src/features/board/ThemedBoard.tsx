@@ -118,11 +118,15 @@ export function ThemedBoard({
           allowDrawingArrows: false,
           animationDurationInMs: 150,
           lightSquareNotationStyle: { ...notation, color: "var(--board-ink)" },
-          darkSquareNotationStyle: { ...notation, color: "var(--board-light)" },
+          darkSquareNotationStyle: { ...notation, color: "var(--board-ink)" }, // about 5:1 on the grey
           canDragPiece: ({ piece }) => piece.pieceType[0] === toMove,
           onPieceDrag: ({ square }) => onPick?.(square ?? undefined),
           onPieceDragCancel: () => onPick?.(undefined),
-          onPieceDrop: ({ sourceSquare, targetSquare }) => (targetSquare ? onMove(sourceSquare, targetSquare) : false),
+          onPieceDrop: ({ sourceSquare, targetSquare }) => {
+            if (targetSquare) return onMove(sourceSquare, targetSquare);
+            onPick?.(undefined); // dropped off the board: the piece goes back, the pick ends
+            return false;
+          },
           onSquareClick: ({ square }) => onSquareClick?.(square),
         }}
       />

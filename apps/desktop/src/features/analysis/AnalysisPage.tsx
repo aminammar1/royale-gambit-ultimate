@@ -88,6 +88,7 @@ export function AnalysisPage() {
   const tryMove = (from: string, to: string, piece?: string): boolean => {
     if (!piece && isPromotion(fen, from, to)) {
       setPromotion({ from, to });
+      setSelected(undefined); // the choice of piece replaces the dots
       return false;
     }
     const next = play(game, cursor, from, to, piece);
