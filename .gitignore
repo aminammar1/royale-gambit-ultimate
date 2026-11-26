@@ -25,6 +25,7 @@ data/raw/
 *.log
 logs/
 .superpowers/
+.playwright-mcp/
 # editors and OS
 *.iml
 .idea/

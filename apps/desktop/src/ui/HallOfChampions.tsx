@@ -1,11 +1,25 @@
 import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { useEffect } from "react";
 import { CHAMPIONS } from "../app/champions";
 import { useRotating } from "../app/useRotating";
 import { Portrait } from "./Portrait";
 
 const control = "flex size-9 items-center justify-center border border-ink-2 text-ink hover:border-ink";
 const EVERY_MS = 7000;
+const EASE = [0.2, 0, 0, 1] as const;
+
+/** Decode every portrait once, up front, so a champion never arrives as an empty frame. */
+function usePreloadedPortraits() {
+  useEffect(() => {
+    for (const { portrait } of CHAMPIONS) {
+      if (!portrait) continue;
+      const img = new Image();
+      img.src = portrait;
+      img.decode().catch(() => undefined); // a broken file shows the initials, as before
+    }
+  }, []);
+}
 
 /**
  * Nav widget: the world champions in turn, one framed portrait every few seconds. It holds while
@@ -15,11 +29,19 @@ export function HallOfChampions() {
   const reduce = useReducedMotion();
   const { index, step, paused, togglePaused, hold } = useRotating(CHAMPIONS.length, EVERY_MS);
   const champion = CHAMPIONS[index];
-  const fade = {
+  usePreloadedPortraits();
+  // The frame stays put and the photo inside it crossfades, so the panel never goes blank. The
+  // name hands over out-then-in (never two names on top of each other), settling 4px like a page.
+  const photo = {
     initial: reduce ? false : { opacity: 0 },
-    animate: { opacity: 1 },
-    exit: reduce ? undefined : { opacity: 0 },
-    transition: { duration: 0.2, ease: [0.2, 0, 0, 1] as const },
+    animate: { opacity: 1, transition: { duration: 0.24, ease: EASE } },
+    // The old photo stays solid under the new one, then leaves: no paper shows through mid-turn.
+    exit: reduce ? undefined : { opacity: 0, transition: { delay: 0.24, duration: 0 } },
+  };
+  const caption = {
+    initial: reduce ? false : { opacity: 0, y: 4 },
+    animate: { opacity: 1, y: 0, transition: { duration: 0.18, ease: EASE } },
+    exit: reduce ? undefined : { opacity: 0, transition: { duration: 0.12, ease: EASE } },
   };
 
   return (
@@ -29,18 +51,25 @@ export function HallOfChampions() {
           <span className="label text-ink-2">Hall of Champions</span>
           <span className="numeric text-[length:var(--text-sm)] text-ink-2">No. {champion.no}</span>
         </div>
-        <div className="relative mt-3 h-[4.5rem]" aria-live={paused ? "polite" : "off"}>
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div key={champion.no} className="absolute inset-0 flex gap-3" {...fade}>
-              <Portrait champion={champion} className="size-16 shrink-0" />
-              <div className="min-w-0">
+        <div className="mt-3 flex h-[4.5rem] gap-3" aria-live={paused ? "polite" : "off"}>
+          <div className="relative size-16 shrink-0 border border-ink bg-paper-2">
+            <AnimatePresence initial={false}>
+              <motion.div key={champion.no} className="absolute inset-0" {...photo}>
+                <Portrait champion={champion} framed={false} className="size-full" />
+              </motion.div>
+            </AnimatePresence>
+          </div>
+          <div className="min-w-0 flex-1">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div key={champion.no} {...caption}>
                 <p className="font-masthead text-[length:var(--text-lg)] leading-tight font-bold">{champion.name}</p>
-                <p className="numeric mt-1 text-[length:var(--text-xs)] text-ink-2">
-                  World champion · {champion.since}
+                {/* One line in the nav's column: the full "World champion · 1886" wrapped into the buttons. */}
+                <p className="numeric mt-1 text-[length:var(--text-xs)] whitespace-nowrap text-ink-2">
+                  Champion · {champion.since}
                 </p>
-              </div>
-            </motion.div>
-          </AnimatePresence>
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
         <div className="mt-3 flex gap-2">
           <button type="button" onClick={() => step(-1)} aria-label="Previous champion" className={control}>
@@ -71,10 +100,10 @@ export function HallOfChampions() {
         aria-label={`${champion.name}, world champion ${champion.since}. Next champion`}
         className="mx-auto hidden w-12 flex-col items-center gap-1 max-[1279px]:flex"
       >
-        <span className="relative block size-12">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.span key={champion.no} className="absolute inset-0 block" {...fade}>
-              <Portrait champion={champion} className="size-12" />
+        <span className="relative block size-12 border border-ink bg-paper-2">
+          <AnimatePresence initial={false}>
+            <motion.span key={champion.no} className="absolute inset-0 block" {...photo}>
+              <Portrait champion={champion} framed={false} className="size-full" />
             </motion.span>
           </AnimatePresence>
         </span>

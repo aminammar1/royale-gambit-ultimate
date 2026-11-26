@@ -260,7 +260,7 @@ mod tests {
                 ResponseTemplate::new(401)
                     .insert_header("content-type", "application/problem+json")
                     .set_body_string(
-                        r#"{"type":"https://royal-gambit.dev/problems/code-invalid","title":"Wrong code","status":401,"detail":"that code is not right","attempts_left":3,"trace_id":"x"}"#,
+                        r#"{"type":"https://royale-gambit.dev/problems/code-invalid","title":"Wrong code","status":401,"detail":"that code is not right","attempts_left":3,"trace_id":"x"}"#,
                     ),
             )
             .mount(&server)

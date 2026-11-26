@@ -226,7 +226,7 @@ mod tests {
 
     fn problem(status: u16, kind: &str) -> ResponseTemplate {
         ResponseTemplate::new(status).insert_header("content-type", "application/problem+json").set_body_string(
-            json!({"type": format!("https://royal-gambit.dev/problems/{kind}"), "title": kind, "status": status})
+            json!({"type": format!("https://royale-gambit.dev/problems/{kind}"), "title": kind, "status": status})
                 .to_string(),
         )
     }

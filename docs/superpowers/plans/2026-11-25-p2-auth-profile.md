@@ -4,7 +4,7 @@
 
 **Goal:** The Spring Boot `auth-profile` service from P2: guest tokens, email-code sign-in, RS256 JWT + JWKS, rotating refresh tokens with reuse detection, the player profile, and the `user.registered` / `profile.updated` events through an outbox, built and tested in Docker.
 
-**Architecture:** A copy of `services/_templates/java` renamed to `auth-profile` (package `dev.royalgambit.authprofile`), split by feature: `auth/` (guest, email codes, sessions), `token/` (signing keys, JWT issuing, JWKS), `profile/`, `events/` (outbox + relay), `web/` and `common/` from the template. Plain JdbcClient + Flyway, Spring Security as an OAuth2 resource server for its own tokens, Spring AMQP for the relay, Spring Mail for codes.
+**Architecture:** A copy of `services/_templates/java` renamed to `auth-profile` (package `dev.royalegambit.authprofile`), split by feature: `auth/` (guest, email codes, sessions), `token/` (signing keys, JWT issuing, JWKS), `profile/`, `events/` (outbox + relay), `web/` and `common/` from the template. Plain JdbcClient + Flyway, Spring Security as an OAuth2 resource server for its own tokens, Spring AMQP for the relay, Spring Mail for codes.
 
 **Tech Stack:** Java 25 LTS, Spring Boot 4.2 (webmvc, jdbc, flyway, security, oauth2-resource-server, amqp, mail, actuator, opentelemetry), Nimbus JOSE (via Spring Security), Testcontainers (Postgres, RabbitMQ, Mailpit).
 
@@ -33,7 +33,7 @@ The gateway (the other half of P2) is a separate plan.
 
 ### Task 1: Scaffold `services/auth-profile` from the template
 
-**Files:** copy `services/_templates/java` → `services/auth-profile`; modify `pom.xml` (artifactId/name `auth-profile`, new starters), `application.properties`, `Dockerfile` (port 8081), `README.md`; move package `dev.royalgambit.service` → `dev.royalgambit.authprofile`; `UuidV7` → `common/`; delete `items/` and `V1__items.sql`; `infra/compose/docker-compose.yml` (service `auth-profile`, profile `full`); `.env.example` (`SERVICE_DATABASES += auth_profile`); `.github/workflows/ci.yml` + `release.yml` (path filter and image); `Makefile` CI build path; root `.gitignore`.
+**Files:** copy `services/_templates/java` → `services/auth-profile`; modify `pom.xml` (artifactId/name `auth-profile`, new starters), `application.properties`, `Dockerfile` (port 8081), `README.md`; move package `dev.royalegambit.service` → `dev.royalegambit.authprofile`; `UuidV7` → `common/`; delete `items/` and `V1__items.sql`; `infra/compose/docker-compose.yml` (service `auth-profile`, profile `full`); `.env.example` (`SERVICE_DATABASES += auth_profile`); `.github/workflows/ci.yml` + `release.yml` (path filter and image); `Makefile` CI build path; root `.gitignore`.
 
 - [ ] Health/metrics/problem integration test from the template (minus items) passes in `make check-svc S=auth-profile`.
 - [ ] `docker build services/auth-profile` succeeds. Commit.

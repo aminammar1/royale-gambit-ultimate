@@ -8,7 +8,7 @@
 		<version>4.2.0</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>dev.royalgambit</groupId>
+	<groupId>dev.royalegambit</groupId>
 	<artifactId>auth-profile</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>auth-profile</name>

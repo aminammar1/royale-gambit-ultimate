@@ -1,5 +1,5 @@
 [package]
-name = "royal-gambit-desktop"
+name = "royale-gambit-desktop"
 version = "0.1.0"
 description = "A Tauri App"
 authors = ["you"]
@@ -12,7 +12,9 @@ edition = "2024"
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
 name = "desktop_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+# Desktop links the rlib only. "staticlib" and "cdylib" are for iOS and Android: they cost ~1.1 GB
+# per debug build (and again per test and clippy build), so they come back in M18 (Mobile).
+crate-type = ["rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -31,6 +33,14 @@ rusqlite = { version = "0.43", features = ["bundled"] }
 rusqlite_migration = "2.9.0"
 getrandom = "0.3"
 
+
+# Dev and test builds: full debug info for ~400 dependencies is most of the target folder and is
+# never read. Our own crate keeps file:line tables so panics and backtraces still point at code.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

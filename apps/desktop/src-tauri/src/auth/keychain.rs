@@ -18,7 +18,7 @@ pub struct OsKeychain {
 impl OsKeychain {
     pub fn new() -> Self {
         Self {
-            service: "dev.royalgambit.desktop",
+            service: "dev.royalegambit.desktop",
             account: "refresh-token",
         }
     }

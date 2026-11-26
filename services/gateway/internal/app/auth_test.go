@@ -23,7 +23,7 @@ import (
 	"github.com/aminammar1/royale-gambit-ultimate/services/gateway/internal/routes"
 )
 
-const issuer = "royal-gambit"
+const issuer = "royale-gambit"
 
 type signingKey struct {
 	kid string

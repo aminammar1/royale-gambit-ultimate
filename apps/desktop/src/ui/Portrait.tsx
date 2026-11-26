@@ -1,9 +1,20 @@
 import type { Champion } from "../app/champions";
 
-/** A champion's grey photo in a 1px ink frame; the initials stand in until a photo exists. */
-export function Portrait({ champion, className = "" }: { champion: Champion; className?: string }) {
+/**
+ * A champion's grey photo in a 1px ink frame; the initials stand in until a photo exists.
+ * `framed={false}` drops the frame, for a frame that stays put while the photos inside it turn.
+ */
+export function Portrait({
+  champion,
+  className = "",
+  framed = true,
+}: {
+  champion: Champion;
+  className?: string;
+  framed?: boolean;
+}) {
   return (
-    <div className={`overflow-hidden border border-ink bg-paper-2 ${className}`}>
+    <div className={`overflow-hidden bg-paper-2 ${framed ? "border border-ink" : ""} ${className}`}>
       {champion.portrait ? (
         <img
           src={champion.portrait}
