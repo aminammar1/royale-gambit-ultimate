@@ -6,7 +6,8 @@ import { useSession } from "../api/auth/session";
 import { useProfile } from "../db/profile";
 import { useSessionStart } from "../features/account/identities";
 import { useProfileLoad } from "../features/welcome/useProfileLoad";
-import { useApplyEdition } from "./edition";
+import { settingsDb } from "../db/settings";
+import { useApplyBoardTheme, useApplyEdition } from "./edition";
 import { gate, startPage } from "./gate";
 import { useCardSync } from "./cardSync";
 import { StartScreen } from "./StartScreen";
@@ -20,9 +21,13 @@ let serverChecked = false;
  */
 export function Root() {
   useApplyEdition();
+  useApplyBoardTheme();
   useSessionStart();
   useProfileLoad();
   useCardSync();
+  useEffect(() => {
+    void settingsDb.load();
+  }, []);
   useEffect(() => {
     if (serverChecked) return;
     serverChecked = true;

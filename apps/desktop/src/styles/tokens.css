@@ -40,12 +40,22 @@
   /* Focus is ink, not red: red is kept for mistakes, and a focused field is not one. */
   --focus: var(--ink);
 
-  /* Board presets, the same in both editions. Newsprint default: printer's grey dark squares and
-     hatched paper light squares (Amine, 2026-11-26: on ink-black squares the black pieces
-     vanished). --board-ink is the printing ink on the board: hatch, tints, dots, arrows. */
+  /* Board themes (Board & pieces board, design/newsprint/board-customization.png), the same in
+     both editions; <html data-board> picks one, Newspaper by default. Each theme says what
+     prints on its squares: hatch, marks (last move, dots, rings), coordinates, arrows, and the
+     paper outline that keeps black pieces readable on black squares. */
   --board-light: #e9e1cc;
-  --board-dark: #8f877a;
+  --board-dark: #1b1a17;
   --board-ink: #1b1a17;
+  --board-light-image: repeating-linear-gradient(to bottom, transparent 0 3px, rgb(27 26 23 / 9%) 3px 4px);
+  --board-dark-image: none;
+  --board-mark-light: #1b1a17;
+  --board-mark-dark: #e9e1cc;
+  --board-coord-light: #1b1a17;
+  --board-coord-dark: #e9e1cc;
+  --board-arrow: #8a8270;
+  --board-piece-filter: drop-shadow(1px 0 0 #e9e1cc) drop-shadow(-1px 0 0 #e9e1cc) drop-shadow(0 1px 0 #e9e1cc)
+    drop-shadow(0 -1px 0 #e9e1cc);
 
   --font-masthead: "Playfair Display", "Times New Roman", serif;
   --font-body: "Source Serif 4", Georgia, serif;
@@ -69,4 +79,55 @@
 
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --duration: 180ms;
+}
+
+/* The board themes on any element, so a swatch or a preview shows its theme in place. Newspaper
+   repeats the defaults above for that reason. Light-square hatch is the Newsprint family's; the
+   rest are flat. */
+[data-board="newspaper"] {
+  --board-light: #e9e1cc;
+  --board-dark: #1b1a17;
+  --board-light-image: repeating-linear-gradient(to bottom, transparent 0 3px, rgb(27 26 23 / 9%) 3px 4px);
+  --board-dark-image: none;
+  --board-mark-dark: #e9e1cc;
+  --board-coord-dark: #e9e1cc;
+  --board-arrow: #8a8270;
+  --board-piece-filter: drop-shadow(1px 0 0 #e9e1cc) drop-shadow(-1px 0 0 #e9e1cc) drop-shadow(0 1px 0 #e9e1cc)
+    drop-shadow(0 -1px 0 #e9e1cc);
+}
+[data-board="newsprint"] {
+  --board-light: #e8e2d4;
+  --board-dark: #9c9483;
+  --board-light-image: repeating-linear-gradient(to bottom, transparent 0 3px, rgb(27 26 23 / 8%) 3px 4px);
+  --board-mark-dark: #1b1a17;
+  --board-coord-dark: #1b1a17;
+  --board-arrow: #1b1a17;
+  --board-piece-filter: none;
+}
+[data-board="tournament"] {
+  --board-light: #e4ddc6;
+  --board-dark: #7e8566;
+  --board-light-image: none;
+  --board-mark-dark: #1b1a17;
+  --board-coord-dark: #e4ddc6;
+  --board-arrow: #1b1a17;
+  --board-piece-filter: none;
+}
+[data-board="wood"] {
+  --board-light: #e2c9a1;
+  --board-dark: #a77b52;
+  --board-light-image: none;
+  --board-mark-dark: #1b1a17;
+  --board-coord-dark: #e2c9a1;
+  --board-arrow: #1b1a17;
+  --board-piece-filter: none;
+}
+[data-board="contrast"] {
+  --board-light: #ffffff;
+  --board-dark: #4f4f4f;
+  --board-light-image: none;
+  --board-mark-dark: #ffffff;
+  --board-coord-dark: #ffffff;
+  --board-arrow: #1b1a17;
+  --board-piece-filter: none;
 }

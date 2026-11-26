@@ -61,6 +61,8 @@ Milestone status: P1 ☑ · P2 ☐ · M0 ☐ · M1 ☐ · M2 ☐ · M3 ☐ · M4
 - Settings: four board presets, piece-set picker (placeholder + slot for the print set), toggles (coordinates, highlights, legal hints, arrows, sounds, auto-flip default), live preview, saved themes in SQLite, Day/Night switch following the system, soft sounds with a global mute.
 **Accept:** instant theme changes with no flash; persists across restarts; contrast checks pass in both editions; screenshot grid of 4 presets x 2 editions.
 
+*Pulled forward (2026-11-26):* the Board & pieces page with the five square themes of `board-customization.png` (Newspaper default, pieces outlined so they read on black squares), the display switches (coordinates, last move, legal-move hints, arrows) and a live preview, saved in the local SQLite `settings` table with the edition. Left for M2: piece sets, sounds, saved themes, following the system for Day/Night per board.
+
 ## M3: Local engine and analysis board
 - Rust `engine/`: spawn Stockfish sidecar, UCI handshake and options (Threads = cores-1, Hash 256 MB, MultiPV 3), serialized queue, `info` parsing, White-normalized scores, throttled events, clean shutdown, restart on death. TS `engine/` client.
 - Analysis page: paste FEN/PGN or set up a position; eval bar; best-move box; top 3 lines as a printed table; best-move arrow; variations (mainline + one level); engine on/off, depth and infinite.

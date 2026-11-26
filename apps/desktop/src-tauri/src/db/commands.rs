@@ -1,8 +1,11 @@
 //! The web layer's door to the local store (through `src/db/` in TypeScript).
 
+use std::collections::BTreeMap;
+
 use tauri::State;
 
 use super::profile::{self, Adopt, Card, Welcome};
+use super::settings;
 use super::{Database, Result};
 
 #[tauri::command]
@@ -41,4 +44,14 @@ pub fn profile_mark_synced(
     updated_at: i64,
 ) -> Result<Welcome> {
     profile::mark_synced(&db, &owner_id, updated_at)
+}
+
+#[tauri::command]
+pub fn settings_get(db: State<'_, Database>) -> Result<BTreeMap<String, String>> {
+    settings::all(&db)
+}
+
+#[tauri::command]
+pub fn settings_set(db: State<'_, Database>, key: String, value: String) -> Result<()> {
+    settings::set(&db, &key, &value)
 }

@@ -15,16 +15,19 @@ Chess history printed on newspaper. Written summary of the Claude Design boards 
 
 Night (Amine, 2026-11-25, after trying a warm sepia night that tired the eyes): the neutral dark of chess sites players already use, modelled on endgame.ai. True greys with no warm cast; near-white text (16:1), secondary text 8.4:1, rules as white at about a fifth (2.0:1), the red of their error colour. The board keeps the Day colours in both editions. Portraits print at 90% brightness at night.
 
-No other hues in UI chrome; country flags (flag-icons) are content, always printed beside the country's name. Engine arrows: see the board presets below (board ink, which reads on the grey and paper squares alike). Mistake arrows use `--accent`.
+No other hues in UI chrome; country flags (flag-icons) are content, always printed beside the country's name. Engine arrows: see Board themes below. Mistake arrows use `--accent`.
 
-### Board presets (square light / dark)
-| Preset | Light | Dark | Notes |
+### Board themes (Board & pieces, `board-customization.png`)
+Chosen in Settings → Board & pieces, saved on this machine, the same in both editions, applied to every board at once (`<html data-board>`; the values live in `tokens.css`).
+| Theme | Light | Dark | Notes |
 | --- | --- | --- | --- |
-| Newsprint (default) | `#E9E1CC` | `#8F877A` | printed look: printer's grey dark squares, paper light squares with a fine horizontal hatch (a repeating 1px line at about 8% board ink, drawn inside the light squares only). Amine, 2026-11-26: the boards' ink-black dark squares hid the black pieces |
-| Tournament Hall | `#E4DDC6` | `#7E8566` | muted olive, felt-and-wood hall |
-| Classic Wood | `#E2C9A1` | `#A77B52` | warm maple/walnut |
-| High Contrast | `#FFFFFF` | `#4F4F4F` | accessibility |
-Everything printed on the board uses `--board-ink` (`#1B1A17`, the same in both editions): last move at 14%, the picked piece at 26%, legal-move dots and capture rings at 30%, engine arrows at 75% (best) and 35% (others). Check: `--accent` at 45% radial. Only the side to move can pick up a piece.
+| Newspaper (default) | `#E9E1CC` | `#1B1A17` | black and white, the printed look: paper squares with a fine horizontal hatch, ink-black squares. Pieces carry a 1px paper outline so a black piece reads on a black square (Amine, 2026-11-26: without it the black pieces vanished) |
+| Newsprint | `#E8E2D4` | `#9C9483` | the same hatch on a softer grey |
+| Tournament Hall | `#E4DDC6` | `#7E8566` | muted olive, flat |
+| Classic Wood | `#E2C9A1` | `#A77B52` | warm maple/walnut, flat |
+| High Contrast | `#FFFFFF` | `#4F4F4F` | accessibility, flat |
+
+Each theme says what prints on its squares: marks (last move 18%, the picked piece 30%, legal-move dots and capture rings 38%) in ink on light squares and in the theme's light colour on dark ones; coordinates likewise; engine arrows in the theme's arrow colour (best line 85%, others 40%). Check: `--accent` at 45% radial. Display switches: coordinates, last-move highlight, legal-move hints, arrows. Only the side to move can pick up a piece. Piece sets (print silhouettes, outline, letters), sounds and saved themes come with the print art and the rest of M2.
 
 ## Typography (all OFL, bundled locally via @fontsource; the app is offline)
 | Role | Font | Notes |

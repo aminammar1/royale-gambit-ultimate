@@ -1,4 +1,7 @@
+import { Link } from "react-router";
 import { editionDate } from "../../app/editionDate";
+import { useSettings } from "../../db/settings";
+import { BOARD_THEME_NAMES } from "./boardThemes";
 import { type EditionChoice, useEdition, useEditionStore } from "../../app/edition";
 import { useSession } from "../../api/auth/session";
 import { AccountsPanel } from "../account/AccountsPanel";
@@ -40,6 +43,7 @@ export function SettingsPage() {
   const setChoice = useEditionStore((s) => s.setChoice);
   const status = useSession((s) => s.status);
   const identities = useIdentities((s) => s.list);
+  const boardTheme = useSettings((s) => s.boardTheme);
   return (
     <>
       <Masthead
@@ -79,7 +83,11 @@ export function SettingsPage() {
             </div>
             <div className="flex items-center justify-between border-b border-rule py-3">
               <dt className="label text-ink">Board &amp; pieces</dt>
-              <dd className="font-body text-ink-2">Newsprint · from M2</dd>
+              <dd>
+                <Link to="/settings/board" className="label border border-ink-2 px-3 py-1 text-ink hover:border-ink">
+                  {BOARD_THEME_NAMES[boardTheme]} · change
+                </Link>
+              </dd>
             </div>
           </dl>
         </section>

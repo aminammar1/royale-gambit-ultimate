@@ -4,6 +4,7 @@
 
 pub mod commands;
 pub mod profile;
+pub mod settings;
 
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
@@ -18,6 +19,7 @@ const MIGRATIONS: &[M<'static>] = &[
     M::up(include_str!("migrations/0002_card_owner.sql")),
     M::up(include_str!("migrations/0003_card_owner_label.sql")),
     M::up(include_str!("migrations/0004_card_synced.sql")),
+    M::up(include_str!("migrations/0005_settings.sql")),
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, thiserror::Error)]

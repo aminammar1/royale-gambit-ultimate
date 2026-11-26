@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createHashRouter, RouterProvider } from "react-router";
 import { AnalysisPage } from "./features/analysis/AnalysisPage";
+import { BoardSettingsPage } from "./features/settings/BoardSettingsPage";
 import { AppShell, OnboardingShell } from "./app/AppShell";
 import { Root } from "./app/Root";
 import { SECTIONS } from "./app/sections";
@@ -33,6 +34,7 @@ const router = createHashRouter([
           { path: "/", element: <HomePage /> },
           { path: "/analyze", element: <AnalysisPage /> },
           { path: "/settings", element: <SettingsPage /> },
+          { path: "/settings/board", element: <BoardSettingsPage /> },
           ...pages,
         ],
       },
