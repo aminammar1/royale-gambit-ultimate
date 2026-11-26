@@ -34,10 +34,11 @@ const startFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 // fakeEngines answers every search with one line, after sending two info lines.
 type fakeEngines struct {
-	calls atomic.Int32
-	err   error
-	ready int
-	last  atomic.Value // engine.Request
+	calls  atomic.Int32
+	err    error
+	ready  int
+	capped bool
+	last   atomic.Value // engine.Request
 }
 
 func (f *fakeEngines) Do(_ context.Context, _ pool.Priority, req engine.Request, onInfo func(uci.Line)) (engine.Result, error) {
@@ -53,7 +54,7 @@ func (f *fakeEngines) Do(_ context.Context, _ pool.Priority, req engine.Request,
 		onInfo(early)
 		onInfo(l)
 	}
-	return engine.Result{Depth: req.Depth, Lines: []uci.Line{l}, Bestmove: "e2e4"}, nil
+	return engine.Result{Depth: req.Depth, Lines: []uci.Line{l}, Bestmove: "e2e4", Capped: f.capped}, nil
 }
 func (f *fakeEngines) ID() engine.ID { return engine.ID{Name: "Stockfish", Version: "19"} }
 func (f *fakeEngines) Ready() int {
@@ -409,4 +410,21 @@ func TestEndToEndWithStockfish(t *testing.T) {
 	if len(evs) < 2 || evs[len(evs)-1].name != "result" {
 		t.Fatalf("events %+v", evs)
 	}
+}
+
+// A search the time cap cut short is answered but never cached.
+func TestCappedSearchIsNotCached(t *testing.T) {
+	eng := &fakeEngines{capped: true}
+	srv := serve(t, eng, &mapStore{m: map[string][]byte{}})
+	body := `{"fen":"` + startFEN + `","depth":25}`
+	decode[analysis](t, post(t, srv.URL+"/v1/analysis/positions", body, ""))
+	if a := decode[analysis](t, post(t, srv.URL+"/v1/analysis/positions", body, "")); a.Cached || eng.calls.Load() != 2 {
+		t.Fatalf("cached %v, engine calls %d", a.Cached, eng.calls.Load())
+	}
+}
+
+func TestEngineRefusalIsABadPosition(t *testing.T) {
+	srv := serve(t, &fakeEngines{err: engine.ErrRejected}, &mapStore{m: map[string][]byte{}})
+	expectProblem(t, post(t, srv.URL+"/v1/analysis/positions", `{"fen":"`+startFEN+`"}`, ""),
+		http.StatusBadRequest, "invalid-position")
 }

@@ -132,7 +132,7 @@ func (s *server) analyse(ctx context.Context, prio pool.Priority, p checked, opt
 	if res.Bestmove != "" {
 		a.Bestmove = &res.Bestmove
 	}
-	if key != "" && res.Depth >= opt.Depth {
+	if key != "" && complete(res, opt.Depth) {
 		if raw, err := json.Marshal(a); err == nil {
 			if err := s.Store.Set(context.WithoutCancel(ctx), key, raw); err != nil {
 				s.Log.WarnContext(ctx, "cache write failed", "error", err)
@@ -142,12 +142,29 @@ func (s *server) analyse(ctx context.Context, prio pool.Priority, p checked, opt
 	return a, nil
 }
 
+// complete is true when the search reached the depth asked on every line: only such a result
+// may be served again from the cache.
+func complete(res engine.Result, depth int) bool {
+	if res.Capped || len(res.Lines) == 0 {
+		return false
+	}
+	for _, l := range res.Lines {
+		if l.Depth < depth {
+			return false
+		}
+	}
+	return true
+}
+
 // failure turns an analysis error into a problem; ok is false when the client is gone and
 // nothing should be written.
 func failure(c *gin.Context, err error) (p httpx.Problem, retryAfter string, ok bool) {
 	switch {
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		return p, "", false
+	case errors.Is(err, engine.ErrRejected):
+		return httpx.NewProblem(c, http.StatusBadRequest, "invalid-position", "Invalid position",
+			"the engine refused this position"), "", true
 	case errors.Is(err, pool.ErrBusy):
 		return httpx.NewProblem(c, http.StatusServiceUnavailable, "engine-busy", "Engines busy",
 			"every engine is busy and the queue is full; try again shortly"), "2", true

@@ -177,3 +177,42 @@ func TestEPDEnPassantOnlyWhenCapturable(t *testing.T) {
 		t.Fatalf("epd %s", p.EPD)
 	}
 }
+
+// The chess review's cases (2026-11-26): each passed the first version of Resolve and made
+// Stockfish 19 exit. They must now be refused, or cleaned so the engine and the library agree.
+func TestStockfishRulesAreEnforced(t *testing.T) {
+	for name, c := range map[string]struct {
+		fen   string
+		moves []string
+	}{
+		"nine white pawns":                 {"4k3/8/8/8/P7/8/PPPPPPPP/4K3 w - - 0 1", nil},
+		"three queens, one pawn gone":      {"4k3/8/8/8/8/8/PPPPPPP1/QQQ1K3 w - - 0 1", nil},
+		"three knights, eight pawns":       {"4k3/8/8/8/8/8/PPPPPPPP/NNN1K3 w - - 0 1", nil},
+		"more than 32 pieces":              {"rnbqkbnr/pppppppp/nnnnnnnn/8/8/NNNNNNNN/PPPPPPPP/RNBQKBNR w KQkq - 0 1", nil},
+		"halfmove clock 40000":             {"4k3/8/8/8/8/8/8/R3K3 w - - 40000 1", nil},
+		"fullmove 100001":                  {"4k3/8/8/8/8/8/8/R3K3 w - - 0 100001", nil},
+		"ep capture onto a blocked square": {"4k3/3n4/8/3pP3/8/8/8/4K3 w - d6 0 1", []string{"e5d6"}},
+		"ep capture with no pawn behind":   {"4k3/8/8/4P3/8/8/8/4K3 w - d6 0 1", []string{"e5d6"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := position.Resolve(c.fen, c.moves); !errors.Is(err, position.ErrInvalid) {
+				t.Fatalf("want ErrInvalid, got %v", err)
+			}
+		})
+	}
+	// One promotion per missing pawn is fine.
+	if _, err := position.Resolve("4k3/8/8/8/8/8/PPPPPP2/QQQ1K3 w - - 0 1", nil); err != nil {
+		t.Fatalf("two promoted queens with two pawns gone: %v", err)
+	}
+	if _, err := position.Resolve("4k3/8/8/8/8/8/8/R3K3 w - - 32767 1", nil); err != nil {
+		t.Fatalf("halfmove 32767: %v", err)
+	}
+	// An en passant square on the wrong rank is dropped, not passed on.
+	p, err := position.Resolve("4k3/8/8/8/8/8/3P4/4K3 w - e3 0 1", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f := strings.Fields(p.StartFEN)[3]; f != "-" {
+		t.Fatalf("ep %q kept", f)
+	}
+}

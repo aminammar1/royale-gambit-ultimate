@@ -227,6 +227,14 @@ func (p *Pool) work(n int, s Searcher) {
 				}
 			}
 			res, err = s.Search(j.ctx, j.req, j.onInfo)
+			if errors.Is(err, engine.ErrRejected) {
+				// The engine refused the input and exited: replace it, but never retry the job.
+				p.log.Warn("engine refused a position", "worker", n, "error", err)
+				p.ready.Add(-1)
+				_ = s.Close()
+				s = nil
+				break
+			}
 			if !errors.Is(err, engine.ErrDied) {
 				break
 			}

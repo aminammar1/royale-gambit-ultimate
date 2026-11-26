@@ -21,6 +21,10 @@ import (
 // ErrDied means the process exited or stopped answering; the engine cannot be used again.
 var ErrDied = errors.New("engine died")
 
+// ErrRejected means Stockfish refused the position or a move (`info string CRITICAL ERROR`)
+// and exited. The input is at fault, not the engine: retrying would only kill another one.
+var ErrRejected = errors.New("engine refused the position")
+
 // Options are set once at start.
 type Options struct {
 	Threads int
@@ -44,7 +48,8 @@ type Request struct {
 	Depth      int // used when MovetimeMs is 0
 	MovetimeMs int
 	MultiPV    int
-	// LimitMs caps a depth search's time; the result then comes from the depth reached.
+	// LimitMs caps a depth search's time; the result then comes from the depth reached and
+	// is marked Capped.
 	LimitMs int
 }
 
@@ -54,6 +59,9 @@ type Result struct {
 	Depth    int
 	Lines    []uci.Line
 	Bestmove string // empty when there is no legal move
+	// Capped is true when LimitMs stopped the search before the depth asked: its last lines
+	// may be labelled with a depth the engine never finished.
+	Capped bool
 }
 
 // Engine is one running Stockfish. It is not safe for concurrent searches: the pool gives each
@@ -218,11 +226,14 @@ func (e *Engine) Search(ctx context.Context, req Request, onInfo func(uci.Line))
 		pos += " moves " + strings.Join(req.Moves, " ")
 	}
 	goCmd := fmt.Sprintf("go depth %d", max(req.Depth, 1))
-	if req.LimitMs > 0 {
-		goCmd += fmt.Sprintf(" movetime %d", req.LimitMs) // whichever comes first
-	}
+	// The cap is our own timer, not UCI movetime, so we know when it cut the search short.
+	var capTimer <-chan time.Time
 	if req.MovetimeMs > 0 {
 		goCmd = fmt.Sprintf("go movetime %d", req.MovetimeMs)
+	} else if req.LimitMs > 0 {
+		t := time.NewTimer(time.Duration(req.LimitMs) * time.Millisecond)
+		defer t.Stop()
+		capTimer = t.C
 	}
 	if err := e.send(pos); err != nil {
 		return Result{}, err
@@ -243,17 +254,28 @@ func (e *Engine) Search(ctx context.Context, req Request, onInfo func(uci.Line))
 	}
 	var stopErr error // set once the search was asked to stop
 	var stopDeadline <-chan time.Time
+	capped := false
+	rejected := "" // Stockfish's own reason, when it refuses the input
 	for {
 		select {
 		case raw, ok := <-e.lines:
 			if !ok {
+				if rejected != "" {
+					return Result{}, fmt.Errorf("%w: %s", ErrRejected, rejected)
+				}
 				return Result{}, ErrDied
+			}
+			if msg, isCritical := strings.CutPrefix(raw, "info string CRITICAL ERROR"); isCritical {
+				rejected = strings.TrimLeft(msg, " :")
+				continue
 			}
 			if move, isBest := uci.ParseBestmove(raw); isBest {
 				if stopErr != nil {
 					return Result{}, stopErr
 				}
-				return result(best, move), nil
+				r := result(best, move)
+				r.Capped = capped
+				return r, nil
 			}
 			l, ok := uci.ParseInfo(raw)
 			if !ok || l.MultiPV > req.MultiPV {
@@ -276,6 +298,12 @@ func (e *Engine) Search(ctx context.Context, req Request, onInfo func(uci.Line))
 			}
 			stopDeadline = time.After(e.opts.Reply)
 			ctx = context.WithoutCancel(ctx) // its Done never fires: wait for bestmove only
+		case <-capTimer:
+			capped, capTimer = true, nil
+			if err := e.send("stop"); err != nil {
+				return Result{}, err
+			}
+			stopDeadline = time.After(e.opts.Reply)
 		case <-stopDeadline:
 			return Result{}, fmt.Errorf("%w: no bestmove within %s of stop", ErrDied, e.opts.Reply)
 		}
@@ -288,10 +316,15 @@ func sameLine(a, b uci.Line) bool {
 
 func result(best map[int]uci.Line, move string) Result {
 	r := Result{Bestmove: move}
+	first := map[string]bool{}
 	for slot := 1; slot <= len(best)+1; slot++ {
-		if l, ok := best[slot]; ok {
-			r.Lines = append(r.Lines, l)
+		l, ok := best[slot]
+		// Lines of one report are not always from one batch: never list a first move twice.
+		if !ok || first[l.PV[0]] {
+			continue
 		}
+		first[l.PV[0]] = true
+		r.Lines = append(r.Lines, l)
 	}
 	if len(r.Lines) > 0 {
 		r.Depth = r.Lines[0].Depth

@@ -7,6 +7,7 @@ package position
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/corentings/chess/v2"
@@ -48,7 +49,11 @@ func Resolve(fen string, moves []string) (Position, error) {
 	if err := searchable(start); err != nil {
 		return Position{}, err
 	}
+	if err := clocks(fields[4], fields[5]); err != nil {
+		return Position{}, err
+	}
 	fields[2] = castling(start.Board(), fields[2])
+	fields[3] = enPassant(start.Board(), start.Turn(), fields[3])
 	startFEN := strings.Join(fields, " ")
 
 	opt, err = chess.FEN(startFEN)
@@ -94,20 +99,31 @@ func canTakeEnPassant(pos *chess.Position) bool {
 // the first or last rank, or the side that just moved left in check.
 func searchable(pos *chess.Position) error {
 	kings := map[chess.Color]chess.Square{}
-	count := map[chess.Color]int{}
+	count := map[chess.Color]map[chess.PieceType]int{chess.White: {}, chess.Black: {}}
 	for sq, p := range pos.Board().SquareMap() {
+		count[p.Color()][p.Type()]++
 		switch p.Type() {
 		case chess.King:
 			kings[p.Color()] = sq
-			count[p.Color()]++
 		case chess.Pawn:
 			if sq.Rank() == chess.Rank1 || sq.Rank() == chess.Rank8 {
 				return invalid("a pawn stands on %s", sq)
 			}
 		}
 	}
-	if count[chess.White] != 1 || count[chess.Black] != 1 {
-		return invalid("each side needs exactly one king")
+	for _, side := range []chess.Color{chess.White, chess.Black} {
+		n := count[side]
+		if n[chess.King] != 1 {
+			return invalid("each side needs exactly one king")
+		}
+		// Stockfish's own check: pieces beyond the starting set must come from promoted pawns.
+		if n[chess.Pawn] > 8 {
+			return invalid("%s has more than 8 pawns", side.Name())
+		}
+		extra := max(0, n[chess.Knight]-2) + max(0, n[chess.Bishop]-2) + max(0, n[chess.Rook]-2) + max(0, n[chess.Queen]-1)
+		if extra > 8-n[chess.Pawn] {
+			return invalid("%s has more pieces than promotions could make", side.Name())
+		}
 	}
 	// The side to move must not be able to take the other king: that king would be in check
 	// with its own side not to move, which no game can reach.
@@ -120,6 +136,34 @@ func searchable(pos *chess.Position) error {
 		}
 	}
 	return nil
+}
+
+// clocks refuses move counters out of Stockfish's range.
+func clocks(halfmove, fullmove string) error {
+	h, err1 := strconv.Atoi(halfmove)
+	f, err2 := strconv.Atoi(fullmove)
+	if err1 != nil || err2 != nil || h < 0 || h > 32767 || f < 1 || f > 100000 {
+		return invalid("the move counters are out of range (halfmove 0-32767, fullmove 1-100000)")
+	}
+	return nil
+}
+
+// enPassant keeps the square only as Stockfish does: on the third rank from the side that just
+// moved, with that side's pawn in front of it and nothing on it or behind it. Any other square
+// would let the library accept a capture the engine refuses.
+func enPassant(b *chess.Board, turn chess.Color, field string) string {
+	if len(field) != 2 || field[0] < 'a' || field[0] > 'h' {
+		return "-"
+	}
+	file := chess.Square(field[0] - 'a')
+	at := func(rank int) chess.Piece { return b.Piece(file + chess.Square(8*(rank-1))) }
+	if turn == chess.White && field[1] == '6' && at(5) == chess.BlackPawn && at(6) == chess.NoPiece && at(7) == chess.NoPiece {
+		return field
+	}
+	if turn == chess.Black && field[1] == '3' && at(4) == chess.WhitePawn && at(3) == chess.NoPiece && at(2) == chess.NoPiece {
+		return field
+	}
+	return "-"
 }
 
 // castling keeps only the rights whose king and rook still stand on their starting squares.

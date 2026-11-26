@@ -25,6 +25,7 @@ type fake struct {
 	gate   chan struct{}
 	took   time.Duration
 	die    *atomic.Bool
+	refuse bool
 	closed *atomic.Int32
 }
 
@@ -38,6 +39,9 @@ func (f *fake) Search(ctx context.Context, req engine.Request, _ func(uci.Line))
 	}
 	if f.die != nil && f.die.CompareAndSwap(true, false) {
 		return engine.Result{}, engine.ErrDied
+	}
+	if f.refuse {
+		return engine.Result{}, engine.ErrRejected
 	}
 	select {
 	case <-time.After(f.took):
@@ -60,11 +64,12 @@ type rig struct {
 	die    atomic.Bool
 	gate   chan struct{}
 	took   time.Duration
+	refuse bool
 }
 
 func (r *rig) factory(context.Context) (pool.Searcher, error) {
 	r.starts.Add(1)
-	return &fake{mu: &r.mu, order: &r.order, gate: r.gate, took: r.took, die: &r.die, closed: &r.closed}, nil
+	return &fake{mu: &r.mu, order: &r.order, gate: r.gate, took: r.took, die: &r.die, refuse: r.refuse, closed: &r.closed}, nil
 }
 
 func (r *rig) got() []string {
@@ -229,4 +234,21 @@ func TestLiveStaysFastUnderBatchLoad(t *testing.T) {
 	}
 	cancel()
 	batches.Wait()
+}
+
+// A refused position is the caller's fault: the dead engine is replaced, the job is not retried.
+func TestRefusedPositionIsNotRetried(t *testing.T) {
+	r := &rig{refuse: true}
+	p, err := pool.New(context.Background(), 1, 10, r.factory, quiet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+	if _, err := p.Do(context.Background(), pool.Live, req("bad"), nil); !errors.Is(err, engine.ErrRejected) {
+		t.Fatalf("want ErrRejected, got %v", err)
+	}
+	// One start for the first engine, one replacement taken for the next job: never two for this one.
+	if r.starts.Load() != 1 || r.closed.Load() != 1 {
+		t.Fatalf("starts %d closed %d", r.starts.Load(), r.closed.Load())
+	}
 }

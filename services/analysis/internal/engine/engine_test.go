@@ -188,7 +188,22 @@ func TestTimeCapEndsADeepSearch(t *testing.T) {
 	if d := time.Since(began); d > 3*time.Second {
 		t.Fatalf("cap ignored: %s", d)
 	}
-	if res.Bestmove == "" || res.Depth < 1 || res.Depth >= 30 {
+	if res.Bestmove == "" || res.Depth < 1 || res.Depth >= 30 || !res.Capped {
 		t.Fatalf("%+v", res)
+	}
+	full, err := e.Search(context.Background(), request(t, startFEN, nil, 6, 1), nil)
+	if err != nil || full.Capped {
+		t.Fatalf("an uncapped search reads as capped: %v %+v", err, full)
+	}
+}
+
+// A position the engine refuses ends as ErrRejected (the caller's fault), not ErrDied.
+func TestRefusedPositionIsRejected(t *testing.T) {
+	e := start(t)
+	// Nine white pawns: package position refuses this; sent raw, Stockfish exits on it.
+	_, err := e.Search(context.Background(),
+		engine.Request{FEN: "4k3/8/8/8/P7/8/PPPPPPPP/4K3 w - - 0 1", SideToMove: 'w', Depth: 4, MultiPV: 1}, nil)
+	if !errors.Is(err, engine.ErrRejected) {
+		t.Fatalf("want ErrRejected, got %v", err)
 	}
 }
