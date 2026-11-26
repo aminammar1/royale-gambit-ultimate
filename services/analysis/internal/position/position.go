@@ -5,8 +5,11 @@
 package position
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
@@ -24,6 +27,12 @@ type Position struct {
 	EPD string
 	// SideToMove is 'w' or 'b' in the final position.
 	SideToMove byte
+	// Halfmove is the final position's 50-move counter; Stockfish's evaluation depends on it.
+	Halfmove int
+	// History fingerprints the earlier positions the engine could repeat: those since the
+	// last capture or pawn move among the request's moves. "-" when there are none. Equal
+	// EPD, Halfmove and History mean the engine sees the same thing.
+	History string
 	// Terminal is true when the side to move has no legal move (checkmate or stalemate).
 	Terminal bool
 }
@@ -76,7 +85,10 @@ func Resolve(fen string, moves []string) (Position, error) {
 	if final.Turn() == chess.Black {
 		side = 'b'
 	}
+	halfmove, _ := strconv.Atoi(fields[4])
 	return Position{
+		Halfmove:   halfmove,
+		History:    history(game.Positions(), halfmove),
 		StartFEN:   startFEN,
 		Moves:      append([]string(nil), moves...),
 		FEN:        finalFEN,
@@ -84,6 +96,21 @@ func Resolve(fen string, moves []string) (Position, error) {
 		SideToMove: side,
 		Terminal:   len(final.ValidMoves()) == 0,
 	}, nil
+}
+
+// history hashes the positions the final one may repeat: at most halfmove plies back (a
+// capture or pawn move in between makes repeating impossible), oldest first.
+func history(line []*chess.Position, halfmove int) string {
+	if len(line) < 2 || halfmove == 0 {
+		return "-"
+	}
+	from := max(0, len(line)-1-halfmove)
+	h := sha256.New()
+	for _, pos := range line[from : len(line)-1] {
+		f := strings.Fields(pos.String())
+		_, _ = io.WriteString(h, strings.Join(f[:4], " ")+"\n")
+	}
+	return hex.EncodeToString(h.Sum(nil))[:16]
 }
 
 func canTakeEnPassant(pos *chess.Position) bool {

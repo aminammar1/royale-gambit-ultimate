@@ -2,8 +2,8 @@
 
 Stockfish as a service (M4): a pool of engine processes behind `POST /v1/analysis/positions` (live
 priority) and `POST /v1/analysis/batch` (batch priority), as JSON or server-sent events. Scores leave
-here from **White's** point of view. Results are cached in Redis per engine version, EPD, depth and
-MultiPV. Contract: `contracts/openapi/analysis.yaml`. Parsing fixtures: `contracts/fixtures/uci/`.
+here from **White's** point of view. Results are cached in Redis per engine version, EPD, 50-move count,
+repeatable history (positions since the last capture or pawn move), depth and MultiPV. Contract: `contracts/openapi/analysis.yaml`. Parsing fixtures: `contracts/fixtures/uci/`.
 
 **Engine:** the official Stockfish 19 release (`stockfish-linux-x86-64-universal`), downloaded in the
 Dockerfile with a pinned SHA-256. The service refuses to start if the binary reports another version.

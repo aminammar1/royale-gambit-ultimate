@@ -11,8 +11,11 @@ info:
     `mate: 3` means White mates in 3, `mate: -3` means Black does. `wdl` is per mille
     (win, draw, loss) for White. `pv` is UCI moves (`e2e4`, `e7e8q`); SAN is made by the client.
 
-    Results are cached per EPD, depth, MultiPV and engine version. Only depth searches are
-    cached: a `movetime_ms` search depends on the machine.
+    Results are cached per engine version, board (EPD), 50-move count, the positions since the
+    last capture or pawn move (the only ones a line can repeat), depth and MultiPV: the same board
+    with another past is another answer. Only complete depth searches are cached: a
+    `movetime_ms` search depends on the machine, and a search stopped by the service's time cap
+    did not reach the depth asked.
 
     Both endpoints answer JSON by default, or server-sent events with
     `Accept: text/event-stream`:

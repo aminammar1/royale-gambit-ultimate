@@ -109,7 +109,7 @@ func (s *server) analyse(ctx context.Context, prio pool.Priority, p checked, opt
 	}
 	key := ""
 	if opt.MovetimeMs == 0 {
-		key = cacheKey(id.Version, p.EPD, opt.Depth, opt.MultiPV)
+		key = cacheKey(id.Version, p.EPD, p.Halfmove, p.History, opt.Depth, opt.MultiPV)
 		if raw, ok := s.Store.Get(ctx, key); ok {
 			var hit Analysis
 			if err := json.Unmarshal(raw, &hit); err == nil {

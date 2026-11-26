@@ -216,3 +216,28 @@ func TestStockfishRulesAreEnforced(t *testing.T) {
 		t.Fatalf("ep %q kept", f)
 	}
 }
+
+// The same board with a different past is a different question for the engine: a repetition
+// or another 50-move count must not share a cache entry (review finding, 2026-11-26).
+func TestHistoryAndClockSeparateEqualBoards(t *testing.T) {
+	plain, err := position.Resolve(start, []string{"g1f3"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	repeated, err := position.Resolve(start, []string{"g1f3", "g8f6", "f3g1", "f6g8", "g1f3"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plain.EPD != repeated.EPD {
+		t.Fatalf("boards differ: %s vs %s", plain.EPD, repeated.EPD)
+	}
+	if plain.History == repeated.History || plain.Halfmove == repeated.Halfmove {
+		t.Fatalf("plain %s/%d, repeated %s/%d", plain.History, plain.Halfmove, repeated.History, repeated.Halfmove)
+	}
+	// After a pawn move nothing earlier can come back: no history, whatever came before.
+	a, _ := position.Resolve(start, []string{"g1f3", "g8f6", "f3g1", "f6g8", "e2e4"})
+	b, _ := position.Resolve(start, []string{"e2e4"})
+	if a.History != "-" || b.History != "-" || a.EPD != b.EPD || a.Halfmove != b.Halfmove {
+		t.Fatalf("a %+v\nb %+v", a, b)
+	}
+}

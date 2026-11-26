@@ -35,10 +35,13 @@ func New(url string, ttl time.Duration) (*Cache, error) {
 	return &Cache{rdb: redis.NewClient(opts), ttl: ttl}, nil
 }
 
-// Key names one result. The engine version is part of it, so an upgrade never serves old
-// numbers; the EPD has no move clocks, so the same position reached twice shares one entry.
-func Key(engineVersion, epd string, depth, multipv int) string {
-	return fmt.Sprintf("analysis:v1:%s:%s:%d:%d", engineVersion, strings.ReplaceAll(epd, " ", "_"), depth, multipv)
+// Key names one result: everything the engine's answer depends on. The engine version, so an
+// upgrade never serves old numbers; the board (EPD); the 50-move counter, which Stockfish's
+// evaluation scales by; and the history fingerprint (package position), since a repetition
+// changes the answer. The same board reached the same way shares one entry.
+func Key(engineVersion, epd string, halfmove int, history string, depth, multipv int) string {
+	return fmt.Sprintf("analysis:v2:%s:%s:%d:%s:%d:%d",
+		engineVersion, strings.ReplaceAll(epd, " ", "_"), halfmove, history, depth, multipv)
 }
 
 // Get returns the stored value; ok is false on a miss or a Redis error.

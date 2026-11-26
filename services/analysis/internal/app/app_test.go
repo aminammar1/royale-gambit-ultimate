@@ -186,6 +186,13 @@ func TestPositionJSONAndCache(t *testing.T) {
 	if a = decode[analysis](t, post(t, srv.URL+"/v1/analysis/positions", same, "")); !a.Cached {
 		t.Fatal("same EPD missed the cache")
 	}
+	// The same board reached through a repetition is another question: not served from cache.
+	rep := `{"fen":"` + startFEN + `","moves":["g1f3","g8f6","f3g1","f6g8","g1f3"],"depth":12,"multipv":1}`
+	first := `{"fen":"` + startFEN + `","moves":["g1f3"],"depth":12,"multipv":1}`
+	decode[analysis](t, post(t, srv.URL+"/v1/analysis/positions", first, ""))
+	if a = decode[analysis](t, post(t, srv.URL+"/v1/analysis/positions", rep, "")); a.Cached {
+		t.Fatal("a repetition was answered from the plain position's cache entry")
+	}
 	// A movetime search is never cached.
 	timed := `{"fen":"` + startFEN + `","movetime_ms":100}`
 	decode[analysis](t, post(t, srv.URL+"/v1/analysis/positions", timed, ""))

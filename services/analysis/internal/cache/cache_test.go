@@ -12,15 +12,23 @@ import (
 )
 
 func TestKey(t *testing.T) {
-	got := cache.Key("19", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -", 18, 3)
-	want := "analysis:v1:19:rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR_w_KQkq_-:18:3"
+	got := cache.Key("19", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -", 0, "-", 18, 3)
+	want := "analysis:v2:19:rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR_w_KQkq_-:0:-:18:3"
 	if got != want {
 		t.Fatalf("got  %s\nwant %s", got, want)
 	}
-	if cache.Key("19", "x", 18, 3) == cache.Key("18", "x", 18, 3) ||
-		cache.Key("19", "x", 18, 3) == cache.Key("19", "x", 17, 3) ||
-		cache.Key("19", "x", 18, 3) == cache.Key("19", "x", 18, 1) {
-		t.Fatal("version, depth and multipv must each change the key")
+	base := cache.Key("19", "x", 0, "-", 18, 3)
+	for _, other := range []string{
+		cache.Key("18", "x", 0, "-", 18, 3),
+		cache.Key("19", "y", 0, "-", 18, 3),
+		cache.Key("19", "x", 1, "-", 18, 3),
+		cache.Key("19", "x", 0, "ab12", 18, 3),
+		cache.Key("19", "x", 0, "-", 17, 3),
+		cache.Key("19", "x", 0, "-", 18, 1),
+	} {
+		if other == base {
+			t.Fatalf("%s should differ from %s", other, base)
+		}
 	}
 }
 
