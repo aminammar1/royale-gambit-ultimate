@@ -1,0 +1,201 @@
+openapi: 3.1.0
+info:
+  title: analysis
+  version: 1.0.0
+  description: |
+    Stockfish as a service (M4). A pool of engine processes answers one position at a time
+    (`/positions`, live priority) or a list of positions (`/batch`, batch priority: a live
+    request is always served before queued batch work).
+
+    Scores are from **White's** point of view, once, here (ENGINE.md). `cp` is centipawns;
+    `mate: 3` means White mates in 3, `mate: -3` means Black does. `wdl` is per mille
+    (win, draw, loss) for White. `pv` is UCI moves (`e2e4`, `e7e8q`); SAN is made by the client.
+
+    Results are cached per EPD, depth, MultiPV and engine version. Only depth searches are
+    cached: a `movetime_ms` search depends on the machine.
+
+    Both endpoints answer JSON by default, or server-sent events with
+    `Accept: text/event-stream`:
+    - `/positions`: `event: info` (the best line so far, about ten a second per line, and the
+      last line of every depth), then `event: result` with the same body as the JSON answer.
+    - `/batch`: `event: result` per position as soon as it is done (`index` says which), then
+      `event: done`. Positions are answered in any order.
+paths:
+  /health/live:
+    get:
+      operationId: live
+      responses:
+        "200": { description: Process is up, content: { application/json: { schema: { $ref: "#/components/schemas/Health" } } } }
+  /health/ready:
+    get:
+      operationId: ready
+      responses:
+        "200": { description: Redis answers and at least one engine is ready, content: { application/json: { schema: { $ref: "#/components/schemas/Health" } } } }
+        "503": { description: Redis is down or no engine is ready, content: { application/json: { schema: { $ref: "#/components/schemas/Health" } } } }
+  /v1/analysis/positions:
+    post:
+      operationId: analysePosition
+      summary: Analyse one position (live priority)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PositionRequest" }
+      responses:
+        "200":
+          description: The search finished
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Analysis" }
+            text/event-stream:
+              schema: { type: string, description: "`info` events, then one `result` event (an Analysis)" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Busy" }
+  /v1/analysis/batch:
+    post:
+      operationId: analyseBatch
+      summary: Analyse up to 300 positions (batch priority)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BatchRequest" }
+      responses:
+        "200":
+          description: Every position was analysed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BatchResult" }
+            text/event-stream:
+              schema: { type: string, description: "`result` events (an Analysis with `index`), then `done`" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Busy" }
+components:
+  responses:
+    Problem:
+      description: |
+        RFC 9457 problem details. Types: `.../problems/invalid-request` (body does not match
+        the schema), `.../problems/invalid-position` (FEN not legal, or a move in `moves` is
+        not legal there).
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Busy:
+      description: The queue is full (`.../problems/engine-busy`) or no engine is running (`.../problems/engine-unavailable`). Retry after the `Retry-After` seconds.
+      headers:
+        Retry-After: { schema: { type: integer, minimum: 1 } }
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string }
+    Search:
+      type: object
+      description: How long to search. `depth` and `movetime_ms` are exclusive; with neither, depth 18.
+      properties:
+        depth: { type: integer, minimum: 1, maximum: 30, examples: [2] }
+        movetime_ms: { type: integer, minimum: 50, maximum: 10000 }
+        multipv: { type: integer, minimum: 1, maximum: 5, default: 3, examples: [1] }
+    Position:
+      type: object
+      additionalProperties: false
+      required: [fen]
+      properties:
+        fen:
+          type: string
+          maxLength: 100
+          description: Full FEN (six fields).
+          examples: ["rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+        moves:
+          type: array
+          maxItems: 600
+          description: UCI moves played from `fen`; the position analysed is the one after them.
+          items: { type: string, pattern: "^[a-h][1-8][a-h][1-8][qrbn]?$" }
+    PositionRequest:
+      allOf:
+        - $ref: "#/components/schemas/Position"
+        - $ref: "#/components/schemas/Search"
+      unevaluatedProperties: false
+    BatchRequest:
+      allOf:
+        - $ref: "#/components/schemas/Search"
+        - type: object
+          required: [positions]
+          properties:
+            positions:
+              type: array
+              minItems: 1
+              maxItems: 300
+              items: { $ref: "#/components/schemas/Position" }
+      unevaluatedProperties: false
+    Score:
+      description: White's view. Exactly one of `cp` or `mate`.
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [cp]
+          properties: { cp: { type: integer } }
+        - type: object
+          additionalProperties: false
+          required: [mate]
+          properties: { mate: { type: integer, description: "Moves to mate; positive means White mates" } }
+    Line:
+      type: object
+      required: [multipv, depth, score, pv]
+      properties:
+        multipv: { type: integer, minimum: 1 }
+        depth: { type: integer, minimum: 1 }
+        score: { $ref: "#/components/schemas/Score" }
+        wdl:
+          type: array
+          description: Win, draw, loss for White, per mille.
+          minItems: 3
+          maxItems: 3
+          items: { type: integer, minimum: 0, maximum: 1000 }
+        pv:
+          type: array
+          minItems: 1
+          items: { type: string }
+    Engine:
+      type: object
+      required: [name, version]
+      properties:
+        name: { type: string, examples: ["Stockfish"] }
+        version: { type: string, examples: ["17.1"] }
+    Analysis:
+      type: object
+      required: [epd, side_to_move, depth, lines, engine, cached]
+      properties:
+        index: { type: integer, minimum: 0, description: "Batch only: the position's place in the request" }
+        epd: { type: string, description: The analysed position without move clocks. }
+        side_to_move: { type: string, enum: [w, b] }
+        depth: { type: integer, minimum: 0, description: Depth reached. }
+        lines:
+          type: array
+          description: Best line first. Empty when the side to move is checkmated or stalemated.
+          items: { $ref: "#/components/schemas/Line" }
+        bestmove: { type: [string, "null"], description: UCI; null when there is no legal move. }
+        engine: { $ref: "#/components/schemas/Engine" }
+        cached: { type: boolean }
+    BatchResult:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          description: In request order.
+          items: { $ref: "#/components/schemas/Analysis" }
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        trace_id: { type: string }

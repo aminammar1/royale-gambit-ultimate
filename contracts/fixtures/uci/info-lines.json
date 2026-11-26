@@ -1,0 +1,88 @@
+{
+  "description": "UCI output parsing, shared by the analysis service (M4) and the desktop engine manager (M3). Each `info` case gives a raw line, the side to move of the searched position, and the parsed line with scores already turned to White's view (ENGINE.md). `expect: null` means the line is not shown: no pv, a bound score, `info string`, or a currmove report. `multipv` defaults to 1 when the engine leaves it out; `wdl` is absent when the engine does not send it.",
+  "info": [
+    {
+      "name": "cp, white to move, wdl, multipv 2",
+      "line": "info depth 22 seldepth 30 multipv 2 score cp -35 wdl 170 520 310 nodes 1234567 nps 1500000 hashfull 412 tbhits 0 time 823 pv d2d4 g8f6 c2c4",
+      "side_to_move": "w",
+      "expect": { "depth": 22, "multipv": 2, "score": { "cp": -35 }, "wdl": [170, 520, 310], "pv": ["d2d4", "g8f6", "c2c4"] }
+    },
+    {
+      "name": "cp, black to move: sign flips and wdl reverses",
+      "line": "info depth 22 seldepth 30 multipv 1 score cp -35 wdl 170 520 310 nodes 1234567 nps 1500000 pv e7e5 g1f3 b8c6",
+      "side_to_move": "b",
+      "expect": { "depth": 22, "multipv": 1, "score": { "cp": 35 }, "wdl": [310, 520, 170], "pv": ["e7e5", "g1f3", "b8c6"] }
+    },
+    {
+      "name": "zero stays zero for black",
+      "line": "info depth 9 seldepth 12 multipv 1 score cp 0 nodes 4000 nps 400000 pv e7e5",
+      "side_to_move": "b",
+      "expect": { "depth": 9, "multipv": 1, "score": { "cp": 0 }, "pv": ["e7e5"] }
+    },
+    {
+      "name": "mate for the side to move, white",
+      "line": "info depth 12 seldepth 5 multipv 1 score mate 3 nodes 5000 nps 1000000 pv h5f7 e8e7 c4d5",
+      "side_to_move": "w",
+      "expect": { "depth": 12, "multipv": 1, "score": { "mate": 3 }, "pv": ["h5f7", "e8e7", "c4d5"] }
+    },
+    {
+      "name": "mate for the side to move, black: black mates means negative",
+      "line": "info depth 12 seldepth 5 multipv 1 score mate 3 nodes 5000 nps 1000000 pv d8h4",
+      "side_to_move": "b",
+      "expect": { "depth": 12, "multipv": 1, "score": { "mate": -3 }, "pv": ["d8h4"] }
+    },
+    {
+      "name": "side to move gets mated, black to move: white mates means positive",
+      "line": "info depth 30 seldepth 4 multipv 1 score mate -2 nodes 900 nps 90000 pv g8h8 d1h5",
+      "side_to_move": "b",
+      "expect": { "depth": 30, "multipv": 1, "score": { "mate": 2 }, "pv": ["g8h8", "d1h5"] }
+    },
+    {
+      "name": "multipv left out defaults to 1",
+      "line": "info depth 10 score cp 15 pv d2d4",
+      "side_to_move": "w",
+      "expect": { "depth": 10, "multipv": 1, "score": { "cp": 15 }, "pv": ["d2d4"] }
+    },
+    {
+      "name": "lowerbound is skipped",
+      "line": "info depth 20 seldepth 25 multipv 1 score cp 40 lowerbound nodes 777 nps 700 pv e2e4",
+      "side_to_move": "w",
+      "expect": null
+    },
+    {
+      "name": "upperbound is skipped",
+      "line": "info depth 20 seldepth 25 multipv 1 score cp 12 upperbound wdl 40 940 20 nodes 777 nps 700 pv e2e4",
+      "side_to_move": "w",
+      "expect": null
+    },
+    {
+      "name": "no pv is skipped",
+      "line": "info depth 1 seldepth 1 multipv 1 score cp 20 nodes 20 nps 20000 tbhits 0 time 1",
+      "side_to_move": "w",
+      "expect": null
+    },
+    {
+      "name": "info string is skipped, even when it mentions pv",
+      "line": "info string NNUE evaluation using nn-1c0000000000.nnue enabled pv e2e4",
+      "side_to_move": "w",
+      "expect": null
+    },
+    {
+      "name": "currmove report is skipped",
+      "line": "info depth 5 currmove e2e4 currmovenumber 1",
+      "side_to_move": "w",
+      "expect": null
+    },
+    {
+      "name": "mated at the root: no pv, skipped",
+      "line": "info depth 0 score mate 0",
+      "side_to_move": "b",
+      "expect": null
+    }
+  ],
+  "bestmove": [
+    { "line": "bestmove e2e4 ponder e7e5", "expect": "e2e4" },
+    { "line": "bestmove e7e8q", "expect": "e7e8q" },
+    { "line": "bestmove (none)", "expect": null }
+  ]
+}
