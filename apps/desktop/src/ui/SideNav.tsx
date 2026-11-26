@@ -12,7 +12,7 @@ export function SideNav() {
   return (
     <nav
       aria-label="Sections"
-      className="flex h-full w-[var(--nav-width)] shrink-0 flex-col overflow-y-auto border-r border-rule px-5 pt-8 pb-6 max-[1279px]:w-[var(--nav-rail)] max-[1279px]:px-1.5 max-[1279px]:pt-5"
+      className="flex h-full w-[var(--nav-width)] shrink-0 flex-col overflow-y-auto border-r border-rule px-5 pt-6 pb-6 max-[1279px]:w-[var(--nav-rail)] max-[1279px]:px-1.5 max-[1279px]:pt-5"
     >
       <Logo />
       <ul className="mt-6 flex flex-col gap-1 max-[1279px]:mt-4">

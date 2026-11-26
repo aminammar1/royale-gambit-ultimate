@@ -10,6 +10,11 @@ import { CHAMPION_QUOTES } from "./quotes";
 
 const EASE = [0.2, 0, 0, 1] as const;
 const CUT_MS = 125;
+const SERVER_LINE = {
+  checking: "Calling the server…",
+  reachable: "Server online",
+  unreachable: "Offline · you can still play here",
+} as const;
 
 /** Resolves once every portrait is decoded, so the newsreel never cuts to an empty frame. */
 function preloadPortraits(): Promise<unknown> {
@@ -108,7 +113,7 @@ function Row({ champions, seconds, reverse }: { champions: readonly Champion[]; 
 function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) {
   const edition = useEdition();
   const reduce = useReducedMotion();
-  const offline = useServer((s) => s.status === "unreachable");
+  const server = useServer((s) => s.status);
   const [quote] = useState(() => CHAMPION_QUOTES[Math.floor(Math.random() * CHAMPION_QUOTES.length)]);
 
   useEffect(() => {
@@ -127,7 +132,7 @@ function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) 
       initial={reduce ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={reduce ? undefined : { opacity: 0 }}
-      transition={{ duration: 0.4, ease: EASE }}
+      transition={{ duration: 0.24, ease: EASE }}
     >
       <div
         aria-hidden
@@ -139,64 +144,61 @@ function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) 
       </div>
 
       <div className="relative flex h-full items-center justify-center overflow-y-auto px-6 py-8">
+        {/* Built like the player card: a double frame, a label header over a double rule, the
+            body in sections between ink rules, and a label footer. Every line has a fixed place,
+            so nothing moves while the card, the keychain and the server answer. */}
         <motion.main
-          className="w-full max-w-[34rem] border-[3px] border-double border-ink bg-paper p-1"
-          initial={reduce ? false : { opacity: 0, y: 12 }}
+          className="w-full max-w-[40rem] border-[3px] border-double border-ink bg-paper p-1"
+          initial={reduce ? false : { opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1, ease: EASE }}
+          transition={{ duration: 0.24, delay: 0.1, ease: EASE }}
         >
-          <div className="border border-ink px-10 pt-8 pb-7 max-[899px]:px-6">
-            <img src={logo} alt="" className="mx-auto block w-28" draggable={false} />
-            <h1 className="mt-4 text-center font-masthead text-[length:var(--text-masthead)] leading-none font-black tracking-[-0.01em] max-[899px]:text-[2.5rem]">
-              Royale Gambit Ultimate
-            </h1>
-            <motion.div
-              className="rule-double mt-4 origin-center"
-              initial={reduce ? false : { scaleX: 0 }}
-              animate={{ scaleX: 1 }}
-              transition={{ duration: 0.7, delay: 0.3, ease: EASE }}
-            />
-            <p className="label mt-2 flex justify-between gap-4 text-ink-2">
-              <span>{edition} edition</span>
-              <span>{editionDate(new Date())}</span>
-            </p>
+          <div className="border border-ink px-8 pt-4 pb-3 max-[899px]:px-5">
+            <div className="flex items-baseline justify-between gap-4 border-b-[3px] border-double border-ink pb-2">
+              <span className="label truncate text-ink">Royale Gambit · {edition} edition</span>
+              <span className="label shrink-0 text-ink-2">{editionDate(new Date())}</span>
+            </div>
 
-            <figure className="mt-7 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-5 border-y border-rule py-5">
+            <div className="flex flex-col items-center pt-6 pb-5">
+              <img src={logo} alt="" className="block w-36 max-[899px]:w-28" draggable={false} />
+              <h1 className="mt-3 text-center font-masthead text-[length:var(--text-masthead)] leading-none font-black tracking-[-0.01em] whitespace-nowrap max-[899px]:text-[2.25rem]">
+                Royale Gambit Ultimate
+              </h1>
+            </div>
+
+            <figure className="grid grid-cols-[auto_minmax(0,1fr)] items-center border-y border-ink py-5">
               <Portrait champion={quote.champion} className="h-20 w-16" />
-              <div className="min-w-0">
+              <div className="ml-5 min-w-0 border-l border-rule pl-5">
                 {/* The opening mark hangs, so the words line up with the name beneath. */}
                 <blockquote className="font-masthead text-[length:var(--text-xl)] leading-[1.3] font-semibold italic [text-indent:-0.42em]">
                   “{quote.text}”
                 </blockquote>
-                <figcaption className="mt-2 font-body text-[length:var(--text-sm)]">
-                  <span className="font-semibold">{quote.champion.name}</span>
-                  <span className="text-ink-2"> · world champion from {quote.champion.since}</span>
+                <figcaption className="mt-2 flex flex-wrap items-baseline gap-x-3">
+                  <span className="font-body text-[length:var(--text-md)] font-semibold">{quote.champion.name}</span>
+                  <span className="numeric text-[length:var(--text-xs)] text-ink-2">
+                    World champion from {quote.champion.since}
+                  </span>
                 </figcaption>
               </div>
             </figure>
 
             <button
               type="button"
-              autoFocus
               disabled={!ready}
               onClick={onStart}
-              className={`label mt-7 w-full rounded-[var(--radius)] border py-4 text-[length:var(--text-lg)] tracking-[0.2em] transition-colors duration-150 ${
+              className={`label mt-5 w-full rounded-[var(--radius)] border py-3.5 text-[length:var(--text-md)] tracking-[0.2em] transition-colors duration-150 ${
                 ready
-                  ? "border-ink bg-ink text-paper hover:opacity-90"
-                  : "cursor-wait border-rule bg-paper-2 text-ink-2"
+                  ? "border-ink bg-ink text-paper hover:bg-paper hover:text-ink"
+                  : "cursor-wait border-ink-2 bg-paper-2 text-ink-2"
               }`}
             >
               {ready ? "Start" : "Getting ready…"}
             </button>
-            <p className="mt-2 text-center font-body text-[length:var(--text-sm)] text-ink-2 italic">
-              {ready ? "or press Enter" : " "}
-            </p>
 
-            {offline ? (
-              <p role="status" className="mt-4 text-center font-body text-[length:var(--text-sm)] text-ink-2">
-                The Royale Gambit server cannot be reached. You can still play on this machine.
-              </p>
-            ) : null}
+            <div className="label mt-4 flex justify-between gap-4 border-t border-rule pt-3 text-ink-2">
+              <span>{ready ? "Press Enter to start" : "Reading your card"}</span>
+              <span role="status">{SERVER_LINE[server]}</span>
+            </div>
           </div>
         </motion.main>
       </div>
