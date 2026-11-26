@@ -70,7 +70,8 @@ best=$(curl -fsS -H 'Content-Type: application/json' -d "{\"fen\":\"$start\",\"d
   "$base/v1/analysis/positions" | json_field bestmove)
 [[ $best =~ ^[a-h][1-8][a-h][1-8]$ ]] || { echo "   bestmove '$best' from the start position"; fail=1; }
 check_metrics "$base"
-contract_check analysis.yaml "$base"
+# A JSON search may take up to SEARCH_LIMIT_MS (20 s): wait as long as the gateway would.
+contract_check analysis.yaml "$base" --request-timeout 30
 
 # The real path from the desktop app: everything through the gateway.
 gw=http://localhost:8080
