@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { auth, renewAccessToken, useSession } from "./auth/session";
+import { createAnalysisClient } from "./analysis";
 import { createApiClient } from "./client";
 import type { components } from "./generated/auth-profile";
 
@@ -12,6 +13,13 @@ export const api = createApiClient({
   baseUrl: () => (gatewayUrl ??= auth.gatewayUrl()),
   accessToken: () => useSession.getState().account?.accessToken,
   refresh: renewAccessToken,
+});
+
+/** The engine on the server, streamed; a guest without an account gets a guest token. */
+export const analysis = createAnalysisClient({
+  baseUrl: () => (gatewayUrl ??= auth.gatewayUrl()),
+  sessionToken: () => useSession.getState().account?.accessToken,
+  renewSession: renewAccessToken,
 });
 
 /** The ways into the signed-in account, oldest first (contract: listMyIdentities). */
