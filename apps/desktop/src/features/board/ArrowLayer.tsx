@@ -18,7 +18,9 @@ export function ArrowLayer({ arrows, flipped }: { arrows: readonly BoardArrow[];
       aria-hidden
       viewBox="0 0 8 8"
       className="pointer-events-none absolute inset-0 z-20 size-full"
-      style={{ overflow: "visible" }}
+      // Its own compositing layer: WebKitGTK (the Tauri window) left a removed arrow painted
+      // behind when the layer shared one with the animating pieces.
+      style={{ overflow: "visible", transform: "translateZ(0)", isolation: "isolate", willChange: "transform" }}
     >
       {arrows.map((a) => {
         const from = centre(a.from, flipped);

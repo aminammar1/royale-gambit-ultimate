@@ -6,6 +6,7 @@ import { fenAt, legalTargets, load } from "../../chess/game";
 import { BOARD_THEMES, PIECE_SETS, settingsDb, useSettings, type PieceSet } from "../../db/settings";
 import { Masthead } from "../../ui/Masthead";
 import { ThemedBoard } from "../board/ThemedBoard";
+import { playBoardSound } from "../../audio/boardSounds";
 import { pieceImage } from "../board/pieces";
 import { BOARD_THEME_COLOURS, BOARD_THEME_NAMES, DISPLAY_ROWS, PIECE_SET_NAMES } from "./boardThemes";
 
@@ -55,6 +56,7 @@ export function BoardSettingsPage() {
   const theme = useSettings((s) => s.boardTheme);
   const display = useSettings((s) => s.display);
   const pieces = useSettings((s) => s.pieces);
+  const sounds = useSettings((s) => s.sounds);
   const game = PREVIEW.ok ? PREVIEW.game : undefined;
   const fen = game ? fenAt(game, game.plies.length) : "";
   const last = game?.plies.at(-1);
@@ -188,6 +190,27 @@ export function BoardSettingsPage() {
                 </dd>
               </div>
             ))}
+            <div className="flex items-center justify-between gap-4 border-b border-rule py-3">
+              <dt>
+                <span className="label block text-ink">Sounds</span>
+                <span className="font-body text-[length:var(--text-sm)] text-ink-2">A wooden knock on each move</span>
+              </dt>
+              <dd>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={sounds}
+                  aria-label="Sounds"
+                  onClick={() => {
+                    settingsDb.setSounds(!sounds);
+                    if (!sounds) void playBoardSound("move");
+                  }}
+                  className="label min-w-14 border border-ink-2 px-3 py-1 text-ink hover:border-ink"
+                >
+                  {sounds ? "On" : "Off"}
+                </button>
+              </dd>
+            </div>
           </dl>
         </section>
       </div>

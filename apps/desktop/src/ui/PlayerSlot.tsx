@@ -29,15 +29,14 @@ export function PlayerSlot() {
       title={signedIn ? "Account settings" : "Sign in"}
       className="group flex items-center gap-3 border-t border-rule pt-3 max-[1279px]:flex-col max-[1279px]:gap-1"
     >
+      {/* The flag fills its frame, like a printed flag tile; the country code is its tooltip. */}
       <span
+        title={card ? alpha3 : undefined}
         aria-hidden
-        className="flex h-8 w-12 shrink-0 items-center justify-center gap-1 border border-ink-2 group-hover:border-ink"
+        className="flex h-8 w-12 shrink-0 items-center justify-center overflow-hidden border border-ink-2 group-hover:border-ink"
       >
         {card ? (
-          <>
-            <Flag code={card.country} className="text-[0.875rem]" />
-            <span className="numeric text-[0.625rem] text-ink-2">{alpha3}</span>
-          </>
+          <Flag code={card.country} fill />
         ) : (
           <span className="numeric text-[length:var(--text-xs)] text-ink-2">—</span>
         )}

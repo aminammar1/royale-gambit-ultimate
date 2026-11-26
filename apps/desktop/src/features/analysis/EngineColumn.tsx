@@ -3,7 +3,8 @@ import { formatScore } from "../../chess/score";
 import type { EngineLine } from "../../api";
 import { Button } from "../../ui/Button";
 import { Kicker } from "../../ui/Kicker";
-import { DEPTH, type EngineState } from "./useServerAnalysis";
+import { ENGINE_DEPTHS, settingsDb, useSettings } from "../../db/settings";
+import { type EngineState } from "./useServerAnalysis";
 
 /** How many moves of each line are printed: enough to read the idea, short enough to scan. */
 const SHOWN = 8;
@@ -29,6 +30,7 @@ type Props = {
 /** The engine column: the best move set large, then the top three lines as a printed table. */
 export function EngineColumn({ state, fen, over, onRetry, onTurnOn, onPlay }: Props) {
   const lines = linesOf(state);
+  const wanted = useSettings((s) => s.engineDepth);
   const best = lines[0];
   const bestSan = best ? pvToSan(fen, best.pv.slice(0, 1))[0] : undefined;
   const depth = state.status === "done" ? state.result.depth : best?.depth;
@@ -36,6 +38,26 @@ export function EngineColumn({ state, fen, over, onRetry, onTurnOn, onPlay }: Pr
   return (
     <section aria-label="Engine" aria-busy={state.status === "thinking"}>
       <Kicker>Engine</Kicker>
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <span className="label text-ink-2">Depth</span>
+        <div role="radiogroup" aria-label="Engine depth" className="flex">
+          {ENGINE_DEPTHS.map((d) => (
+            <button
+              key={d}
+              type="button"
+              role="radio"
+              aria-checked={wanted === d}
+              onClick={() => settingsDb.setEngineDepth(d)}
+              title={d <= 16 ? "Quick" : d >= 24 ? "Deep: takes longer" : undefined}
+              className={`numeric -ml-px border px-2.5 py-1 text-[length:var(--text-sm)] first:ml-0 ${
+                wanted === d ? "relative border-ink bg-ink text-paper" : "border-ink-2 text-ink hover:border-ink"
+              }`}
+            >
+              {d}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {over ? (
         <p className="mt-5 font-masthead text-[length:var(--text-2xl)] font-bold">{over}</p>
@@ -64,7 +86,7 @@ export function EngineColumn({ state, fen, over, onRetry, onTurnOn, onPlay }: Pr
             <div className="flex items-baseline justify-between border-b border-rule px-4 py-2.5">
               <span className="label text-ink">Best move</span>
               <span className="numeric text-[length:var(--text-sm)] text-ink-2">
-                {depth ? `depth ${depth}${state.status === "thinking" ? ` of ${DEPTH}` : ""}` : "thinking…"}
+                {depth ? `depth ${depth}${state.status === "thinking" ? ` of ${wanted}` : ""}` : "thinking…"}
               </span>
             </div>
             <button

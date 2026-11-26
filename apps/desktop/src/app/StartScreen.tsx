@@ -143,54 +143,52 @@ function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) 
         <Row champions={[...CHAMPIONS.slice(2 * third), ...CHAMPIONS.slice(0, 2 * third)]} seconds={130} />
       </div>
 
-      {/* One paper wash behind the title: the champions stay sharp at the edges and step back
-          behind the words, instead of a box or patches. */}
-      <div
-        aria-hidden
-        className="absolute inset-0 bg-[radial-gradient(ellipse_42%_46%_at_center,var(--paper)_55%,transparent_100%)]"
-      />
-      <div className="relative flex h-full items-center justify-center overflow-y-auto px-6 py-8">
-        {/* No box: the title page is the page itself, like a newspaper's front, over the
+      <div className="relative flex h-full items-center overflow-y-auto py-8">
+        {/* A full-width band of paper between double rules, like a front page's banner: the
+            champions stay sharp above and below it. No box, no blur. */}
+        <div className="w-full border-y-[3px] border-double border-ink bg-paper px-6 py-8">
+          {/* No box: the title page is the page itself, like a newspaper's front, over the
             champions drifting behind. Every line has a fixed place, so nothing moves while the
             card, the keychain and the server answer. */}
-        <motion.main
-          className="flex w-full max-w-[34rem] flex-col items-center text-center"
-          initial={reduce ? false : { opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.24, delay: 0.1, ease: EASE }}
-        >
-          <img src={logo} alt="" className="block w-32" draggable={false} />
-          <h1 className="mt-4 font-masthead text-[length:var(--text-masthead)] leading-none font-black tracking-[-0.01em] whitespace-nowrap max-[899px]:text-[2.25rem]">
-            Royale Gambit Ultimate
-          </h1>
-          <p className="label mt-4 flex w-full justify-center gap-3 border-y-[3px] border-double border-ink py-2 text-ink-2">
-            <span>{edition} edition</span>
-            <span aria-hidden>·</span>
-            <span>{editionDate(new Date())}</span>
-          </p>
-          <p className="mt-5 max-w-[30rem] font-masthead text-[length:var(--text-lg)] leading-snug italic">
-            “{quote.text}”
-          </p>
-          <p className="mt-1 font-body text-[length:var(--text-sm)] text-ink-2">{quote.champion.name}</p>
-
-          <button
-            type="button"
-            disabled={!ready}
-            onClick={onStart}
-            className={`label mt-8 w-64 rounded-[var(--radius)] border py-3.5 text-[length:var(--text-md)] tracking-[0.25em] transition-colors duration-150 ${
-              ready
-                ? "border-ink bg-ink text-paper hover:bg-paper hover:text-ink"
-                : "cursor-wait border-ink-2 bg-paper-2 text-ink-2"
-            }`}
+          <motion.main
+            className="mx-auto flex w-full max-w-[34rem] flex-col items-center text-center"
+            initial={reduce ? false : { opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.24, delay: 0.1, ease: EASE }}
           >
-            {ready ? "Start" : "Getting ready…"}
-          </button>
-          <p className="label mt-3 flex gap-3 text-ink-2">
-            <span>{ready ? "Press Enter" : "Reading your card"}</span>
-            <span aria-hidden>·</span>
-            <span role="status">{SERVER_LINE[server]}</span>
-          </p>
-        </motion.main>
+            <img src={logo} alt="" className="block w-24" draggable={false} />
+            <h1 className="mt-4 font-masthead text-[length:var(--text-masthead)] leading-none font-black tracking-[-0.01em] whitespace-nowrap max-[899px]:text-[2.25rem]">
+              Royale Gambit Ultimate
+            </h1>
+            <p className="label mt-3 flex w-full justify-center gap-3 border-t border-ink pt-2 text-ink-2">
+              <span>{edition} edition</span>
+              <span aria-hidden>·</span>
+              <span>{editionDate(new Date())}</span>
+            </p>
+            <p className="mt-5 max-w-[30rem] font-masthead text-[length:var(--text-lg)] leading-snug italic">
+              “{quote.text}”
+            </p>
+            <p className="mt-1 font-body text-[length:var(--text-sm)] text-ink-2">{quote.champion.name}</p>
+
+            <button
+              type="button"
+              disabled={!ready}
+              onClick={onStart}
+              className={`label mt-6 w-64 rounded-[var(--radius)] border py-3.5 text-[length:var(--text-md)] tracking-[0.25em] transition-colors duration-150 ${
+                ready
+                  ? "border-ink bg-ink text-paper hover:bg-paper hover:text-ink"
+                  : "cursor-wait border-ink-2 bg-paper-2 text-ink-2"
+              }`}
+            >
+              {ready ? "Start" : "Getting ready…"}
+            </button>
+            <p className="label mt-3 flex gap-3 text-ink-2">
+              <span>{ready ? "Press Enter" : "Reading your card"}</span>
+              <span aria-hidden>·</span>
+              <span role="status">{SERVER_LINE[server]}</span>
+            </p>
+          </motion.main>
+        </div>
       </div>
     </motion.div>
   );

@@ -18,6 +18,8 @@ import {
   ucisUpTo,
   type Game,
 } from "../../chess/game";
+import { playBoardSound, soundFor } from "../../audio/boardSounds";
+import { useSettings } from "../../db/settings";
 import { Button } from "../../ui/Button";
 import { EvalBar } from "../../ui/EvalBar";
 import { Kicker } from "../../ui/Kicker";
@@ -64,7 +66,8 @@ export function AnalysisPage() {
   const moves = useMemo(() => ucisUpTo(game, cursor), [game, cursor]);
   // Mate and stalemate come from chess.js (ADR-03), never from the engine's answer.
   const ended = outcome(fen);
-  const engine = useServerAnalysis(game.startFen, moves, engineOn && !ended, attempt);
+  const depth = useSettings((s) => s.engineDepth);
+  const engine = useServerAnalysis(game.startFen, moves, engineOn && !ended, attempt, depth);
   const lines = ended ? [] : linesOf(engine);
   const last = cursor > 0 ? game.plies[cursor - 1] : undefined;
   const check = inCheck(fen) ? kingSquare(fen, sideToMove(fen)) : undefined;
@@ -102,6 +105,7 @@ export function AnalysisPage() {
     }
     setGame(next);
     setCursor(cursor + 1);
+    if (useSettings.getState().sounds) void playBoardSound(soundFor(next.plies[cursor].san));
     setSelected(undefined);
     setPromotion(undefined);
     return true;
@@ -135,6 +139,7 @@ export function AnalysisPage() {
     setCursor(at);
     setSelected(undefined);
     setPromotion(undefined);
+    if (at > cursor && useSettings.getState().sounds) void playBoardSound(soundFor(next.plies[at - 1].san));
   };
 
   useEffect(() => {

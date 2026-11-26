@@ -22,6 +22,10 @@ export type BoardTheme = (typeof BOARD_THEMES)[number];
 export const PIECE_SETS = ["classic", "chessnut", "fantasy", "spatial", "celtic", "rhosgfx"] as const;
 export type PieceSet = (typeof PIECE_SETS)[number];
 
+/** How deep the engine searches on the Analysis page (half-moves). */
+export const ENGINE_DEPTHS = [12, 16, 20, 24, 28] as const;
+export type EngineDepth = (typeof ENGINE_DEPTHS)[number];
+
 /** What the board shows besides the pieces (Board & pieces, "Display"). */
 export type BoardDisplay = {
   coordinates: boolean;
@@ -39,6 +43,8 @@ type SettingsState = {
   pieces: PieceSet;
   display: BoardDisplay;
   edition: EditionSetting;
+  engineDepth: EngineDepth;
+  sounds: boolean;
 };
 
 export const DEFAULTS: Omit<SettingsState, "loaded"> = {
@@ -46,6 +52,8 @@ export const DEFAULTS: Omit<SettingsState, "loaded"> = {
   pieces: "classic",
   display: { coordinates: true, lastMove: true, legalMoves: true, arrows: true },
   edition: "system",
+  engineDepth: 20,
+  sounds: true,
 };
 
 export const useSettings = create<SettingsState>(() => ({ loaded: false, ...DEFAULTS }));
@@ -62,6 +70,7 @@ export function fromRows(rows: Record<string, string>): Omit<SettingsState, "loa
   const theme = rows.board_theme as BoardTheme | undefined;
   const pieces = rows.board_pieces as PieceSet | undefined;
   const edition = rows.edition as EditionSetting | undefined;
+  const depth = Number(rows.engine_depth) as EngineDepth;
   const display = { ...DEFAULTS.display };
   for (const [name, key] of Object.entries(DISPLAY_KEYS) as [keyof BoardDisplay, string][]) {
     if (rows[key] === "on" || rows[key] === "off") display[name] = rows[key] === "on";
@@ -71,6 +80,8 @@ export function fromRows(rows: Record<string, string>): Omit<SettingsState, "loa
     pieces: pieces && PIECE_SETS.includes(pieces) ? pieces : DEFAULTS.pieces,
     display,
     edition: edition === "day" || edition === "night" || edition === "system" ? edition : DEFAULTS.edition,
+    engineDepth: ENGINE_DEPTHS.includes(depth) ? depth : DEFAULTS.engineDepth,
+    sounds: rows.board_sounds === "on" ? true : rows.board_sounds === "off" ? false : DEFAULTS.sounds,
   };
 }
 
@@ -104,6 +115,14 @@ export const settingsDb = {
   setDisplay: (name: keyof BoardDisplay, on: boolean) => {
     useSettings.setState((s) => ({ display: { ...s.display, [name]: on } }));
     void save(DISPLAY_KEYS[name], on ? "on" : "off");
+  },
+  setEngineDepth: (depth: EngineDepth) => {
+    useSettings.setState({ engineDepth: depth });
+    void save("engine_depth", String(depth));
+  },
+  setSounds: (on: boolean) => {
+    useSettings.setState({ sounds: on });
+    void save("board_sounds", on ? "on" : "off");
   },
   setEdition: (edition: EditionSetting) => {
     useSettings.setState({ edition });

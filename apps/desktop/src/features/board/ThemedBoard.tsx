@@ -105,7 +105,8 @@ export function ThemedBoard({
           darkSquareStyle: { backgroundColor: "var(--board-dark)", backgroundImage: "var(--board-dark-image)" },
           squareStyles,
           allowDrawingArrows: false,
-          animationDurationInMs: 150,
+          // Smooth, not slow: a piece glides across the board (Amine asked for smoother moves).
+          animationDurationInMs: 280,
           showNotation: show.coordinates,
           lightSquareNotationStyle: { ...notation, color: "var(--board-coord-light)" },
           darkSquareNotationStyle: { ...notation, color: "var(--board-coord-dark)" },
@@ -120,7 +121,8 @@ export function ThemedBoard({
           onSquareClick: ({ square }) => onSquareClick?.(square),
         }}
       />
-      {show.arrows ? <ArrowLayer arrows={arrows} flipped={orientation === "black"} /> : null}
+      {/* Keyed by position: each position gets a fresh layer, so nothing drawn for the last one stays. */}
+      {show.arrows ? <ArrowLayer key={fen} arrows={arrows} flipped={orientation === "black"} /> : null}
     </div>
   );
 }

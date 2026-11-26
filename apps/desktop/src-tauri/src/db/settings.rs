@@ -21,6 +21,8 @@ const ALLOWED: &[(&str, &[&str])] = &[
     ("board_legal_moves", ON_OFF),
     ("board_arrows", ON_OFF),
     ("edition", &["system", "day", "night"]),
+    ("engine_depth", &["12", "16", "20", "24", "28"]),
+    ("board_sounds", ON_OFF),
 ];
 
 /// All stored settings; keys never set are absent (the app uses its defaults).
