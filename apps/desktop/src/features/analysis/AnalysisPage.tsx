@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { games } from "../../api";
 import { describeError, toApiError } from "../../api/problem";
+import { loadOpenings, openingAt, type OpeningTable } from "../../chess/openings";
 import { useEdition } from "../../app/edition";
 import { editionDate } from "../../app/editionDate";
 import {
@@ -67,6 +68,15 @@ export function AnalysisPage() {
   const [params] = useSearchParams();
   const gameId = params.get("game");
   const [filedAs, setFiledAs] = useState<string>();
+  // The opening table (CC0, lichess-org/chess-openings), loaded with the page, not the app.
+  const [openings, setOpenings] = useState<OpeningTable>();
+  useEffect(() => {
+    let live = true;
+    void loadOpenings().then((t) => live && setOpenings(t));
+    return () => {
+      live = false;
+    };
+  }, []);
   const [copied, setCopied] = useState<{ what: "FEN" | "PGN"; ok: boolean }>();
 
   const fen = fenAt(game, cursor);
@@ -227,6 +237,10 @@ export function AnalysisPage() {
     setEngineOn(on);
   };
 
+  // The opening and its variation at the move on show: the deepest named position up to it.
+  const opening = useMemo(() => (openings ? openingAt(game, cursor, openings) : undefined), [openings, game, cursor]);
+  const movesCount = game.plies.length > 0 ? `${Math.ceil(game.plies.length / 2)} moves` : undefined;
+
   const moveLabel = last ? `${moveNumberLabel(fenAt(game, cursor - 1))} ${last.san}` : "Start position";
   const engineName =
     engine.status === "done" ? `${engine.result.engine.name} ${engine.result.engine.version}` : "Stockfish";
@@ -275,7 +289,23 @@ export function AnalysisPage() {
           aria-label="Moves"
           className="border-rule pr-5 [grid-area:moves] max-[1279px]:border-l max-[1279px]:pr-0 max-[1279px]:pl-6"
         >
-          <Kicker aside={game.plies.length > 0 ? `${Math.ceil(game.plies.length / 2)} moves` : undefined}>Moves</Kicker>
+          <Kicker aside={[opening?.eco, movesCount].filter(Boolean).join(" · ") || undefined}>Moves</Kicker>
+          {opening ? (
+            <div
+              className="mb-3 border-b border-rule pt-1 pb-3"
+              aria-live="polite"
+              aria-label={`Opening: ${opening.name}`}
+            >
+              <p className="font-masthead text-[length:var(--text-xl)] leading-tight font-bold text-ink">
+                {opening.family}
+              </p>
+              {opening.variation ? (
+                <p className="mt-0.5 font-body text-[length:var(--text-md)] leading-snug text-ink-2 italic">
+                  {opening.variation}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <ScoreSheet game={game} cursor={cursor} onGo={go} />
           <div className="mt-4 grid grid-cols-2 gap-2" aria-label="Export">
             <Button onClick={() => void copy("FEN")} title="The position on the board, to paste anywhere">
