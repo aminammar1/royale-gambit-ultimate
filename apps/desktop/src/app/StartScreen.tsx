@@ -1,4 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { Play } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useServer } from "../api";
 import logo from "../assets/logo.png";
@@ -93,23 +94,29 @@ function Newsreel({ onDone }: { onDone: () => void }) {
   );
 }
 
-/** One row of the drifting background: the champions, twice over, sliding one way or the other. */
+/** One row of the poster wall: the champions, twice over, sliding one way or the other. */
 function Row({ champions, seconds, reverse }: { champions: readonly Champion[]; seconds: number; reverse?: boolean }) {
   return (
     <div className="overflow-hidden">
       <div
-        className="flex w-max gap-4 motion-reduce:animate-none"
+        className="flex w-max gap-3 motion-reduce:animate-none"
         style={{ animation: `marquee ${seconds}s linear infinite${reverse ? " reverse" : ""}` }}
       >
         {[...champions, ...champions].map((c, i) => (
-          <Portrait key={`${c.no}-${i}`} champion={c} className="h-[29vh] w-[23vh] shrink-0" />
+          <Portrait key={`${c.no}-${i}`} champion={c} className="h-[26vh] w-[20vh] shrink-0" />
         ))}
       </div>
     </div>
   );
 }
 
-/** The title page: the champions drifting behind, the nameplate, a quotation and the Start button. */
+const rotated = (by: number) => [...CHAMPIONS.slice(by), ...CHAMPIONS.slice(0, by)];
+
+/**
+ * The title page, as a film's or a game's title screen in print: a wall of champion portraits,
+ * tilted and drifting, fills the window; the paper washes in from the middle (no box, no blur)
+ * where the nameplate, a quotation and one large Start button stand centred. Enter starts.
+ */
 function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) {
   const edition = useEdition();
   const reduce = useReducedMotion();
@@ -124,8 +131,6 @@ function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) 
     return () => window.removeEventListener("keydown", onKey);
   }, [ready, onStart]);
 
-  const third = Math.ceil(CHAMPIONS.length / 3);
-
   return (
     <motion.div
       className="relative h-full overflow-hidden"
@@ -134,58 +139,75 @@ function TitlePage({ ready, onStart }: { ready: boolean; onStart: () => void }) 
       exit={reduce ? undefined : { opacity: 0 }}
       transition={{ duration: 0.24, ease: EASE }}
     >
+      {/* The poster wall: four rows, tilted, larger than the window so no edge shows. */}
       <div
         aria-hidden
-        className="absolute inset-0 flex flex-col justify-center gap-4 opacity-[0.42] grayscale [[data-edition=night]_&]:opacity-[0.3]"
+        className="absolute inset-[-20%] flex -rotate-[7deg] flex-col justify-center gap-3 opacity-[0.55] grayscale [[data-edition=night]_&]:opacity-[0.4]"
       >
-        <Row champions={CHAMPIONS} seconds={110} />
-        <Row champions={[...CHAMPIONS.slice(third), ...CHAMPIONS.slice(0, third)]} seconds={90} reverse />
-        <Row champions={[...CHAMPIONS.slice(2 * third), ...CHAMPIONS.slice(0, 2 * third)]} seconds={130} />
+        <Row champions={CHAMPIONS} seconds={120} />
+        <Row champions={rotated(5)} seconds={95} reverse />
+        <Row champions={rotated(10)} seconds={140} />
+        <Row champions={rotated(14)} seconds={105} reverse />
       </div>
+      {/* The paper washes in: solid behind the words, the portraits clear at the edges. */}
+      <div
+        aria-hidden
+        className="absolute inset-0"
+        style={{
+          backgroundImage: [
+            "radial-gradient(ellipse 44% 58% at 50% 50%, var(--paper) 0 45%, color-mix(in srgb, var(--paper) 82%, transparent) 62%, transparent 100%)",
+            "linear-gradient(to bottom, var(--paper), transparent 22%, transparent 78%, var(--paper))",
+          ].join(", "),
+        }}
+      />
 
-      {/* A game's main menu, as a front page: one full-height column of paper on the left,
-          closed by a double rule, holding the title and Start; the champions fill the rest as
-          a photo spread. No box floating over the pictures, no blur. */}
-      <div className="relative flex h-full">
-        <div className="flex h-full w-[min(32rem,46vw)] shrink-0 flex-col justify-center overflow-y-auto border-r-[3px] border-double border-ink bg-paper px-12 py-10 max-[899px]:px-8">
-          <motion.main
-            className="flex w-full flex-col items-start text-left"
-            initial={reduce ? false : { opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.24, delay: 0.1, ease: EASE }}
-          >
-            <img src={logo} alt="" className="block w-24" draggable={false} />
-            <h1 className="mt-4 font-masthead text-[length:var(--text-masthead)] leading-none font-black tracking-[-0.01em] max-[899px]:text-[2.25rem]">
-              Royale Gambit Ultimate
-            </h1>
-            <p className="label mt-3 flex w-full gap-3 border-t border-ink pt-2 text-ink-2">
-              <span>{edition} edition</span>
-              <span aria-hidden>·</span>
-              <span>{editionDate(new Date())}</span>
-            </p>
-            <p className="mt-6 font-masthead text-[length:var(--text-lg)] leading-snug italic">“{quote.text}”</p>
-            <p className="mt-1 font-body text-[length:var(--text-sm)] text-ink-2">{quote.champion.name}</p>
+      <motion.main
+        className="relative flex h-full flex-col items-center justify-center px-8 text-center"
+        initial={reduce ? false : { opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.24, delay: 0.1, ease: EASE }}
+      >
+        <img src={logo} alt="" className="block w-20" draggable={false} />
+        <p className="label mt-5 flex gap-3 text-ink-2">
+          <span>{edition} edition</span>
+          <span aria-hidden>·</span>
+          <span>{editionDate(new Date())}</span>
+        </p>
+        <h1 className="mt-2 max-w-[14ch] font-masthead text-[clamp(3rem,7vw,5.75rem)] leading-[0.95] font-black tracking-[-0.015em]">
+          Royale Gambit Ultimate
+        </h1>
+        <div aria-hidden className="mt-5 h-[3px] w-[min(26rem,70vw)] border-y border-ink" />
+        <p className="mt-5 max-w-[34rem] font-masthead text-balance text-[length:var(--text-lg)] leading-snug italic">
+          “{quote.text}”
+        </p>
+        <p className="mt-1 font-body text-[length:var(--text-sm)] text-ink-2">{quote.champion.name}</p>
 
-            <button
-              type="button"
-              disabled={!ready}
-              onClick={onStart}
-              className={`label mt-8 w-full rounded-[var(--radius)] border py-3.5 text-[length:var(--text-md)] tracking-[0.25em] transition-colors duration-150 ${
-                ready
-                  ? "border-ink bg-ink text-paper hover:bg-paper hover:text-ink"
-                  : "cursor-wait border-ink-2 bg-paper-2 text-ink-2"
-              }`}
-            >
-              {ready ? "Start" : "Getting ready…"}
-            </button>
-            <p className="label mt-3 flex gap-3 text-ink-2">
-              <span>{ready ? "Press Enter" : "Reading your card"}</span>
-              <span aria-hidden>·</span>
-              <span role="status">{SERVER_LINE[server]}</span>
-            </p>
-          </motion.main>
-        </div>
-      </div>
+        <button
+          type="button"
+          disabled={!ready}
+          onClick={onStart}
+          className={`group label mt-9 flex h-16 w-[min(22rem,80vw)] items-center justify-center gap-3 rounded-[var(--radius)] border-2 text-[length:var(--text-lg)] tracking-[0.3em] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink ${
+            ready
+              ? "border-ink bg-ink text-paper hover:bg-paper hover:text-ink"
+              : "cursor-wait border-ink-2 bg-paper-2 text-ink-2"
+          }`}
+        >
+          {ready ? <Play aria-hidden className="size-5 fill-current" strokeWidth={0} /> : null}
+          <span>{ready ? "Start" : "Getting ready…"}</span>
+        </button>
+        <p className="label mt-4 flex h-5 items-center gap-3 text-ink-2">
+          {ready ? (
+            <span className="animate-[press-enter_1.8s_ease-in-out_infinite] motion-reduce:animate-none">
+              Press{" "}
+              <kbd className="mx-1 rounded-[var(--radius)] border border-ink-2 px-1.5 py-0.5 font-mono">Enter</kbd>
+            </span>
+          ) : (
+            <span>Reading your card</span>
+          )}
+          <span aria-hidden>·</span>
+          <span role="status">{SERVER_LINE[server]}</span>
+        </p>
+      </motion.main>
     </motion.div>
   );
 }
