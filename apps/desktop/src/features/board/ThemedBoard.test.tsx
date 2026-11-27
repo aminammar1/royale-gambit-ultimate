@@ -124,4 +124,29 @@ describe("the board", () => {
     down("e2");
     expect(onPick).not.toHaveBeenCalled();
   });
+
+  it("the right button draws an arrow; drawing it again takes it away; a left press wipes them", () => {
+    const { container } = render(
+      <ThemedBoard fen={START_FEN} orientation="white" onMove={() => false} onPick={() => {}} label="Board" />,
+    );
+    const right = (kind: "pointerDown" | "pointerMove" | "pointerUp", square: string) =>
+      fireEvent[kind](board(), { ...at(square), button: 2, pointerId: 2 });
+    const arrows = () => container.querySelectorAll("[data-drawings] polyline").length;
+    right("pointerDown", "g1");
+    right("pointerMove", "f3");
+    right("pointerUp", "f3");
+    // A knight's arrow: an ink shaft over its paper casing, bent once.
+    expect(arrows()).toBe(2);
+    expect(container.querySelector("[data-drawings] polyline")?.getAttribute("points")?.split(" ")).toHaveLength(3);
+    right("pointerDown", "g1");
+    right("pointerUp", "f3");
+    expect(arrows()).toBe(0);
+    // A right click on one square fills it with the marking colour.
+    right("pointerDown", "e4");
+    right("pointerUp", "e4");
+    const marked = () => [...container.querySelectorAll("[data-marked]")].map((e) => e.getAttribute("data-square"));
+    expect(marked()).toEqual(["e4"]);
+    down("a3");
+    expect(marked()).toEqual([]);
+  });
 });

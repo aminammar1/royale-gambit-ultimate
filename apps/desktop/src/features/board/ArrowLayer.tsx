@@ -1,7 +1,7 @@
 import type { BoardArrow } from "./ThemedBoard";
 
 /** The centre of `square` on a 0–8 grid, White at the bottom unless the board is flipped. */
-function centre(square: string, flipped: boolean): { x: number; y: number } {
+export function centre(square: string, flipped: boolean): { x: number; y: number } {
   const file = square.charCodeAt(0) - 97;
   const rank = Number(square[1]) - 1;
   return flipped ? { x: 7 - file + 0.5, y: rank + 0.5 } : { x: file + 0.5, y: 7 - rank + 0.5 };

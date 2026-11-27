@@ -3,12 +3,71 @@ import { Link } from "react-router";
 import { useEdition } from "../../app/edition";
 import { editionDate } from "../../app/editionDate";
 import { fenAt, legalTargets, load } from "../../chess/game";
-import { BOARD_THEMES, PIECE_SETS, settingsDb, useSettings, type PieceSet } from "../../db/settings";
+import {
+  BOARD_THEMES,
+  HIGHLIGHT_COLOURS,
+  HIGHLIGHT_NAMES,
+  PIECE_SETS,
+  PIECE_SPEEDS,
+  settingsDb,
+  useSettings,
+  type HighlightColour,
+  type PieceSet,
+  type PieceSpeed,
+} from "../../db/settings";
 import { Masthead } from "../../ui/Masthead";
 import { ThemedBoard } from "../board/ThemedBoard";
 import { playBoardSound } from "../../audio/boardSounds";
 import { pieceImage } from "../board/pieces";
 import { BOARD_THEME_COLOURS, BOARD_THEME_NAMES, DISPLAY_ROWS, PIECE_SET_NAMES } from "./boardThemes";
+
+const PIECE_SPEED_NAMES: Record<PieceSpeed, string> = { fast: "Fast", normal: "Normal", slow: "Slow", off: "Off" };
+
+/** What a highlight colour looks like in its swatch: the theme's own, a set colour, or ink. */
+const swatchColour = (c: HighlightColour) =>
+  c === "theme" ? "var(--board-highlight)" : c === "ink" ? "var(--board-ink)" : `var(--board-hl-${c})`;
+
+/** One row of colour swatches (Highlight, Marked squares), the chosen one framed in ink. */
+function ColourRow({
+  id,
+  label,
+  note,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  note: string;
+  value: HighlightColour;
+  onChange: (c: HighlightColour) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2 border-b border-rule py-3">
+      <dt>
+        <span id={id} className="label block text-ink">
+          {label}
+        </span>
+        <span className="font-body text-[length:var(--text-sm)] text-ink-2">{note}</span>
+      </dt>
+      <dd role="radiogroup" aria-labelledby={id} className="flex flex-wrap gap-1">
+        {HIGHLIGHT_COLOURS.map((c) => (
+          <button
+            key={c}
+            type="button"
+            role="radio"
+            aria-checked={value === c}
+            aria-label={HIGHLIGHT_NAMES[c]}
+            title={HIGHLIGHT_NAMES[c]}
+            onClick={() => onChange(c)}
+            className={`size-7 rounded-[var(--radius)] border p-0.5 ${value === c ? "border-ink" : "border-transparent hover:border-ink-2"}`}
+          >
+            <span className="block size-full border border-ink-2" style={{ background: swatchColour(c) }} />
+          </button>
+        ))}
+      </dd>
+    </div>
+  );
+}
 
 /** The preview of the board: after 3… a6 of a Ruy Lopez, the knight on f3 picked. */
 const PREVIEW = load("1. e4 e5 2. Nf3 Nc6 3. Bb5 a6");
@@ -57,6 +116,9 @@ export function BoardSettingsPage() {
   const display = useSettings((s) => s.display);
   const pieces = useSettings((s) => s.pieces);
   const sounds = useSettings((s) => s.sounds);
+  const pieceSpeed = useSettings((s) => s.pieceSpeed);
+  const highlight = useSettings((s) => s.highlight);
+  const markColour = useSettings((s) => s.markColour);
   const game = PREVIEW.ok ? PREVIEW.game : undefined;
   const fen = game ? fenAt(game, game.plies.length) : "";
   const last = game?.plies.at(-1);
@@ -191,6 +253,44 @@ export function BoardSettingsPage() {
                 </dd>
               </div>
             ))}
+            <div className="flex flex-col gap-2 border-b border-rule py-3">
+              <dt>
+                <span id="piece-speed" className="label block text-ink">
+                  Piece speed
+                </span>
+                <span className="font-body text-[length:var(--text-sm)] text-ink-2">How fast a piece glides</span>
+              </dt>
+              <dd role="radiogroup" aria-labelledby="piece-speed" className="flex flex-wrap">
+                {PIECE_SPEEDS.map((speed, i) => (
+                  <button
+                    key={speed}
+                    type="button"
+                    role="radio"
+                    aria-checked={pieceSpeed === speed}
+                    onClick={() => settingsDb.setPieceSpeed(speed)}
+                    className={`label border border-ink-2 px-2.5 py-1 ${i > 0 ? "-ml-px" : ""} ${
+                      pieceSpeed === speed ? "relative border-ink bg-ink text-paper" : "text-ink hover:border-ink"
+                    }`}
+                  >
+                    {PIECE_SPEED_NAMES[speed]}
+                  </button>
+                ))}
+              </dd>
+            </div>
+            <ColourRow
+              id="highlight-colour"
+              label="Highlight"
+              note="The picked piece and the last move"
+              value={highlight}
+              onChange={settingsDb.setHighlight}
+            />
+            <ColourRow
+              id="mark-colour"
+              label="Marked squares"
+              note="Right-click a square to mark it"
+              value={markColour}
+              onChange={settingsDb.setMarkColour}
+            />
             <div className="flex items-center justify-between gap-4 border-b border-rule py-3">
               <dt>
                 <span className="label block text-ink">Sounds</span>

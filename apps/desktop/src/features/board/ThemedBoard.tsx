@@ -2,7 +2,9 @@ import { useReducedMotion } from "motion/react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { primeBoardSounds } from "../../audio/boardSounds";
 import { placement } from "../../chess/game";
-import { useSettings, type BoardDisplay } from "../../db/settings";
+import { GLIDE_MS, useSettings, type BoardDisplay, type HighlightColour } from "../../db/settings";
+import { DrawingLayer } from "./DrawingLayer";
+import { toggleDrawing, type Drawing } from "./drawings";
 import { ArrowLayer } from "./ArrowLayer";
 import { cellOf, matchPieces, squareAt, type Orientation, type Placed } from "./geometry";
 import { piecesFor } from "./pieces";
@@ -13,13 +15,13 @@ export type BoardTarget = { square: string; capture: boolean };
 /** How a move was made: a piece dragged and let go lands at once; a click glides. */
 export type MoveGesture = "click" | "drop";
 
-/** How long a piece glides from square to square. */
-export const GLIDE_MS = 260;
-// Fast away, soft landing: the piece is nearly there by two thirds of the glide.
+// Fast away, soft landing: the piece is nearly there by three quarters of the glide.
 const GLIDE_EASE = "cubic-bezier(0.25, 0.8, 0.25, 1)";
-/** When a gliding piece touches down, for its sound: a little before the glide's last frame. */
+const reducedMotion = () =>
+  typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+/** When a gliding piece touches down at the chosen speed, for its sound. */
 export const landingMs = (): number =>
-  typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0 : GLIDE_MS - 50;
+  reducedMotion() ? 0 : Math.round(GLIDE_MS[useSettings.getState().pieceSpeed] * 0.75);
 // Pixels the pointer travels before a press becomes a drag.
 const DRAG_START_PX = 4;
 
@@ -63,6 +65,13 @@ function layered(square: string, layers: string[]): CSSProperties {
   };
 }
 const tint = (square: string, percent: number) => `linear-gradient(${mark(square, percent)}, ${mark(square, percent)})`;
+/** A square filled with a chosen highlight colour; Ink falls back to the theme's own mark. */
+const fill = (square: string, colour: HighlightColour, percent: number, inkPercent: number) => {
+  if (colour === "ink") return tint(square, inkPercent);
+  const value = colour === "theme" ? "var(--board-highlight)" : `var(--board-hl-${colour})`;
+  const c = `color-mix(in srgb, ${value} ${percent}%, transparent)`;
+  return `linear-gradient(${c}, ${c})`;
+};
 const dot = (square: string) => `radial-gradient(circle, ${mark(square, 38)} 0 16%, transparent 17%)`;
 const ring = (square: string) =>
   `radial-gradient(circle, transparent 0 74%, ${mark(square, 38)} 75% 92%, transparent 93%)`;
@@ -86,6 +95,8 @@ type View = {
   instant: "all" | ReadonlySet<number>;
   /** The square a piece was just dropped on, until the position that follows. */
   dropped?: string;
+  /** The player's arrows and circles; a new position starts clean. */
+  drawings: Drawing[];
 };
 
 type Drag = { from: string; piece: string; moved: boolean };
@@ -96,7 +107,7 @@ type Drag = { from: string; piece: string; moved: boolean };
  * follows the pointer frame by frame while the square beneath is outlined, let go and it lands;
  * click a dot and it glides there, the taken piece fading as it arrives. Coordinates in the
  * corners, the last move and the picked piece tinted, check as a red glow, engine arrows. Only the
- * side to move can pick up a piece. Right-click drops the pick.
+ * side to move can pick up a piece. The right button draws arrows and circles (a left press wipes them); right-click drops the pick.
  */
 export function ThemedBoard({
   fen,
@@ -117,6 +128,10 @@ export function ThemedBoard({
   const show = display ?? saved;
   const pieces = piecesFor(useSettings((s) => s.pieces));
   const reduce = useReducedMotion();
+  const speed = useSettings((s) => s.pieceSpeed);
+  const highlight = useSettings((s) => s.highlight);
+  const markColour = useSettings((s) => s.markColour);
+  const glideMs = reduce ? 0 : GLIDE_MS[speed];
   const toMove = fen.split(" ")[1] === "b" ? "b" : "w";
 
   const [view, setView] = useState<View>(() => ({
@@ -126,6 +141,7 @@ export function ThemedBoard({
     leaving: [],
     moving: new Set(),
     instant: "all",
+    drawings: [],
   }));
   // A new position (or a turned board): match its pieces to the last ones while rendering, so
   // the moved piece's own element takes its new square and the browser glides it there.
@@ -135,7 +151,7 @@ export function ThemedBoard({
     const before = new Map(view.placed.map((p) => [p.key, p.square]));
     const moving = new Set(placed.filter((p) => before.has(p.key) && before.get(p.key) !== p.square).map((p) => p.key));
     const dropped = placed.find((p) => p.square === view.dropped)?.key;
-    const instant = turned || reduce ? "all" : new Set(dropped === undefined ? [] : [dropped]);
+    const instant = turned || glideMs === 0 ? "all" : new Set(dropped === undefined ? [] : [dropped]);
     setView({
       fen,
       orientation,
@@ -144,6 +160,8 @@ export function ThemedBoard({
       leaving: instant === "all" || dropped !== undefined ? [] : leaving,
       moving,
       instant,
+      // Arrows belong to the position they were drawn on; turning the board keeps them.
+      drawings: turned && view.fen === fen ? view.drawings : [],
     });
   }
 
@@ -152,6 +170,8 @@ export function ThemedBoard({
   const pointer = useRef({ x: 0, y: 0, startX: 0, startY: 0, size: 1, wasSelected: false });
   const [drag, setDrag] = useState<Drag>();
   const [hover, setHover] = useState<string>();
+  // Where a right-button arrow started, while the button is held.
+  const [drawFrom, setDrawFrom] = useState<string>();
 
   useEffect(() => {
     if (interactive) primeBoardSounds();
@@ -180,12 +200,19 @@ export function ThemedBoard({
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (!interactive) return;
+    const { x, y, size, square } = local(event);
     if (event.button === 2) {
+      // The right button draws: an arrow to where it is let go, or a circle on this square.
       onPick?.(undefined);
+      if (square) {
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        setDrawFrom(square);
+      }
       return;
     }
     if (event.button !== 0) return;
-    const { x, y, size, square } = local(event);
+    // A left press wipes the drawings, as on chess sites.
+    if (view.drawings.length > 0) setView((v) => ({ ...v, drawings: [] }));
     if (!square) return;
     if (selected && isTarget(square)) {
       onMove(selected, square, "click");
@@ -215,6 +242,13 @@ export function ThemedBoard({
   };
 
   const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    if (drawFrom) {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+      const to = local(event).square;
+      setDrawFrom(undefined);
+      if (to) setView((v) => ({ ...v, drawings: toggleDrawing(v.drawings, { from: drawFrom, to }) }));
+      return;
+    }
     if (!drag) return;
     event.currentTarget.releasePointerCapture?.(event.pointerId);
     const { square } = local(event);
@@ -236,17 +270,31 @@ export function ThemedBoard({
     const layers = new Map<string, string[]>();
     const add = (square: string, layer: string) => layers.set(square, [layer, ...(layers.get(square) ?? [])]);
     if (show.lastMove && lastMove) {
-      add(lastMove.from, tint(lastMove.from, 18));
-      add(lastMove.to, tint(lastMove.to, 18));
+      add(lastMove.from, fill(lastMove.from, highlight, 50, 18));
+      add(lastMove.to, fill(lastMove.to, highlight, 50, 18));
     }
-    if (selected) add(selected, tint(selected, 30));
+    if (selected) add(selected, fill(selected, highlight, 72, 30));
+    // Squares marked with the right button, filled whole, as on chess sites.
+    for (const d of view.drawings) if (d.from === d.to) add(d.from, fill(d.from, markColour, 80, 45));
     if (show.legalMoves) for (const t of targets) add(t.square, t.capture ? ring(t.square) : dot(t.square));
     // The square a click would play to, under the pointer.
     if (selected && !dragging && hover && targets.some((t) => t.square === hover)) add(hover, tint(hover, 24));
     if (check)
       add(check, "radial-gradient(circle, color-mix(in srgb, var(--accent) 45%, transparent) 0%, transparent 70%)");
     return layers;
-  }, [lastMove, check, selected, targets, hover, dragging, show.lastMove, show.legalMoves]);
+  }, [
+    lastMove,
+    check,
+    selected,
+    targets,
+    hover,
+    dragging,
+    show.lastMove,
+    show.legalMoves,
+    highlight,
+    markColour,
+    view.drawings,
+  ]);
 
   const cells = useMemo(
     () =>
@@ -258,13 +306,15 @@ export function ThemedBoard({
     [orientation],
   );
 
+  const marked = new Set(view.drawings.filter((d) => d.from === d.to).map((d) => d.from));
+
   const cursorFor = (square: string) => {
     if (!interactive) return undefined;
     if (selected && isTarget(square)) return "pointer";
     return pieceOn(square)?.[0] === toMove ? "grab" : undefined;
   };
 
-  const glide = reduce ? "none" : `transform ${GLIDE_MS}ms ${GLIDE_EASE}`;
+  const glide = glideMs === 0 ? "none" : `transform ${glideMs}ms ${GLIDE_EASE}`;
   const pieceStyle = (p: Placed): CSSProperties => {
     const { col, row } = cellOf(p.square, orientation);
     const instant = view.instant === "all" || view.instant.has(p.key);
@@ -291,7 +341,10 @@ export function ThemedBoard({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={() => setDrag(undefined)}
+        onPointerCancel={() => {
+          setDrag(undefined);
+          setDrawFrom(undefined);
+        }}
         onPointerLeave={() => setHover(undefined)}
         onContextMenu={(event) => event.preventDefault()}
       >
@@ -300,6 +353,7 @@ export function ThemedBoard({
             <div
               key={square}
               data-square={square}
+              data-marked={marked.has(square) || undefined}
               className="relative"
               style={{ ...layered(square, squareStyles.get(square) ?? []), cursor: cursorFor(square) }}
             >
@@ -329,6 +383,9 @@ export function ThemedBoard({
           ))}
         </div>
 
+        {/* The theme's material over the squares (wood grain), under the pieces. */}
+        <div aria-hidden className="board-texture pointer-events-none absolute inset-0" />
+
         {/* While dragging, the square beneath the piece is outlined, as on chess sites. */}
         {hoverOutline && hover ? (
           <div
@@ -349,7 +406,7 @@ export function ThemedBoard({
               className="absolute top-0 left-0 size-[12.5%]"
               style={{
                 transform: `translate(${cellOf(p.square, orientation).col * 100}%, ${cellOf(p.square, orientation).row * 100}%)`,
-                animation: `piece-leave ${GLIDE_MS}ms linear forwards`,
+                animation: `piece-leave ${glideMs}ms linear forwards`,
                 zIndex: 20,
               }}
               onAnimationEnd={() => setView((v) => ({ ...v, leaving: v.leaving.filter((l) => l.key !== p.key) }))}
@@ -373,6 +430,11 @@ export function ThemedBoard({
 
         {/* Keyed by position: each position gets a fresh layer, so nothing drawn for the last one stays. */}
         {show.arrows ? <ArrowLayer key={fen} arrows={arrows} flipped={orientation === "black"} /> : null}
+        <DrawingLayer
+          drawings={view.drawings.filter((d) => d.from !== d.to)}
+          pending={drawFrom && hover && hover !== drawFrom ? { from: drawFrom, to: hover } : undefined}
+          flipped={orientation === "black"}
+        />
       </div>
     </div>
   );
