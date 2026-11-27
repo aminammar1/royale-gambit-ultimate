@@ -24,7 +24,7 @@ import { Button } from "../../ui/Button";
 import { EvalBar } from "../../ui/EvalBar";
 import { Kicker } from "../../ui/Kicker";
 import { Masthead } from "../../ui/Masthead";
-import { ThemedBoard, type BoardArrow } from "../board/ThemedBoard";
+import { ThemedBoard, landingMs, type BoardArrow, type MoveGesture } from "../board/ThemedBoard";
 import { EngineColumn, linesOf } from "./EngineColumn";
 import { ScoreSheet } from "./ScoreSheet";
 import { useServerAnalysis } from "./useServerAnalysis";
@@ -85,14 +85,18 @@ export function AnalysisPage() {
 
   const go = useCallback(
     (ply: number) => {
-      setCursor(Math.max(0, Math.min(ply, game.plies.length)));
+      const to = Math.max(0, Math.min(ply, game.plies.length));
+      // One step through the game knocks like the move itself, when the piece lands; a jump is silent.
+      const stepped = to === cursor + 1 ? game.plies[cursor] : to === cursor - 1 ? game.plies[to] : undefined;
+      if (stepped && useSettings.getState().sounds) void playBoardSound(soundFor(stepped.san), landingMs());
+      setCursor(to);
       setSelected(undefined);
       setPromotion(undefined);
     },
-    [game.plies.length],
+    [game.plies, cursor],
   );
 
-  const tryMove = (from: string, to: string, piece?: string): boolean => {
+  const tryMove = (from: string, to: string, piece?: string, gesture: MoveGesture = "click"): boolean => {
     if (!piece && isPromotion(fen, from, to)) {
       setPromotion({ from, to });
       setSelected(undefined); // the choice of piece replaces the dots
@@ -105,25 +109,16 @@ export function AnalysisPage() {
     }
     setGame(next);
     setCursor(cursor + 1);
-    if (useSettings.getState().sounds) void playBoardSound(soundFor(next.plies[cursor].san));
+    // A dropped piece is already down; a clicked one knocks when its glide lands.
+    if (useSettings.getState().sounds)
+      void playBoardSound(soundFor(next.plies[cursor].san), gesture === "drop" ? 0 : landingMs());
     setSelected(undefined);
     setPromotion(undefined);
     return true;
   };
 
-  // Click-to-move: the first click picks a square, the second plays there or picks again.
-  // Where the picked piece can go: dots on the board, for a click or a drag.
+  // Where the picked piece can go: dots on the board, for a press or a drag.
   const targets = useMemo(() => (selected ? legalTargets(fen, selected) : []), [fen, selected]);
-
-  // Click-to-move: pick a piece of the side to move, then a dot; another of your pieces picks
-  // that one instead; anything else drops the pick.
-  const onSquareClick = (square: string) => {
-    if (selected && targets.some((t) => t.square === square)) {
-      tryMove(selected, square);
-      return;
-    }
-    setSelected(square !== selected && legalTargets(fen, square).length > 0 ? square : undefined);
-  };
 
   /** Plays engine moves from the current position, crossing out what came after. */
   const playLine = (ucis: string[]) => {
@@ -139,7 +134,8 @@ export function AnalysisPage() {
     setCursor(at);
     setSelected(undefined);
     setPromotion(undefined);
-    if (at > cursor && useSettings.getState().sounds) void playBoardSound(soundFor(next.plies[at - 1].san));
+    if (at > cursor && useSettings.getState().sounds)
+      void playBoardSound(soundFor(next.plies[at - 1].san), landingMs());
   };
 
   useEffect(() => {
@@ -301,12 +297,11 @@ export function AnalysisPage() {
               <ThemedBoard
                 fen={fen}
                 orientation={flipped ? "black" : "white"}
-                onMove={(from, to) => tryMove(from, to)}
+                onMove={(from, to, gesture) => tryMove(from, to, undefined, gesture)}
                 lastMove={last ? { from: last.from, to: last.to } : undefined}
                 check={check}
                 selected={selected}
                 targets={targets}
-                onSquareClick={onSquareClick}
                 onPick={setSelected}
                 arrows={over ? [] : arrows}
                 label={`Board, ${sideToMove(fen) === "w" ? "White" : "Black"} to move${check ? ", in check" : ""}`}

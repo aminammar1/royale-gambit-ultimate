@@ -63,6 +63,8 @@ Milestone status: P1 ☑ · P2 ☐ · M0 ☐ · M1 ☐ · M2 ☐ · M3 ☐ · M4
 
 *Pulled forward (2026-11-26):* the Board & pieces page with the five square themes of `board-customization.png` (Newspaper default, pieces outlined so they read on black squares), the display switches (coordinates, last move, legal-move hints, arrows) and a live preview, saved in the local SQLite `settings` table with the edition. Left for M2: piece sets, sounds, saved themes, following the system for Day/Night per board.
 
+*Pulled forward (2026-11-27):* the board's own drawing layer in place of react-chessboard's (which now only lends the Classic pieces): glides with no jump at the end, press-to-pick and frame-by-frame drag with the square beneath outlined, as on chess sites; board sounds mastered warmer, one per kind (move, capture, check, castle, promote), that vary knock to knock and sound when the piece lands; Piece speed (Fast by default), right-button arrows and marked squares, highlight colours from the theme or the player's choice, wood grain on the wood themes. See `docs/DESIGN.md` Board themes and Motion.
+
 ## M3: Local engine and analysis board
 - Rust `engine/`: spawn Stockfish sidecar, UCI handshake and options (Threads = cores-1, Hash 256 MB, MultiPV 3), serialized queue, `info` parsing, White-normalized scores, throttled events, clean shutdown, restart on death. TS `engine/` client.
 - Analysis page: paste FEN/PGN or set up a position; eval bar; best-move box; top 3 lines as a printed table; best-move arrow; variations (mainline + one level); engine on/off, depth and infinite.

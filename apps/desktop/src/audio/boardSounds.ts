@@ -1,18 +1,42 @@
-// Board sounds: a wooden piece set down, a capture, check, a castle. Recorded samples when the app
-// bundles them (src/assets/sounds/<kind>.ogg, credited there); otherwise a synthesised knock of
-// filtered noise and a short low thump, close enough to a piece on a wooden board. No React.
+// Board sounds: a piece set down, a capture, check, castling, a promotion and a new board, from
+// CC0 studio recordings of wooden knocks (Kenney's Impact Sounds, cut and levelled by
+// sound-sources/master.sh, credited in src/assets/sounds/CREDITS.md). A move is one of five
+// recorded takes and a capture one of four, picked at random, with a hair of pitch and loudness
+// spread on top, so no two sound quite alike, as on a real board. A sound can wait for the
+// gliding piece to land. No React.
 
-export type BoardSound = "move" | "capture" | "check" | "castle" | "start";
+export type BoardSound = "move" | "capture" | "check" | "castle" | "promote" | "start";
+/** One knock: which recording and which take of it, when (seconds after the sound starts), its pitch and loudness. */
+export type Knock = { sample: BoardSound; take: number; at: number; rate: number; gain: number };
 
-const recorded = import.meta.glob<string>("../assets/sounds/*.{ogg,mp3,wav}", { eager: true, import: "default" });
-const sampleUrl = (kind: BoardSound) => Object.entries(recorded).find(([path]) => path.includes(`/${kind}.`))?.[1];
+const SAMPLES: readonly BoardSound[] = ["move", "capture", "check", "castle", "promote", "start"];
+// src/assets/sounds/<kind>-<take>.ogg
+const recorded = import.meta.glob<string>("../assets/sounds/*-*.ogg", { eager: true, import: "default" });
+const urlsOf = (sample: BoardSound): string[] =>
+  Object.entries(recorded)
+    .filter(([path]) => new RegExp(`/${sample}-\\d+\\.ogg$`).test(path))
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, url]) => url);
+const TAKES = new Map(SAMPLES.map((s) => [s, urlsOf(s)]));
+
+/** How many recorded takes `kind` has. */
+export const takesOf = (kind: BoardSound): number => TAKES.get(kind)?.length ?? 0;
+
+/**
+ * The knock of `kind`: one of its takes, once. `random` (0 to 1) picks the take and spreads pitch
+ * by ±1.5% and loudness by ±5%; at 0.5 both are the recording's own.
+ */
+export function knocksFor(kind: BoardSound, random: () => number = Math.random): Knock[] {
+  const take = Math.min(Math.floor(random() * takesOf(kind)), Math.max(0, takesOf(kind) - 1));
+  return [{ sample: kind, take, at: 0, rate: 1 + (random() - 0.5) * 0.03, gain: 1 + (random() - 0.5) * 0.1 }];
+}
 
 let context: AudioContext | undefined;
 const buffers = new Map<string, Promise<AudioBuffer | undefined>>();
 
 function audio(): AudioContext | undefined {
   if (typeof AudioContext === "undefined") return undefined;
-  context ??= new AudioContext();
+  context ??= new AudioContext({ latencyHint: "interactive" });
   if (context.state === "suspended") void context.resume();
   return context;
 }
@@ -29,80 +53,47 @@ function load(ctx: AudioContext, url: string): Promise<AudioBuffer | undefined> 
   return b;
 }
 
-/** One knock: a burst of band-passed noise (the click of wood) over a short low thump. */
-function knock(ctx: AudioContext, at: number, loud: number, pitch: number) {
-  const length = Math.floor(ctx.sampleRate * 0.06);
-  const noise = ctx.createBuffer(1, length, ctx.sampleRate);
-  const data = noise.getChannelData(0);
-  for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (length / 7));
-  const src = ctx.createBufferSource();
-  src.buffer = noise;
-  const band = ctx.createBiquadFilter();
-  band.type = "bandpass";
-  band.frequency.value = 1700 * pitch;
-  band.Q.value = 1.2;
-  const clickGain = ctx.createGain();
-  clickGain.gain.value = 0.9 * loud;
-  src.connect(band).connect(clickGain).connect(ctx.destination);
-  src.start(at);
-
-  const body = ctx.createOscillator();
-  body.type = "sine";
-  body.frequency.setValueAtTime(190 * pitch, at);
-  body.frequency.exponentialRampToValueAtTime(90 * pitch, at + 0.09);
-  const bodyGain = ctx.createGain();
-  bodyGain.gain.setValueAtTime(0.0001, at);
-  bodyGain.gain.exponentialRampToValueAtTime(0.5 * loud, at + 0.004);
-  bodyGain.gain.exponentialRampToValueAtTime(0.0001, at + 0.11);
-  body.connect(bodyGain).connect(ctx.destination);
-  body.start(at);
-  body.stop(at + 0.12);
-}
-
-function synth(ctx: AudioContext, kind: BoardSound) {
-  const t = ctx.currentTime + 0.005;
-  switch (kind) {
-    case "move":
-      knock(ctx, t, 0.7, 1);
-      break;
-    case "capture":
-      // The taken piece knocked aside, then the capturer set down harder.
-      knock(ctx, t, 0.45, 1.3);
-      knock(ctx, t + 0.05, 0.95, 0.95);
-      break;
-    case "castle":
-      knock(ctx, t, 0.6, 1);
-      knock(ctx, t + 0.09, 0.6, 1.08);
-      break;
-    case "check":
-      knock(ctx, t, 0.8, 1.15);
-      break;
-    case "start":
-      for (let i = 0; i < 5; i++) knock(ctx, t + i * 0.035, 0.35 + 0.1 * (i % 2), 0.9 + 0.05 * i);
-      break;
-  }
-}
-
-/** Plays a board sound; silent where the platform has no audio. */
-export async function playBoardSound(kind: BoardSound): Promise<void> {
+/** Decodes the recordings ahead of the first move, so it is not the one that comes late. */
+export function primeBoardSounds(): void {
   const ctx = audio();
   if (!ctx) return;
-  // The recordings have a move and a capture: check and castle use the move's knock.
-  const url = sampleUrl(kind) ?? (kind === "check" || kind === "castle" ? sampleUrl("move") : undefined);
-  const sample = url ? await load(ctx, url) : undefined;
-  if (!sample) {
-    synth(ctx, kind);
-    return;
-  }
-  const src = ctx.createBufferSource();
-  src.buffer = sample;
-  src.connect(ctx.destination);
-  src.start();
+  for (const urls of TAKES.values()) for (const url of urls) void load(ctx, url);
 }
 
-/** Which sound a move makes, from its SAN: check wins, then capture, then castle. */
+/**
+ * Plays a board sound `afterMs` from now (when the gliding piece lands); silent where the platform
+ * has no audio or the recording did not load. Scheduled on the audio clock, so it lands on time even while a frame is busy.
+ */
+export async function playBoardSound(kind: BoardSound, afterMs = 0): Promise<void> {
+  const ctx = audio();
+  if (!ctx) return;
+  const asked = ctx.currentTime;
+  const knocks = knocksFor(kind);
+  const samples = await Promise.all(
+    knocks.map((k) => {
+      const url = TAKES.get(k.sample)?.[k.take];
+      return url ? load(ctx, url) : Promise.resolve(undefined);
+    }),
+  );
+  // Never in the past: a recording still decoding plays as soon as it can.
+  const start = Math.max(ctx.currentTime, asked + afterMs / 1000) + 0.005;
+  knocks.forEach((k, i) => {
+    const sample = samples[i];
+    if (!sample) return;
+    const src = ctx.createBufferSource();
+    src.buffer = sample;
+    src.playbackRate.value = k.rate;
+    const gain = ctx.createGain();
+    gain.gain.value = k.gain;
+    src.connect(gain).connect(ctx.destination);
+    src.start(start + k.at);
+  });
+}
+
+/** Which sound a move makes, from its SAN: check wins, then promotion, capture, castle. */
 export function soundFor(san: string): BoardSound {
   if (san.includes("+") || san.includes("#")) return "check";
+  if (san.includes("=")) return "promote";
   if (san.includes("x")) return "capture";
   if (san.startsWith("O-O")) return "castle";
   return "move";

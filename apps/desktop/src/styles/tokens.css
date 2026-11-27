@@ -54,6 +54,19 @@
   --board-coord-light: #1b1a17;
   --board-coord-dark: #e9e1cc;
   --board-arrow: #8a8270;
+  /* The board's material, laid over the squares under the pieces: wood grain on the wood
+     themes (an SVG noise stretched along the grain, in the theme's own brown), none on print. */
+  --board-texture: none;
+  /* Square highlights (Board & pieces): --board-highlight is each theme's own (the default), the
+     others the player can pick instead: the picked piece and last move, and
+     squares marked with the right button. Laid over the square at a set strength, so the
+     square's own colour shows through. The same on every theme and in both editions. */
+  --board-highlight: #c9b458;
+  --board-hl-yellow: #f7ec59;
+  --board-hl-green: #9fcf3f;
+  --board-hl-blue: #5aa9e6;
+  --board-hl-orange: #f5a623;
+  --board-hl-red: #e8604c;
   --board-piece-filter: drop-shadow(1px 0 0 #e9e1cc) drop-shadow(-1px 0 0 #e9e1cc) drop-shadow(0 1px 0 #e9e1cc)
     drop-shadow(0 -1px 0 #e9e1cc);
 
@@ -85,6 +98,7 @@
    repeats the defaults above for that reason. Light-square hatch is the Newsprint family's; the
    rest are flat. */
 [data-board="newspaper"] {
+  --board-highlight: #c9b458;
   --board-light: #e9e1cc;
   --board-dark: #1b1a17;
   --board-light-image: repeating-linear-gradient(to bottom, transparent 0 3px, rgb(27 26 23 / 9%) 3px 4px);
@@ -96,6 +110,7 @@
     drop-shadow(0 -1px 0 #e9e1cc);
 }
 [data-board="newsprint"] {
+  --board-highlight: #d6c25c;
   --board-light: #e8e2d4;
   --board-dark: #9c9483;
   --board-light-image: repeating-linear-gradient(to bottom, transparent 0 3px, rgb(27 26 23 / 8%) 3px 4px);
@@ -105,6 +120,7 @@
   --board-piece-filter: none;
 }
 [data-board="tournament"] {
+  --board-highlight: #e3d65a;
   --board-light: #e4ddc6;
   --board-dark: #7e8566;
   --board-light-image: none;
@@ -114,6 +130,8 @@
   --board-piece-filter: none;
 }
 [data-board="wood"] {
+  --board-highlight: #f2d45c;
+  --board-texture: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='800' preserveAspectRatio='none'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.004 0.12' numOctaves='4' seed='7'/><feColorMatrix values='0 0 0 0 0.24  0 0 0 0 0.15  0 0 0 0 0.08  0.9 0 0 0 -0.32'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
   --board-light: #e2c9a1;
   --board-dark: #a77b52;
   --board-light-image: none;
@@ -123,6 +141,7 @@
   --board-piece-filter: none;
 }
 [data-board="contrast"] {
+  --board-highlight: #f7ec59;
   --board-light: #ffffff;
   --board-dark: #4f4f4f;
   --board-light-image: none;
@@ -134,6 +153,7 @@
 
 /* More themes (Amine, 2026-11-26): original palettes in the spirit of what chess sites offer. */
 [data-board="green"] {
+  --board-highlight: #f5f569;
   --board-light: #eeeed2;
   --board-dark: #769656;
   --board-light-image: none;
@@ -143,6 +163,7 @@
   --board-piece-filter: none;
 }
 [data-board="ocean"] {
+  --board-highlight: #7fd1c6;
   --board-light: #dee6ec;
   --board-dark: #6f8fab;
   --board-light-image: none;
@@ -152,6 +173,8 @@
   --board-piece-filter: none;
 }
 [data-board="walnut"] {
+  --board-highlight: #e9c64c;
+  --board-texture: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='800' preserveAspectRatio='none'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.004 0.12' numOctaves='4' seed='7'/><feColorMatrix values='0 0 0 0 0.24  0 0 0 0 0.15  0 0 0 0 0.08  1.0 0 0 0 -0.32'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
   --board-light: #ddb88c;
   --board-dark: #7a5136;
   --board-light-image: none;
@@ -161,6 +184,8 @@
   --board-piece-filter: none;
 }
 [data-board="champion"] {
+  --board-highlight: #f0d65e;
+  --board-texture: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='800' preserveAspectRatio='none'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.004 0.12' numOctaves='4' seed='7'/><feColorMatrix values='0 0 0 0 0.24  0 0 0 0 0.15  0 0 0 0 0.08  0.7 0 0 0 -0.32'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
   --board-light: #f4ebd0;
   --board-dark: #b0894c;
   --board-light-image: none;
@@ -170,6 +195,7 @@
   --board-piece-filter: none;
 }
 [data-board="freestyle"] {
+  --board-highlight: #8cc8da;
   --board-light: #e9e6df;
   --board-dark: #3e5c76;
   --board-light-image: none;
@@ -179,6 +205,7 @@
   --board-piece-filter: none;
 }
 [data-board="arcade"] {
+  --board-highlight: #1fb8a8;
   --board-light: #b9f3e4;
   --board-dark: #9a7fd1;
   --board-light-image: none;
@@ -188,6 +215,7 @@
   --board-piece-filter: none;
 }
 [data-board="sakura"] {
+  --board-highlight: #f5cf72;
   --board-light: #fde8ec;
   --board-dark: #e5a3b4;
   --board-light-image: none;

@@ -215,3 +215,11 @@ export function kingSquare(fen: string, side: "w" | "b"): string | undefined {
   }
   return undefined;
 }
+
+/** Every piece on the board and its square, as `wK`, `bP`…, read by chess.js. */
+export function placement(fen: string): { square: string; piece: string }[] {
+  return new Chess(fen)
+    .board()
+    .flat()
+    .flatMap((sq) => (sq ? [{ square: sq.square, piece: `${sq.color}${sq.type.toUpperCase()}` }] : []));
+}

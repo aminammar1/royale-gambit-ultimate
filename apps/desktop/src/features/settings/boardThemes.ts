@@ -37,7 +37,7 @@ export const DISPLAY_ROWS: { name: keyof BoardDisplay; label: string; note: stri
   { name: "coordinates", label: "Coordinates", note: "Files and ranks on the edge squares" },
   { name: "lastMove", label: "Last-move highlight", note: "A tint on both squares of the last move" },
   { name: "legalMoves", label: "Legal-move hints", note: "Dots on the squares a piece can reach" },
-  { name: "arrows", label: "Arrows", note: "The engine's best moves on the board" },
+  { name: "arrows", label: "Engine arrows", note: "The engine's best moves on the board" },
 ];
 
 /** Piece sets by name, with their author (credits in src/assets/pieces/CREDITS.md). */
