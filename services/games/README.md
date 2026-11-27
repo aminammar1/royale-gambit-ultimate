@@ -22,6 +22,8 @@ job), `game.saved` and `game.imported`, published through an outbox.
   Masters needs no Lichess account; the lichess database uses the player's own Lichess token, fetched
   from auth-profile's `/internal` route with the shared `INTERNAL_TOKEN` (2 s timeout, 3 tries, a
   breaker, kept 10 minutes) and never sent to the app. Answers are cached in Redis by position.
+  `db=mine` is the player's own games: the first 30 moves of each are counted by position when
+  saved (a backfill indexes older ones). `GET /v1/explorer/popular`: the top games opened most this week.
 
 ## Run (Docker only)
 `make up` at the root starts it on `localhost:8085`, behind the gateway at `/v1/games` and `/v1/imports`.
