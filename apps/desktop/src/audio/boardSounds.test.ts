@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { knocksFor, soundFor } from "./boardSounds";
+import { knocksFor, soundFor, takesOf } from "./boardSounds";
 
 describe("which sound a move makes", () => {
   it("check first, then promotion, then capture, then castle, else a plain move", () => {
@@ -17,23 +17,26 @@ describe("which sound a move makes", () => {
 describe("the knocks a sound is made of", () => {
   const steady = () => 0.5; // the middle of every random spread
 
-  it("a move is one knock of the placement recording", () => {
-    expect(knocksFor("move", steady)).toEqual([{ sample: "move", at: 0, rate: 1, gain: expect.any(Number) }]);
+  it("each kind plays its own recording, once, at its own pitch at the middle of the spread", () => {
+    for (const kind of ["move", "capture", "check", "castle", "promote", "start"] as const) {
+      const knocks = knocksFor(kind, steady);
+      expect(knocks).toHaveLength(1);
+      expect(knocks[0]).toMatchObject({ sample: kind, at: 0, rate: 1 });
+    }
   });
 
-  it("each kind has its own recording, played once", () => {
-    for (const kind of ["move", "capture", "check", "castle", "promote", "start"] as const)
-      expect(knocksFor(kind, steady).map((k) => k.sample)).toEqual([kind]);
+  it("a move is one of five recorded takes, so no two moves sound alike", () => {
+    expect(takesOf("move")).toBe(5);
+    expect(takesOf("capture")).toBe(4);
+    expect(knocksFor("move", () => 0)[0].take).toBe(0);
+    expect(knocksFor("move", () => 0.999)[0].take).toBe(4);
   });
 
-  it("no two knocks are quite alike: pitch and loudness vary a little, never much", () => {
-    const low = knocksFor("move", () => 0)[0];
-    const high = knocksFor("move", () => 0.999)[0];
-    expect(low.rate).not.toBe(high.rate);
-    for (const k of [low, high]) {
-      expect(Math.abs(k.rate - 1)).toBeLessThanOrEqual(0.025);
-      expect(k.gain).toBeGreaterThan(0.6);
-      expect(k.gain).toBeLessThanOrEqual(1.2);
+  it("pitch and loudness vary a little, never much", () => {
+    for (const r of [0, 0.999]) {
+      const k = knocksFor("move", () => r)[0];
+      expect(Math.abs(k.rate - 1)).toBeLessThanOrEqual(0.015 + 1e-9);
+      expect(Math.abs(k.gain - 1)).toBeLessThanOrEqual(0.05 + 1e-9);
     }
   });
 });
