@@ -35,6 +35,10 @@ func noWait(context.Context, time.Duration) error { return nil }
 
 func TestLichessStreamsStandardGames(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Only standard speeds, so max counts standard games (variants are their own perfs).
+		if r.URL.Query().Get("perfType") != "ultraBullet,bullet,blitz,rapid,classical,correspondence" {
+			t.Errorf("perfType %q", r.URL.Query().Get("perfType"))
+		}
 		if r.URL.Path != "/api/games/user/alice" || r.URL.Query().Get("max") != "3" || r.URL.Query().Get("pgnInJson") != "true" {
 			t.Errorf("unexpected request %s", r.URL)
 		}

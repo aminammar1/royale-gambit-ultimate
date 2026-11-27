@@ -259,8 +259,9 @@ func playedAt(utcDate, utcTime, date string) *time.Time {
 	return nil
 }
 
-// siteOf finds the game's page and its id on the site: lichess.org/<8-character id>, with or
-// without a side after it; chess.com/game/<live|daily>/<number>, given in the Link tag.
+// siteOf finds the game's page and its id on the site: lichess.org/<8-character id> (also
+// written lichess.org/game/<id>, or with a side after it; the page given back is the plain one);
+// chess.com/game/<live|daily>/<number>, given in the Link tag.
 func siteOf(site, link string) (pageURL, hash string) {
 	for _, raw := range []string{link, site} {
 		u, err := url.Parse(raw)
@@ -270,8 +271,16 @@ func siteOf(site, link string) (pageURL, hash string) {
 		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
 		host := strings.TrimPrefix(u.Host, "www.")
 		switch {
-		case host == "lichess.org" && len(parts) >= 1 && len(parts[0]) >= 8:
-			return raw, "lichess:" + parts[0][:8]
+		case host == "lichess.org" && len(parts) >= 1:
+			// lichess.org/<id>, lichess.org/<id>/black, or the export's lichess.org/game/<id>.
+			id := parts[0]
+			if id == "game" && len(parts) >= 2 {
+				id = parts[1]
+			}
+			if len(id) < 8 {
+				return raw, ""
+			}
+			return "https://lichess.org/" + id[:8], "lichess:" + id[:8]
 		case host == "chess.com" && len(parts) >= 3 && parts[0] == "game":
 			return raw, "chesscom:" + parts[1] + "/" + parts[2]
 		}

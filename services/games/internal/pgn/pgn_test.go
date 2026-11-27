@@ -213,3 +213,14 @@ func TestNonsenseIsRejectedNotACrash(t *testing.T) {
 		}
 	}
 }
+
+func TestLichessGamePathIsTheSameGame(t *testing.T) {
+	// Lichess's export writes the Site as lichess.org/game/<id> (seen importing real games,
+	// 2026-11-28); the page is lichess.org/<id>, and the game is the same either way.
+	for _, site := range []string{"https://lichess.org/game/L07dBpjM", "https://lichess.org/L07dBpjM", "https://lichess.org/L07dBpjM/black"} {
+		g := one(t, strings.Replace(lichessGame, "https://lichess.org/abcdEFGH", site, 1))
+		if g.Hash != "lichess:L07dBpjM" || g.SiteURL != "https://lichess.org/L07dBpjM" {
+			t.Errorf("%s: hash %q url %q", site, g.Hash, g.SiteURL)
+		}
+	}
+}

@@ -112,7 +112,9 @@ type Lichess struct {
 // Fetch implements Fetcher.
 func (l *Lichess) Fetch(ctx context.Context, username string, max int, emit func(string) error) error {
 	c := client{userAgent: l.UserAgent, http: l.HTTP, wait: l.Wait, pause: time.Minute}
-	q := url.Values{"max": {strconv.Itoa(max)}, "pgnInJson": {"true"}, "clocks": {"false"}, "evals": {"false"}}
+	// Standard speeds only: variants are perfs of their own, so max then counts standard games.
+	q := url.Values{"max": {strconv.Itoa(max)}, "pgnInJson": {"true"}, "clocks": {"false"}, "evals": {"false"},
+		"perfType": {"ultraBullet,bullet,blitz,rapid,classical,correspondence"}}
 	resp, err := c.get(ctx, l.Base+"/api/games/user/"+url.PathEscape(username)+"?"+q.Encode(), "application/x-ndjson")
 	if err != nil {
 		return err
