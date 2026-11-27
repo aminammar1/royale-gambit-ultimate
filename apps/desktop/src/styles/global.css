@@ -100,3 +100,25 @@
     transform: translateX(-50%);
   }
 }
+
+/* Board: a taken piece stays until the taker arrives, then is gone. */
+@keyframes piece-leave {
+  0%,
+  65% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Start screen: "Press Enter" breathes slowly, as on a game's title screen. No bounce. */
+@keyframes press-enter {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}

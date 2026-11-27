@@ -148,6 +148,7 @@ export function BoardSettingsPage() {
                 fen={fen}
                 orientation="white"
                 onMove={() => false}
+                interactive={false}
                 lastMove={last ? { from: last.from, to: last.to } : undefined}
                 selected="f3"
                 targets={targets}

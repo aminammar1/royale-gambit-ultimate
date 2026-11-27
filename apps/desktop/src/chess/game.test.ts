@@ -12,6 +12,7 @@ import {
   normalizeStart,
   numberedMoves,
   outcome,
+  placement,
   play,
   pvToSan,
   toPgn,
@@ -22,7 +23,6 @@ import { formatScore, whiteWinPercent } from "./score";
 import { sideStanding } from "../ui/EvalBar";
 import operaGame from "../../../../contracts/fixtures/pgn/opera-game.pgn?raw";
 import rulesTour from "../../../../contracts/fixtures/pgn/rules-tour.pgn?raw";
-
 
 const fixtures: Record<string, string> = { "opera-game.pgn": operaGame, "rules-tour.pgn": rulesTour };
 const fixture = (name: string) => fixtures[name];
@@ -106,7 +106,11 @@ describe("engine lines", () => {
   });
 
   it("numbers a line from White or from Black", () => {
-    expect(numberedMoves("8 w - - 0 20", ["Nxe4", "Rxe4", "Bxe4"]).map((m) => m.number)).toEqual(["20.", undefined, "21."]);
+    expect(numberedMoves("8 w - - 0 20", ["Nxe4", "Rxe4", "Bxe4"]).map((m) => m.number)).toEqual([
+      "20.",
+      undefined,
+      "21.",
+    ]);
     expect(moveNumberLabel(START_FEN)).toBe("1.");
     expect(moveNumberLabel("8 b - - 0 19")).toBe("19…");
   });
@@ -221,5 +225,23 @@ describe("each side's standing", () => {
     expect(sideStanding({ mate: 3 }, "black")).toBe("is mated in 3");
     expect(sideStanding({ mate: -2 }, "black")).toBe("mates in 2");
     expect(sideStanding({ cp: 0 }, "black")).toBe("level");
+  });
+});
+
+describe("the pieces on the board", () => {
+  it("reads every piece and its square from the position, through chess.js", () => {
+    const pieces = placement("4k3/8/8/8/8/8/4P3/4K3 w - - 0 1");
+    expect(pieces).toHaveLength(3);
+    expect(pieces).toEqual(
+      expect.arrayContaining([
+        { square: "e8", piece: "bK" },
+        { square: "e2", piece: "wP" },
+        { square: "e1", piece: "wK" },
+      ]),
+    );
+  });
+
+  it("thirty-two at the start", () => {
+    expect(placement(START_FEN)).toHaveLength(32);
   });
 });
