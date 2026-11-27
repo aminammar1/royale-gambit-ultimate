@@ -1,0 +1,136 @@
+// Command server runs the service. `server healthcheck` is used by the Docker HEALTHCHECK.
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/app"
+	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/auth"
+	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/broker"
+	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/config"
+	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/importer"
+	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/outbox"
+	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/sites"
+	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/store"
+	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/telemetry"
+)
+
+func main() {
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		os.Exit(healthcheck())
+	}
+	if err := run(); err != nil {
+		slog.Error("fatal", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	log := telemetry.NewLogger(os.Stdout, cfg.ServiceName)
+	slog.SetDefault(log)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	shutdownTracing, err := telemetry.SetupTracing(ctx, cfg.ServiceName)
+	if err != nil {
+		return fmt.Errorf("tracing: %w", err)
+	}
+	defer func() { _ = shutdownTracing(context.Background()) }()
+
+	if cfg.MigrateOnStart {
+		if err := store.Migrate(cfg.DatabaseURL); err != nil {
+			return err
+		}
+	}
+	db, err := store.Open(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	mq, err := broker.Dial(cfg.RabbitURL)
+	if err != nil {
+		return err
+	}
+	defer mq.Close()
+	// Bound before the relay can publish an import, so none is dropped on a first start.
+	if err := mq.Declare(importer.Queue, importer.Event); err != nil {
+		return fmt.Errorf("rabbitmq: %w", err)
+	}
+	verifier, err := auth.NewVerifier(ctx, cfg.JWKSURL, cfg.Issuer)
+	if err != nil {
+		return err
+	}
+
+	// The relay, the import workers and the HTTP server run together; if one stops, all stop.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	errc := make(chan error, cfg.ImportWorkers+1)
+	go (&outbox.Relay{Store: db, Pub: mq, Log: log, Every: 500 * time.Millisecond}).Run(ctx)
+	worker := &importer.Worker{Store: db, Log: log, Batch: 50, Sites: map[string]sites.Fetcher{
+		"lichess":  &sites.Lichess{Base: cfg.LichessURL, UserAgent: cfg.UserAgent},
+		"chesscom": &sites.ChessCom{Base: cfg.ChessComURL, UserAgent: cfg.UserAgent},
+	}}
+	for i := 0; i < cfg.ImportWorkers; i++ {
+		go func() {
+			errc <- fmt.Errorf("import worker: %w", mq.Consume(ctx, importer.Queue, importer.Event, 1, worker.Handle))
+		}()
+	}
+
+	srv := &http.Server{
+		Addr: ":" + cfg.Port,
+		Handler: app.New(app.Options{
+			Service: cfg.ServiceName, Store: db, Broker: mq, Verifier: verifier, Log: log, MaxImport: cfg.MaxImport,
+		}),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	go func() { errc <- srv.ListenAndServe() }()
+	log.Info("listening", "port", cfg.Port, "import_workers", cfg.ImportWorkers)
+
+	var runErr error
+	select {
+	case err := <-errc:
+		if !errors.Is(err, http.ErrServerClosed) && ctx.Err() == nil {
+			runErr = err
+		}
+	case <-ctx.Done():
+		log.Info("shutting down")
+	}
+	cancel()
+	sctx, done := context.WithTimeout(context.Background(), 10*time.Second)
+	defer done()
+	// Streams of import progress end with the request context; answer what is in flight.
+	if err := srv.Shutdown(sctx); err != nil && runErr == nil {
+		runErr = err
+	}
+	return runErr
+}
+
+func healthcheck() int {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8085"
+	}
+	client := http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get("http://127.0.0.1:" + port + "/health/live")
+	if err != nil {
+		return 1
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return 1
+	}
+	return 0
+}
