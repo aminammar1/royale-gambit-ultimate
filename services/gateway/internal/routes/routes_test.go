@@ -62,7 +62,8 @@ func TestTheTableGuardsWhatNeedsGuarding(t *testing.T) {
 		}
 	}
 	// A player's games and imports: always theirs, so always a token.
-	for _, path := range []string{"/v1/games", "/v1/games/0190e0c4-0000-7000-8000-000000000000", "/v1/imports", "/v1/imports/x"} {
+	for _, path := range []string{"/v1/games", "/v1/games/0190e0c4-0000-7000-8000-000000000000", "/v1/imports", "/v1/imports/x",
+		"/v1/explorer", "/v1/explorer/games/masters/abcdEFGH"} {
 		r, ok := table.Match(path)
 		if !ok || r.Upstream != games || r.Auth != routes.Required || r.SignIn {
 			t.Errorf("%s: got %+v (found %v)", path, r, ok)

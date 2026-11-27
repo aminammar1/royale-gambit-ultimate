@@ -296,6 +296,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v1/users/{user_id}/lichess-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A user's Lichess token, for another service (never through the gateway)
+         * @description For the games service's opening explorer (ADR-16, ADR-19): the Lichess database explorer
+         *     needs the player's own Lichess token, which only this service keeps. Service to service
+         *     only: the gateway routes no `/internal` path, and the call must carry the shared
+         *     `X-Internal-Token`. The token never reaches the desktop app.
+         */
+        get: operations["getLichessToken"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -405,6 +428,11 @@ export interface components {
             settings: Record<string, never>;
             /** Format: date-time */
             updated_at: string;
+        };
+        ProviderToken: {
+            access_token: string;
+            /** Format: date-time */
+            expires_at: string | null;
         };
         Problem: {
             type: string;
@@ -770,6 +798,31 @@ export interface operations {
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
+        };
+    };
+    getLichessToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The user signed in with (or linked) Lichess; here is the token */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderToken"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
         };
     };
 }

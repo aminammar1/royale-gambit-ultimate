@@ -98,7 +98,36 @@ export function createAnalysisClient(deps: AnalysisClientDeps) {
     throw { kind: "unexpected", message: "the analysis ended without a result" } satisfies ApiError;
   }
 
-  return { analyse };
+  /**
+   * A GET that a guest may make too (the explorer's masters database): the session's token, or
+   * a guest one, renewed once on a 401. Answers the JSON body, or throws the problem.
+   */
+  async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
+    const send = async (token: string) => {
+      const headers = new Headers({ accept: "application/json", authorization: `Bearer ${token}` });
+      try {
+        return await fetchImpl(`${await deps.baseUrl()}${path}`, { headers, signal });
+      } catch {
+        if (signal?.aborted) throw { kind: "cancelled" } satisfies ApiError;
+        throw { kind: "offline" } satisfies ApiError;
+      }
+    };
+    const session = deps.sessionToken();
+    let response = await send(session ?? (await guestToken()));
+    if (response.status === 401) {
+      let retry: string | undefined;
+      if (session) retry = await deps.renewSession();
+      else {
+        guest = undefined;
+        retry = await guestToken();
+      }
+      if (retry) response = await send(retry);
+    }
+    if (!response.ok) throw await readProblem(response);
+    return (await response.json()) as T;
+  }
+
+  return { analyse, get };
 }
 
 export type AnalysisClient = ReturnType<typeof createAnalysisClient>;

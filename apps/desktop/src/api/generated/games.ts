@@ -88,6 +88,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/explorer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The moves played from a position, and its top games */
+        get: operations["explore"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/explorer/games/{db}/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A top game's PGN */
+        get: operations["explorerGame"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/imports": {
         parameters: {
             query?: never;
@@ -188,6 +222,42 @@ export interface components {
         Game: components["schemas"]["GameSummary"] & {
             pgn: string;
         };
+        ExplorerPlayer: {
+            name: string;
+            rating: number | null;
+        };
+        Explorer: {
+            /** @enum {string} */
+            db: "masters" | "lichess";
+            /** @description Games White won from here */
+            white: number;
+            draws: number;
+            black: number;
+            opening: {
+                eco: string;
+                name: string;
+            } | null;
+            /** @description Most played first */
+            moves: {
+                uci: string;
+                san: string;
+                white: number;
+                draws: number;
+                black: number;
+                average_rating: number | null;
+            }[];
+            /** @description The strongest games that reached the position */
+            top_games: {
+                id: string;
+                white: components["schemas"]["ExplorerPlayer"];
+                black: components["schemas"]["ExplorerPlayer"];
+                /** @enum {string|null} */
+                winner: "white" | "black" | null;
+                year: number | null;
+                /** @description The move played from this position in that game */
+                uci: string;
+            }[];
+        };
         Record: {
             wins: number;
             draws: number;
@@ -249,7 +319,10 @@ export interface components {
         /**
          * @description RFC 9457 problem details. Types: `.../problems/invalid-request` (a body or query that does
          *     not match this contract), `.../problems/too-large` (a PGN over 5 MB or 2,000 games),
-         *     `.../problems/too-many-imports` (3 imports already queued or running; wait for one to end).
+         *     `.../problems/too-many-imports` (3 imports already queued or running; wait for one to end),
+         *     `.../problems/invalid-position` (a FEN that is not a legal position),
+         *     `.../problems/lichess-needed` (403: the Lichess database needs a Lichess sign-in),
+         *     `.../problems/explorer-unavailable` (503: lichess's explorer is busy or down; try again).
          */
         Problem: {
             headers: {
@@ -432,6 +505,63 @@ export interface operations {
             400: components["responses"]["Problem"];
             401: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
+        };
+    };
+    explore: {
+        parameters: {
+            query: {
+                /** @description The position, a legal FEN */
+                fen: string;
+                db: "masters" | "lichess";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What was played there */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Explorer"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    explorerGame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                db: "masters" | "lichess";
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The game */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        pgn: string;
+                    };
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
         };
     };
     startImport: {

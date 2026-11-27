@@ -75,5 +75,7 @@ func Build(u Upstreams) Table {
 		// A player's own library (M8): a token always, a guest's included.
 		{Prefix: "/v1/games", Upstream: u.Games, Auth: Required},
 		{Prefix: "/v1/imports", Upstream: u.Games, Auth: Required},
+		// The opening explorer (M12): a guest's token is enough for the masters database.
+		{Prefix: "/v1/explorer", Upstream: u.Games, Auth: Required},
 	}
 }

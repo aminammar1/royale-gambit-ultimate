@@ -1,9 +1,9 @@
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
-import { games } from "../../api";
+import { explorer, games, type ExplorerDb, type TopGame } from "../../api";
 import { describeError, toApiError } from "../../api/problem";
-import { loadOpenings, openingAt, type OpeningTable } from "../../chess/openings";
+import { loadOpenings, openingAt, positionKey, type OpeningTable } from "../../chess/openings";
 import { useEdition } from "../../app/edition";
 import { editionDate } from "../../app/editionDate";
 import {
@@ -30,6 +30,7 @@ import { Kicker } from "../../ui/Kicker";
 import { Masthead } from "../../ui/Masthead";
 import { ThemedBoard, landingMs, type BoardArrow, type MoveGesture } from "../board/ThemedBoard";
 import { EngineColumn, linesOf } from "./EngineColumn";
+import { ExplorerPanel } from "./ExplorerPanel";
 import { ScoreSheet } from "./ScoreSheet";
 import { useServerAnalysis } from "./useServerAnalysis";
 
@@ -68,6 +69,7 @@ export function AnalysisPage() {
   const [params] = useSearchParams();
   const gameId = params.get("game");
   const [filedAs, setFiledAs] = useState<string>();
+  const [tab, setTab] = useState<"engine" | "explorer">("engine");
   // The opening table (CC0, lichess-org/chess-openings), loaded with the page, not the app.
   const [openings, setOpenings] = useState<OpeningTable>();
   useEffect(() => {
@@ -235,6 +237,29 @@ export function AnalysisPage() {
   const setEngine = (on: boolean) => {
     if (on && !engineOn) setAttempt((n) => n + 1);
     setEngineOn(on);
+  };
+
+  /** A top game from the explorer, opened at the position being explored. */
+  const openTopGame = (db: ExplorerDb, g: TopGame) => {
+    const here = positionKey(fen);
+    explorer
+      .gamePgn(db, g.id)
+      .then((pgn) => {
+        const result = load(pgn);
+        if (!result.ok) {
+          setSetupError(`This game could not be opened: ${result.error}`);
+          return;
+        }
+        let at = 0;
+        for (let i = 0; i <= result.game.plies.length; i++) {
+          if (positionKey(fenAt(result.game, i)) === here) {
+            at = i;
+            break;
+          }
+        }
+        replaceGame(result.game, at, `${g.white.name} – ${g.black.name}${g.year ? ` · ${g.year}` : ""}`);
+      })
+      .catch((e: unknown) => setSetupError(`This game could not be opened: ${describeError(toApiError(e))}`));
   };
 
   // The opening and its variation at the move on show: the deepest named position up to it.
@@ -444,14 +469,38 @@ export function AnalysisPage() {
         </section>
 
         <aside className="pl-5 [grid-area:engine] max-[1279px]:border-l max-[1279px]:border-rule">
-          <EngineColumn
-            state={engine}
-            fen={fen}
-            over={over}
-            onRetry={() => setAttempt((n) => n + 1)}
-            onTurnOn={() => setEngine(true)}
-            onPlay={playLine}
-          />
+          {/* Engine and Explorer, as tabs (board explorer-panel.png); the engine keeps searching either way. */}
+          <div role="tablist" aria-label="Engine or explorer" className="mb-4 flex gap-6 border-b border-rule">
+            {(
+              [
+                ["engine", "Engine"],
+                ["explorer", "Explorer"],
+              ] as const
+            ).map(([value, name]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={tab === value}
+                onClick={() => setTab(value)}
+                className={`label -mb-px border-b-2 pb-2 ${tab === value ? "border-ink text-ink" : "border-transparent text-ink-2 hover:text-ink"}`}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+          {tab === "engine" ? (
+            <EngineColumn
+              state={engine}
+              fen={fen}
+              over={over}
+              onRetry={() => setAttempt((n) => n + 1)}
+              onTurnOn={() => setEngine(true)}
+              onPlay={playLine}
+            />
+          ) : (
+            <ExplorerPanel fen={fen} onPlay={(uci) => playLine([uci])} onOpenGame={openTopGame} />
+          )}
         </aside>
       </div>
     </>
