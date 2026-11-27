@@ -110,6 +110,8 @@ Shown on the boards but in no milestone yet: "Train on puzzles from these mistak
 - PGN file import in the client.
 **Accept:** import 100+ games for a real username on both sites; re-import adds nothing; rate-limit and malformed-PGN tests; progress over SSE.
 
+*Pulled forward (2026-11-28, Amine's order: M8, M9, then M12 with the rest of M11):* the `games` service, built as specified and accepted: 300 of DrNykterstein's games from Lichess and 300 of Hikaru's from Chess.com through the gateway, and a second import saved 0. Amine's choices: imports cap at 2,000 games a username; the User-Agent names the project's GitHub page, never a person's email. Left for later: consuming `review.completed` (M5, when `review` exists); the PGN file import in the client comes with the Library page (M9).
+
 ## M9: Library page ("card catalogue")
 - Client sync of local games through the outbox; search by player, opening, result, date, source; filters and sort; virtualized list; "review all unreviewed"; per-player stats (openings, win/draw/loss by color, common mistakes).
 **Accept:** a 10k-game fixture searches in under 200 ms server-side; offline shows local games only; screenshots in both editions.
