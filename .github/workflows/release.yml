@@ -19,6 +19,7 @@ jobs:
           - { name: auth-profile, dir: services/auth-profile }
           - { name: gateway, dir: services/gateway }
           - { name: analysis, dir: services/analysis }
+          - { name: games, dir: services/games }
     steps:
       - uses: actions/checkout@v5
       - uses: docker/login-action@v3

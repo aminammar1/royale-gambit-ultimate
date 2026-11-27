@@ -1,0 +1,375 @@
+openapi: 3.1.0
+info:
+  title: games
+  version: 1.0.0
+  description: |
+    The games database (M8): each player's own games, saved from PGN or imported by username
+    from Lichess and Chess.com, and searched. Every route needs a bearer token (a guest's is
+    fine); a game belongs to the token's `sub` and only its owner sees it.
+
+    **Saving.** `POST /v1/games` takes one or many games as PGN. Each is checked by a chess
+    library (never hand-written rules, ADR-03): an illegal move or an unknown variant rejects
+    that game only. A game already in the owner's library (same `game_hash`) is counted as a
+    duplicate and not saved again, so a retry is safe.
+
+    **Importing.** `POST /v1/imports` queues an import of a username's games from a site, newest
+    first, standard chess only, at most `max_games` (default and ceiling 2,000). The same
+    username, site and owner with an import still queued or running gets that import back (200)
+    instead of a second one. Importing again later saves only the games that are new.
+    `GET /v1/imports/{id}` answers the job as JSON, or as server-sent events with
+    `Accept: text/event-stream`: `event: progress` (an ImportJob) whenever its counts change,
+    then one `event: done` (the finished ImportJob, `status` done or failed); a failure of the
+    stream itself comes as `event: error` with a problem body. A player has at most 3 imports
+    queued or running at once. An import that makes no progress for 15 minutes is ended as failed,
+    so a username can always be imported again.
+
+    **Searching.** `GET /v1/games` lists the owner's games, newest first, filtered and paged
+    with `limit` and `cursor`. `result` (win, loss, draw) and `color` read from the side of
+    `player`, so they need it.
+
+    Openings: the ECO code and name of the deepest known position, from the CC0 table
+    lichess-org/chess-openings. Times are UTC. Ids are UUIDv7.
+
+    **Explorer** (M12). `GET /v1/explorer` answers what was played from a position, from
+    lichess's opening explorer: `masters` (over-the-board games of strong players, for anyone with
+    a token, a guest's included) or `lichess` (games on lichess.org, which needs the player to have
+    signed in with Lichess: their own Lichess token is used, fetched from auth-profile and never
+    sent to the app). Answers are cached (Redis) by position and database. `GET
+    /v1/explorer/games/{db}/{id}` gives a top game's PGN.
+paths:
+  /health/live:
+    get:
+      operationId: live
+      security: []
+      responses:
+        "200": { description: Process is up, content: { application/json: { schema: { $ref: "#/components/schemas/Health" } } } }
+  /health/ready:
+    get:
+      operationId: ready
+      security: []
+      responses:
+        "200": { description: Postgres and RabbitMQ answer, content: { application/json: { schema: { $ref: "#/components/schemas/Health" } } } }
+        "503": { description: Postgres or RabbitMQ is down, content: { application/json: { schema: { $ref: "#/components/schemas/Health" } } } }
+  /v1/games:
+    post:
+      operationId: saveGames
+      summary: Save one or many games from PGN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SaveRequest" }
+      responses:
+        "200":
+          description: Every game was read; the valid new ones are saved
+          content: { application/json: { schema: { $ref: "#/components/schemas/SaveResult" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+    get:
+      operationId: searchGames
+      summary: Search the owner's games, newest first
+      parameters:
+        - { name: q, in: query, description: "Words to find in the players' names, the opening or the event", schema: { type: string, maxLength: 100 } }
+        - { name: player, in: query, description: "A player's exact name (case ignored), White or Black", schema: { type: string, maxLength: 60 } }
+        - { name: color, in: query, description: "The side `player` had; needs `player`", schema: { type: string, enum: [white, black] } }
+        - { name: result, in: query, description: "From `player`'s side; needs `player`", schema: { type: string, enum: [win, loss, draw] } }
+        - { name: eco, in: query, description: "ECO code, or its first letters (`C`, `C9`, `C95`)", schema: { type: string, pattern: "^[A-E][0-9]{0,2}$" } }
+        - { name: source, in: query, schema: { $ref: "#/components/schemas/Source" } }
+        - { name: from, in: query, description: "Played on or after (UTC date)", schema: { type: string, format: date } }
+        - { name: to, in: query, description: "Played on or before (UTC date)", schema: { type: string, format: date } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: cursor, in: query, description: "`next_cursor` of the page before", schema: { type: string, maxLength: 200 } }
+      responses:
+        "200":
+          description: One page of games
+          content: { application/json: { schema: { $ref: "#/components/schemas/GamePage" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+  /v1/games/stats:
+    get:
+      operationId: playerStats
+      summary: A player's record in the owner's games (the Library's player card)
+      parameters:
+        - { name: player, in: query, required: true, description: "The player's exact name, case ignored", schema: { type: string, minLength: 1, maxLength: 60 } }
+      responses:
+        "200":
+          description: The record; zero games when the player is in none of them
+          content: { application/json: { schema: { $ref: "#/components/schemas/PlayerStats" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+  /v1/games/{id}:
+    get:
+      operationId: getGame
+      summary: One game with its PGN
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The game
+          content: { application/json: { schema: { $ref: "#/components/schemas/Game" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /v1/explorer:
+    get:
+      operationId: explore
+      summary: The moves played from a position, and its top games
+      parameters:
+        - { name: fen, in: query, required: true, description: "The position, a legal FEN", schema: { type: string, minLength: 1, maxLength: 100 } }
+        - { name: db, in: query, required: true, schema: { type: string, enum: [masters, lichess] } }
+      responses:
+        "200":
+          description: What was played there
+          content: { application/json: { schema: { $ref: "#/components/schemas/Explorer" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /v1/explorer/games/{db}/{id}:
+    get:
+      operationId: explorerGame
+      summary: A top game's PGN
+      parameters:
+        - { name: db, in: path, required: true, schema: { type: string, enum: [masters, lichess] } }
+        - { name: id, in: path, required: true, schema: { type: string, pattern: "^[A-Za-z0-9]{8}$" } }
+      responses:
+        "200":
+          description: The game
+          content: { application/json: { schema: { type: object, required: [pgn], properties: { pgn: { type: string } } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /v1/imports:
+    post:
+      operationId: startImport
+      summary: Import a username's games from Lichess or Chess.com
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ImportRequest" }
+      responses:
+        "202":
+          description: The import is queued
+          content: { application/json: { schema: { $ref: "#/components/schemas/ImportJob" } } }
+        "200":
+          description: The same import was already queued or running; here it is
+          content: { application/json: { schema: { $ref: "#/components/schemas/ImportJob" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+  /v1/imports/{id}:
+    get:
+      operationId: getImport
+      summary: An import's progress, as JSON or a stream
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The import
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportJob" }
+            text/event-stream:
+              schema: { type: string, description: "`progress` events (an ImportJob), then one `done`; `error` (a Problem) if the stream fails" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+security:
+  - bearer: []
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  responses:
+    Problem:
+      description: |
+        RFC 9457 problem details. Types: `.../problems/invalid-request` (a body or query that does
+        not match this contract), `.../problems/too-large` (a PGN over 5 MB or 2,000 games),
+        `.../problems/too-many-imports` (3 imports already queued or running; wait for one to end),
+        `.../problems/invalid-position` (a FEN that is not a legal position),
+        `.../problems/lichess-needed` (403: the Lichess database needs a Lichess sign-in),
+        `.../problems/explorer-unavailable` (503: lichess's explorer is busy or down; try again).
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string }
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        trace_id: { type: string }
+    Source:
+      type: string
+      enum: [lichess, chesscom, pgn]
+      description: "Where the game came from: imported from a site, or saved from PGN"
+    SaveRequest:
+      type: object
+      additionalProperties: false
+      required: [pgn]
+      properties:
+        pgn: { type: string, minLength: 1, maxLength: 5242880, description: "One or many games, standard chess, up to 2,000" }
+    SaveResult:
+      type: object
+      required: [saved, duplicates, rejected, games]
+      properties:
+        saved: { type: integer, minimum: 0 }
+        duplicates: { type: integer, minimum: 0 }
+        rejected:
+          type: array
+          items:
+            type: object
+            required: [index, reason]
+            properties:
+              index: { type: integer, minimum: 0, description: "Which game of the PGN, from 0" }
+              reason: { type: string }
+        games:
+          type: array
+          description: The games saved by this call
+          items: { $ref: "#/components/schemas/GameSummary" }
+    GameSummary:
+      type: object
+      required: [id, source, white, black, result, ply_count, first_moves, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        source: { $ref: "#/components/schemas/Source" }
+        site_url: { type: [string, "null"], description: "The game on its site, when imported" }
+        white: { type: string }
+        black: { type: string }
+        white_elo: { type: [integer, "null"] }
+        black_elo: { type: [integer, "null"] }
+        result: { type: string, enum: ["1-0", "0-1", "1/2-1/2", "*"] }
+        played_at: { type: [string, "null"], format: date-time, description: "When it was played, when known" }
+        event: { type: [string, "null"] }
+        time_control: { type: [string, "null"], description: "As the PGN gives it, e.g. 300+3" }
+        eco: { type: [string, "null"], pattern: "^[A-E][0-9]{2}$" }
+        opening: { type: [string, "null"] }
+        ply_count: { type: integer, minimum: 0 }
+        first_moves: { type: string, description: "The first moves in SAN, numbered, for a card: `1. e4 e5 2. Nf3 Nc6 3. Bb5 a6`" }
+        created_at: { type: string, format: date-time }
+    Game:
+      allOf:
+        - { $ref: "#/components/schemas/GameSummary" }
+        - type: object
+          required: [pgn]
+          properties:
+            pgn: { type: string }
+    ExplorerPlayer:
+      type: object
+      required: [name, rating]
+      properties:
+        name: { type: string }
+        rating: { type: [integer, "null"] }
+    Explorer:
+      type: object
+      required: [db, white, draws, black, opening, moves, top_games]
+      properties:
+        db: { type: string, enum: [masters, lichess] }
+        white: { type: integer, minimum: 0, description: "Games White won from here" }
+        draws: { type: integer, minimum: 0 }
+        black: { type: integer, minimum: 0 }
+        opening:
+          type: [object, "null"]
+          required: [eco, name]
+          properties:
+            eco: { type: string }
+            name: { type: string }
+        moves:
+          type: array
+          description: Most played first
+          items:
+            type: object
+            required: [uci, san, white, draws, black, average_rating]
+            properties:
+              uci: { type: string }
+              san: { type: string }
+              white: { type: integer, minimum: 0 }
+              draws: { type: integer, minimum: 0 }
+              black: { type: integer, minimum: 0 }
+              average_rating: { type: [integer, "null"] }
+        top_games:
+          type: array
+          description: The strongest games that reached the position
+          items:
+            type: object
+            required: [id, white, black, winner, year, uci]
+            properties:
+              id: { type: string }
+              white: { $ref: "#/components/schemas/ExplorerPlayer" }
+              black: { $ref: "#/components/schemas/ExplorerPlayer" }
+              winner: { type: [string, "null"], enum: [white, black, null] }
+              year: { type: [integer, "null"] }
+              uci: { type: string, description: "The move played from this position in that game" }
+    Record:
+      type: object
+      required: [wins, draws, losses, unfinished]
+      properties:
+        wins: { type: integer, minimum: 0 }
+        draws: { type: integer, minimum: 0 }
+        losses: { type: integer, minimum: 0 }
+        unfinished: { type: integer, minimum: 0 }
+    PlayerStats:
+      type: object
+      required: [player, games, rating, as_white, as_black, openings]
+      properties:
+        player: { type: string, description: "The name as the newest game writes it" }
+        games: { type: integer, minimum: 0 }
+        rating: { type: [integer, "null"], description: "The player's rating in the newest game that has one" }
+        as_white: { $ref: "#/components/schemas/Record" }
+        as_black: { $ref: "#/components/schemas/Record" }
+        openings:
+          type: array
+          maxItems: 5
+          description: The player's most played openings, most first
+          items:
+            type: object
+            required: [eco, opening, games, wins, draws, losses]
+            properties:
+              eco: { type: [string, "null"] }
+              opening: { type: [string, "null"] }
+              games: { type: integer, minimum: 1 }
+              wins: { type: integer, minimum: 0 }
+              draws: { type: integer, minimum: 0 }
+              losses: { type: integer, minimum: 0 }
+    GamePage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/GameSummary" }
+        next_cursor: { type: [string, "null"], description: "Pass as `cursor` for the next page; null on the last" }
+    ImportRequest:
+      type: object
+      additionalProperties: false
+      required: [site, username]
+      properties:
+        site: { type: string, enum: [lichess, chesscom] }
+        username: { type: string, pattern: "^[A-Za-z0-9_-]{2,30}$" }
+        max_games: { type: integer, minimum: 1, maximum: 2000, default: 2000 }
+    ImportJob:
+      type: object
+      required: [id, site, username, max_games, status, fetched, saved, duplicates, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        site: { type: string, enum: [lichess, chesscom] }
+        username: { type: string }
+        max_games: { type: integer }
+        status: { type: string, enum: [queued, running, done, failed] }
+        fetched: { type: integer, minimum: 0, description: "Games read from the site so far" }
+        saved: { type: integer, minimum: 0 }
+        duplicates: { type: integer, minimum: 0 }
+        error: { type: [string, "null"], description: "Why it failed, in words for the player" }
+        created_at: { type: string, format: date-time }
+        finished_at: { type: [string, "null"], format: date-time }

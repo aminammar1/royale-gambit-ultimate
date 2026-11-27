@@ -247,12 +247,33 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
 
+  /internal/v1/users/{user_id}/lichess-token:
+    get:
+      operationId: getLichessToken
+      summary: A user's Lichess token, for another service (never through the gateway)
+      description: |
+        For the games service's opening explorer (ADR-16, ADR-19): the Lichess database explorer
+        needs the player's own Lichess token, which only this service keeps. Service to service
+        only: the gateway routes no `/internal` path, and the call must carry the shared
+        `X-Internal-Token`. The token never reaches the desktop app.
+      security: [{ internal: [] }]
+      parameters:
+        - { name: user_id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The user signed in with (or linked) Lichess; here is the token
+          content: { application/json: { schema: { $ref: "#/components/schemas/ProviderToken" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+
 security:
   - bearer: []
 
 components:
   securitySchemes:
     bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+    internal: { type: apiKey, in: header, name: X-Internal-Token }
   responses:
     Problem:
       description: RFC 9457 problem details
@@ -387,6 +408,12 @@ components:
         country: { type: string }
         settings: { type: object }
         updated_at: { type: string, format: date-time }
+    ProviderToken:
+      type: object
+      required: [access_token, expires_at]
+      properties:
+        access_token: { type: string }
+        expires_at: { type: [string, "null"], format: date-time }
     Problem:
       type: object
       required: [type, title, status]

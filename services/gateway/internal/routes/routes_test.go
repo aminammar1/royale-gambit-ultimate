@@ -35,7 +35,8 @@ func TestLongestPrefixWinsOnSegmentBoundaries(t *testing.T) {
 func TestTheTableGuardsWhatNeedsGuarding(t *testing.T) {
 	authProfile, _ := url.Parse("http://auth-profile:8081")
 	analysis, _ := url.Parse("http://analysis:8084")
-	table := routes.Build(routes.Upstreams{AuthProfile: authProfile, Analysis: analysis})
+	games, _ := url.Parse("http://games:8085")
+	table := routes.Build(routes.Upstreams{AuthProfile: authProfile, Analysis: analysis, Games: games})
 	cases := []struct {
 		path   string
 		auth   routes.Auth
@@ -57,6 +58,14 @@ func TestTheTableGuardsWhatNeedsGuarding(t *testing.T) {
 	for _, path := range []string{"/v1/analysis/positions", "/v1/analysis/batch"} {
 		r, ok := table.Match(path)
 		if !ok || r.Upstream != analysis || r.Auth != routes.Required || r.SignIn || r.Timeout != routes.AnalysisTimeout {
+			t.Errorf("%s: got %+v (found %v)", path, r, ok)
+		}
+	}
+	// A player's games and imports: always theirs, so always a token.
+	for _, path := range []string{"/v1/games", "/v1/games/0190e0c4-0000-7000-8000-000000000000", "/v1/imports", "/v1/imports/x",
+		"/v1/explorer", "/v1/explorer/games/masters/abcdEFGH"} {
+		r, ok := table.Match(path)
+		if !ok || r.Upstream != games || r.Auth != routes.Required || r.SignIn {
 			t.Errorf("%s: got %+v (found %v)", path, r, ok)
 		}
 	}

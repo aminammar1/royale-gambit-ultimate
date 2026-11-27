@@ -106,7 +106,7 @@ func guarded(t *testing.T, jwks *jwksServer, up *upstream) *httptest.Server {
 		{Prefix: "/v1/profile", Upstream: u, Auth: routes.Required},
 	}
 	// The analysis route exactly as the real table has it.
-	for _, r := range routes.Build(routes.Upstreams{AuthProfile: u, Analysis: u}) {
+	for _, r := range routes.Build(routes.Upstreams{AuthProfile: u, Analysis: u, Games: u}) {
 		if r.Prefix == "/v1/analysis" {
 			table = append(table, r)
 		}

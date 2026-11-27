@@ -1,5 +1,9 @@
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
+import { explorer, games, type ExplorerDb, type TopGame } from "../../api";
+import { describeError, toApiError } from "../../api/problem";
+import { loadOpenings, openingAt, positionKey, type OpeningTable } from "../../chess/openings";
 import { useEdition } from "../../app/edition";
 import { editionDate } from "../../app/editionDate";
 import {
@@ -26,6 +30,7 @@ import { Kicker } from "../../ui/Kicker";
 import { Masthead } from "../../ui/Masthead";
 import { ThemedBoard, landingMs, type BoardArrow, type MoveGesture } from "../board/ThemedBoard";
 import { EngineColumn, linesOf } from "./EngineColumn";
+import { ExplorerPanel } from "./ExplorerPanel";
 import { ScoreSheet } from "./ScoreSheet";
 import { useServerAnalysis } from "./useServerAnalysis";
 
@@ -60,6 +65,20 @@ export function AnalysisPage() {
   const [promotion, setPromotion] = useState<{ from: string; to: string }>();
   const [setup, setSetup] = useState("");
   const [setupError, setSetupError] = useState<string>();
+  // The game opened from the Library (?game=<id>): its players and opening, for the dateline.
+  const [params] = useSearchParams();
+  const gameId = params.get("game");
+  const [filedAs, setFiledAs] = useState<string>();
+  const [tab, setTab] = useState<"engine" | "explorer">("engine");
+  // The opening table (CC0, lichess-org/chess-openings), loaded with the page, not the app.
+  const [openings, setOpenings] = useState<OpeningTable>();
+  useEffect(() => {
+    let live = true;
+    void loadOpenings().then((t) => live && setOpenings(t));
+    return () => {
+      live = false;
+    };
+  }, []);
   const [copied, setCopied] = useState<{ what: "FEN" | "PGN"; ok: boolean }>();
 
   const fen = fenAt(game, cursor);
@@ -182,20 +201,70 @@ export function AnalysisPage() {
     copied?.what === what ? (copied.ok ? "Copied" : "Copy failed") : `Copy ${what}`;
 
   /** A new game on the board: nothing picked, no promotion waiting, no old error. */
-  const replaceGame = (next: Game, at: number) => {
+  const replaceGame = (next: Game, at: number, title?: string) => {
     if (useSettings.getState().sounds) void playBoardSound("start");
     setGame(next);
     setCursor(at);
     setSelected(undefined);
     setPromotion(undefined);
     setSetupError(undefined);
+    setFiledAs(title);
   };
+
+  // A card from the Library: the game from the server, read by chess.js, from its first move.
+  useEffect(() => {
+    if (!gameId) return;
+    let live = true;
+    games
+      .get(gameId)
+      .then((g) => {
+        if (!live) return;
+        const result = load(g.pgn);
+        if (!result.ok) {
+          setSetupError(`This game could not be opened: ${result.error}`);
+          return;
+        }
+        replaceGame(result.game, 0, `${g.white} – ${g.black}${g.opening ? ` · ${g.opening}` : ""}`);
+      })
+      .catch((e: unknown) => live && setSetupError(`This game could not be opened: ${describeError(toApiError(e))}`));
+    return () => {
+      live = false;
+    };
+    // replaceGame only sets state; the game to open is the id.
+  }, [gameId]);
 
   /** Turning the engine back on searches afresh, never shows the last answer as if new. */
   const setEngine = (on: boolean) => {
     if (on && !engineOn) setAttempt((n) => n + 1);
     setEngineOn(on);
   };
+
+  /** A top game from the explorer, opened at the position being explored. */
+  const openTopGame = (db: ExplorerDb, g: TopGame) => {
+    const here = positionKey(fen);
+    explorer
+      .gamePgn(db, g.id)
+      .then((pgn) => {
+        const result = load(pgn);
+        if (!result.ok) {
+          setSetupError(`This game could not be opened: ${result.error}`);
+          return;
+        }
+        let at = 0;
+        for (let i = 0; i <= result.game.plies.length; i++) {
+          if (positionKey(fenAt(result.game, i)) === here) {
+            at = i;
+            break;
+          }
+        }
+        replaceGame(result.game, at, `${g.white.name} – ${g.black.name}${g.year ? ` · ${g.year}` : ""}`);
+      })
+      .catch((e: unknown) => setSetupError(`This game could not be opened: ${describeError(toApiError(e))}`));
+  };
+
+  // The opening and its variation at the move on show: the deepest named position up to it.
+  const opening = useMemo(() => (openings ? openingAt(game, cursor, openings) : undefined), [openings, game, cursor]);
+  const movesCount = game.plies.length > 0 ? `${Math.ceil(game.plies.length / 2)} moves` : undefined;
 
   const moveLabel = last ? `${moveNumberLabel(fenAt(game, cursor - 1))} ${last.san}` : "Start position";
   const engineName =
@@ -207,7 +276,12 @@ export function AnalysisPage() {
       <Masthead
         kicker="Analyze"
         title="Analysis"
-        dateline={[`${edition} edition`, editionDate(new Date()), `Server engine · ${engineName}`, moveLabel]}
+        dateline={[
+          `${edition} edition`,
+          editionDate(new Date()),
+          filedAs ?? `Server engine · ${engineName}`,
+          moveLabel,
+        ]}
         actions={
           <>
             <div className="flex items-center gap-3">
@@ -240,7 +314,23 @@ export function AnalysisPage() {
           aria-label="Moves"
           className="border-rule pr-5 [grid-area:moves] max-[1279px]:border-l max-[1279px]:pr-0 max-[1279px]:pl-6"
         >
-          <Kicker aside={game.plies.length > 0 ? `${Math.ceil(game.plies.length / 2)} moves` : undefined}>Moves</Kicker>
+          <Kicker aside={[opening?.eco, movesCount].filter(Boolean).join(" · ") || undefined}>Moves</Kicker>
+          {opening ? (
+            <div
+              className="mb-3 border-b border-rule pt-1 pb-3"
+              aria-live="polite"
+              aria-label={`Opening: ${opening.name}`}
+            >
+              <p className="font-masthead text-[length:var(--text-xl)] leading-tight font-bold text-ink">
+                {opening.family}
+              </p>
+              {opening.variation ? (
+                <p className="mt-0.5 font-body text-[length:var(--text-md)] leading-snug text-ink-2 italic">
+                  {opening.variation}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <ScoreSheet game={game} cursor={cursor} onGo={go} />
           <div className="mt-4 grid grid-cols-2 gap-2" aria-label="Export">
             <Button onClick={() => void copy("FEN")} title="The position on the board, to paste anywhere">
@@ -379,14 +469,38 @@ export function AnalysisPage() {
         </section>
 
         <aside className="pl-5 [grid-area:engine] max-[1279px]:border-l max-[1279px]:border-rule">
-          <EngineColumn
-            state={engine}
-            fen={fen}
-            over={over}
-            onRetry={() => setAttempt((n) => n + 1)}
-            onTurnOn={() => setEngine(true)}
-            onPlay={playLine}
-          />
+          {/* Engine and Explorer, as tabs (board explorer-panel.png); the engine keeps searching either way. */}
+          <div role="tablist" aria-label="Engine or explorer" className="mb-4 flex gap-6 border-b border-rule">
+            {(
+              [
+                ["engine", "Engine"],
+                ["explorer", "Explorer"],
+              ] as const
+            ).map(([value, name]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={tab === value}
+                onClick={() => setTab(value)}
+                className={`label -mb-px border-b-2 pb-2 ${tab === value ? "border-ink text-ink" : "border-transparent text-ink-2 hover:text-ink"}`}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+          {tab === "engine" ? (
+            <EngineColumn
+              state={engine}
+              fen={fen}
+              over={over}
+              onRetry={() => setAttempt((n) => n + 1)}
+              onTurnOn={() => setEngine(true)}
+              onPlay={playLine}
+            />
+          ) : (
+            <ExplorerPanel fen={fen} onPlay={(uci) => playLine([uci])} onOpenGame={openTopGame} />
+          )}
         </aside>
       </div>
     </>

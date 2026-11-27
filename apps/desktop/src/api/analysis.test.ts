@@ -21,7 +21,12 @@ async function collect(body: ReadableStream<Uint8Array>) {
 describe("readEvents", () => {
   it("reads events split anywhere, skips comments, joins data lines, takes CRLF", async () => {
     const events = await collect(
-      streamOf(": searching\n\nevent: in", "fo\ndata: {\"a\"", ":1}\n\n", "event: result\r\ndata: one\r\ndata: two\r\n\r\n"),
+      streamOf(
+        ": searching\n\nevent: in",
+        'fo\ndata: {"a"',
+        ":1}\n\n",
+        "event: result\r\ndata: one\r\ndata: two\r\n\r\n",
+      ),
     );
     expect(events).toEqual([
       { event: "info", data: '{"a":1}' },
@@ -91,7 +96,11 @@ describe("analyse", () => {
     const { c } = client(fetch);
     await c.analyse({ fen: "f" });
     await c.analyse({ fen: "f" });
-    expect(calls).toEqual(["http://gw/v1/auth/guest", "http://gw/v1/analysis/positions", "http://gw/v1/analysis/positions"]);
+    expect(calls).toEqual([
+      "http://gw/v1/auth/guest",
+      "http://gw/v1/analysis/positions",
+      "http://gw/v1/analysis/positions",
+    ]);
   });
 
   it("renews once on 401: the session through the core, a guest with a new guest token", async () => {
@@ -114,8 +123,12 @@ describe("analyse", () => {
       json(503, { type: "https://royale-gambit.dev/problems/engine-busy", title: "Engines busy", status: 503 }),
     ).c;
     await expect(busy.analyse({ fen: "f" })).rejects.toMatchObject({ kind: "problem", problemType: "engine-busy" });
-    const mid = client(async () =>
-      sse(["info", line], ["error", { type: "https://royale-gambit.dev/problems/engine-unavailable", title: "x", status: 503 }]),
+    const mid = client(
+      async () =>
+        sse(
+          ["info", line],
+          ["error", { type: "https://royale-gambit.dev/problems/engine-unavailable", title: "x", status: 503 }],
+        ),
       "s",
     ).c;
     await expect(mid.analyse({ fen: "f" })).rejects.toMatchObject({ problemType: "engine-unavailable" });
@@ -134,5 +147,26 @@ describe("analyse", () => {
       throw new DOMException("aborted", "AbortError");
     }, "s").c;
     await expect(cancelled.analyse({ fen: "f" }, { signal: abort.signal })).rejects.toEqual({ kind: "cancelled" });
+  });
+});
+
+describe("get, for what a guest may read too (the explorer)", () => {
+  it("asks with a guest token without an account, and with a new one after a 401", async () => {
+    let guests = 0;
+    const fetch = vi.fn(async (url: string, init: RequestInit) => {
+      if (url.endsWith("/v1/auth/guest")) return json(200, { access_token: `g${++guests}`, expires_in: 900 });
+      if (auth(init) === "Bearer g1") return json(401, { type: "about:blank", title: "Unauthorized", status: 401 });
+      return json(200, { ok: auth(init) });
+    });
+    const { c } = client(fetch);
+    await expect(c.get("/v1/explorer?db=masters")).resolves.toEqual({ ok: "Bearer g2" });
+  });
+
+  it("turns a refusal into the problem", async () => {
+    const fetch = vi.fn(async () =>
+      json(403, { type: "https://x/problems/lichess-needed", title: "Lichess sign-in needed", status: 403 }),
+    );
+    const { c } = client(fetch, "session");
+    await expect(c.get("/v1/explorer?db=lichess")).rejects.toMatchObject({ problemType: "lichess-needed" });
   });
 });

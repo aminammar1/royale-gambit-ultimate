@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://royale-gambit.dev/contracts/events/game.saved.schema.json",
+  "title": "game.saved",
+  "description": "`data` of the event games publishes for every game added to a player's library, from PGN or by an import. A duplicate is not saved again and produces no event. Consumers fetch the PGN from games if they need it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["game_id", "user_id", "source", "saved_at"],
+  "properties": {
+    "game_id": { "type": "string", "format": "uuid" },
+    "user_id": { "type": "string", "format": "uuid", "description": "The owner, the JWT `sub`" },
+    "source": { "type": "string", "enum": ["lichess", "chesscom", "pgn"] },
+    "import_job_id": { "type": ["string", "null"], "format": "uuid", "description": "The import that brought it, if any" },
+    "saved_at": { "type": "string", "format": "date-time" }
+  }
+}

@@ -110,10 +110,14 @@ Shown on the boards but in no milestone yet: "Train on puzzles from these mistak
 - PGN file import in the client.
 **Accept:** import 100+ games for a real username on both sites; re-import adds nothing; rate-limit and malformed-PGN tests; progress over SSE.
 
+*Pulled forward (2026-11-28, Amine's order: M8, M9, then M12 with the rest of M11):* the `games` service, built as specified and accepted: 300 of DrNykterstein's games from Lichess and 300 of Hikaru's from Chess.com through the gateway, and a second import saved 0. Amine's choices: imports cap at 2,000 games a username; the User-Agent names the project's GitHub page, never a person's email. Left for later: consuming `review.completed` (M5, when `review` exists); the PGN file import in the client comes with the Library page (M9).
+
 ## M9: Library page ("card catalogue")
 - Client sync of local games through the outbox; search by player, opening, result, date, source; filters and sort; virtualized list; "review all unreviewed"; per-player stats (openings, win/draw/loss by color, common mistakes).
 **Accept:** a 10k-game fixture searches in under 200 ms server-side; offline shows local games only; screenshots in both editions.
 
+
+*Pulled forward (2026-11-28), with M8:* the Library page as specified, on the `games` service: search by player, opening and words, result and dates, paged cards (thirty at a time, more on scroll), the player's record (`GET /v1/games/stats`), imports followed live and PGN files, a card opening in Analysis. Accepted: a 10,000-game library searches in under 200 ms (a test seeds it); screenshots in both editions with 2,000 real games. My choice, to confirm with Amine: the archive needs an account (a guest's identity is new each session). Left for later: "review all unreviewed" and common mistakes per player (need M5 `review`); a guest's local games and their sync through the outbox (need local games, M1).
 ---
 
 # v1.2: Bots
@@ -135,6 +139,8 @@ Shown on the boards but in no milestone yet: "Train on puzzles from these mistak
 - `games` explorer stats (Lichess database + user games, key = EPD, Redis cache). Explorer panel with three sections: engine best move, top 3 lines (local engine), most played moves (printed opening table with White/draw/Black bars); click a move to play it.
 **Accept:** panel works at the start and a mid-game position; p95 under 300 ms on a load test; offline shows cached data with a clear label; never blocks the board or engine.
 
+
+*Pulled forward (2026-11-28), with M8 and M9:* the explorer on lichess's opening explorer through `games` (ADR-19): masters for anyone, lichess's database with the player's own Lichess token from `auth-profile`'s internal route (the desktop Lichess sign-in, built earlier, offered from the panel). Explorer tab per `explorer-panel.png`, Redis cache by position, offline copy labelled. Left: the player's own games as a third database (`position_stats`), and the masters database and famous games Amine asked to plan next.
 ---
 
 # v1.4: Lessons

@@ -28,6 +28,7 @@ The token is forwarded unchanged, and the service verifies it again. Redis check
 | `PORT` | `8080` | |
 | `UPSTREAM_AUTH_PROFILE_URL` | (required) | `http://auth-profile:8081` |
 | `UPSTREAM_ANALYSIS_URL` | (required) | `http://analysis:8084`; its routes may take 30 s to start answering |
+| `UPSTREAM_GAMES_URL` | (required) | `http://games:8085`; `/v1/games`, `/v1/imports` and `/v1/explorer`, a token always |
 | `JWKS_URL` | (required) | auth-profile's `/.well-known/jwks.json` |
 | `JWT_ISSUER` | `royale-gambit` | |
 | `REDIS_URL` | (required) | rate-limit counters; if Redis is down, requests pass with a warning |

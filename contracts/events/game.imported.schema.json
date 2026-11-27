@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://royale-gambit.dev/contracts/events/game.imported.schema.json",
+  "title": "game.imported",
+  "description": "`data` of the event games publishes once an import job ends, done or failed: how many games it read and saved. Each saved game also has its own game.saved.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["job_id", "user_id", "site", "username", "status", "fetched", "saved", "duplicates", "finished_at"],
+  "properties": {
+    "job_id": { "type": "string", "format": "uuid" },
+    "user_id": { "type": "string", "format": "uuid" },
+    "site": { "type": "string", "enum": ["lichess", "chesscom"] },
+    "username": { "type": "string" },
+    "status": { "type": "string", "enum": ["done", "failed"] },
+    "fetched": { "type": "integer", "minimum": 0 },
+    "saved": { "type": "integer", "minimum": 0 },
+    "duplicates": { "type": "integer", "minimum": 0 },
+    "finished_at": { "type": "string", "format": "date-time" }
+  }
+}

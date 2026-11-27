@@ -137,3 +137,44 @@ describe("put", () => {
     expect(seen[1]).toMatchObject({ method: "PUT", body: '{"username":"tal"}', type: "application/json" });
   });
 });
+
+describe("post", () => {
+  it("sends the body as JSON with the token, and renews once on a 401", async () => {
+    const { fetch, calls } = fakeFetch([unauthorized(), json({ id: "j1" }, 202)]);
+    const { api, refresh } = client(fetch, "old");
+    await expect(api.post("/v1/imports", { site: "lichess" })).resolves.toEqual({ id: "j1" });
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(calls.map((c) => c.authorization)).toEqual(["Bearer old", "Bearer fresh"]);
+    const init = fetch.mock.calls[1][1];
+    expect(init?.method).toBe("POST");
+    expect(init?.body).toBe('{"site":"lichess"}');
+  });
+});
+
+describe("stream", () => {
+  const sse = (text: string) => new Response(text, { headers: { "content-type": "text/event-stream" } });
+
+  it("yields the server's events, asking for an event stream with the token", async () => {
+    const { fetch, calls } = fakeFetch([
+      sse('event: progress\ndata: {"n":1}\n\n: quiet\n\nevent: done\ndata: {"n":2}\n\n'),
+    ]);
+    const { api } = client(fetch, "t1");
+    const seen = [];
+    for await (const e of api.stream("/v1/imports/j1")) seen.push(e);
+    expect(seen).toEqual([
+      { event: "progress", data: '{"n":1}' },
+      { event: "done", data: '{"n":2}' },
+    ]);
+    expect(calls[0].authorization).toBe("Bearer t1");
+    expect(new Headers(fetch.mock.calls[0][1]?.headers).get("accept")).toBe("text/event-stream");
+  });
+
+  it("throws the problem when the stream is refused", async () => {
+    const { fetch } = fakeFetch([json({ type: "https://x/problems/not-found", title: "Not Found", status: 404 }, 404)]);
+    const { api } = client(fetch, "t1");
+    const run = async () => {
+      for await (const e of api.stream("/v1/imports/nope")) void e;
+    };
+    await expect(run()).rejects.toMatchObject({ kind: "problem", status: 404 });
+  });
+});

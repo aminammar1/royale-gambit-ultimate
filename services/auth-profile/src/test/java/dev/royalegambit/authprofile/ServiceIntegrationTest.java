@@ -21,7 +21,9 @@ import org.springframework.context.annotation.Import;
 		properties = { "spring.flyway.enabled=true", "auth.jwt.ephemeral-key=true",
 				// Tests run the relay by hand, so a timer never races them for
 				// outbox rows.
-				"auth.outbox.poll=PT1H" })
+				"auth.outbox.poll=PT1H",
+				// The secret other services send to /internal routes.
+				"auth.internal.token=test-internal-secret" })
 // Spring tests turn metric export off by default; the contract needs /metrics.
 @AutoConfigureMetrics
 public @interface ServiceIntegrationTest {

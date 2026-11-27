@@ -49,6 +49,19 @@ class Accounts {
 	}
 
 	/** Call inside a transaction: the user and its first identity are saved together. */
+	/** The token this user's identity with provider keeps, if it has one. */
+	Optional<ProviderToken> tokenOf(UUID userId, Provider provider) {
+		return this.jdbc.sql("""
+				SELECT access_token, access_token_expires_at FROM identities
+				WHERE user_id = :user AND provider = :provider AND access_token IS NOT NULL
+				""")
+			.param("user", userId)
+			.param("provider", provider.id())
+			.query((rs, n) -> new ProviderToken(rs.getString(1),
+					(rs.getTimestamp(2) != null) ? rs.getTimestamp(2).toInstant() : null))
+			.optional();
+	}
+
 	UUID createWith(ProviderUser who, ProviderToken token) {
 		UUID id = create(Role.USER);
 		link(id, who, token);
