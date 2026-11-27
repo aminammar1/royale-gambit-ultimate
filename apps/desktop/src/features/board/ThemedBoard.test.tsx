@@ -129,8 +129,13 @@ describe("the board", () => {
     const { container } = render(
       <ThemedBoard fen={START_FEN} orientation="white" onMove={() => false} onPick={() => {}} label="Board" />,
     );
-    const right = (kind: "pointerDown" | "pointerMove" | "pointerUp", square: string) =>
-      fireEvent[kind](board(), { ...at(square), button: 2, pointerId: 2 });
+    // Mouse events, as WebKit (the Tauri window) sends them for the right button.
+    const right = (kind: "pointerDown" | "pointerMove" | "pointerUp", square: string) => {
+      const event = { pointerDown: "mouseDown", pointerMove: "mouseMove", pointerUp: "mouseUp" } as const;
+      act(
+        () => void fireEvent[event[kind]](board(), { ...at(square), button: 2, buttons: kind === "pointerUp" ? 0 : 2 }),
+      );
+    };
     const arrows = () => container.querySelectorAll("[data-drawings] polyline").length;
     right("pointerDown", "g1");
     right("pointerMove", "f3");
@@ -148,5 +153,37 @@ describe("the board", () => {
     expect(marked()).toEqual(["e4"]);
     down("a3");
     expect(marked()).toEqual([]);
+  });
+
+  it("draws even when WebKit swallows the release after its context menu", () => {
+    const { container } = render(
+      <ThemedBoard fen={START_FEN} orientation="white" onMove={() => false} onPick={() => {}} label="Board" />,
+    );
+    act(() => void fireEvent.mouseDown(board(), { ...at("e2"), button: 2, buttons: 2 }));
+    act(() => void fireEvent.contextMenu(board(), { ...at("e2"), button: 2, buttons: 2 }));
+    act(() => void fireEvent.mouseMove(board(), { ...at("e3"), buttons: 2 }));
+    // No mouseup ever comes: the next move with no button held ends the arrow where it is.
+    act(() => void fireEvent.mouseMove(board(), { ...at("e4"), buttons: 0 }));
+    expect(container.querySelectorAll("[data-drawings] polyline").length).toBe(2);
+  });
+
+  it("draws when only the context-menu event arrives for the right press", () => {
+    const { container } = render(
+      <ThemedBoard fen={START_FEN} orientation="white" onMove={() => false} onPick={() => {}} label="Board" />,
+    );
+    act(() => void fireEvent.contextMenu(board(), { ...at("c4"), button: 2, buttons: 2 }));
+    act(() => void fireEvent.mouseUp(board(), { ...at("c4"), button: 2, buttons: 0 }));
+    expect([...container.querySelectorAll("[data-marked]")].map((e) => e.getAttribute("data-square"))).toEqual(["c4"]);
+  });
+
+  it("a context menu right after a drawing (Windows sends it on release) draws nothing more", () => {
+    const { container } = render(
+      <ThemedBoard fen={START_FEN} orientation="white" onMove={() => false} onPick={() => {}} label="Board" />,
+    );
+    act(() => void fireEvent.mouseDown(board(), { ...at("c4"), button: 2, buttons: 2 }));
+    act(() => void fireEvent.mouseUp(board(), { ...at("c4"), button: 2, buttons: 0 }));
+    act(() => void fireEvent.contextMenu(board(), { ...at("c4"), button: 2, buttons: 0 }));
+    act(() => void fireEvent.mouseMove(board(), { ...at("c5"), buttons: 0 }));
+    expect([...container.querySelectorAll("[data-marked]")].map((e) => e.getAttribute("data-square"))).toEqual(["c4"]);
   });
 });

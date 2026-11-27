@@ -1,5 +1,14 @@
 import { useReducedMotion } from "motion/react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent,
+} from "react";
 import { primeBoardSounds } from "../../audio/boardSounds";
 import { placement } from "../../chess/game";
 import { GLIDE_MS, useSettings, type BoardDisplay, type HighlightColour } from "../../db/settings";
@@ -24,6 +33,18 @@ export const landingMs = (): number =>
   reducedMotion() ? 0 : Math.round(GLIDE_MS[useSettings.getState().pieceSpeed] * 0.75);
 // Pixels the pointer travels before a press becomes a drag.
 const DRAG_START_PX = 4;
+// A context menu this soon after a drawing ends is that drawing's own (Windows sends it on release).
+const AFTER_DRAWING_MS = 400;
+
+/** Pointer capture, where the engine grants it: WebKit can refuse it, and the board copes without. */
+function capture(el: Element, pointerId: number, on: boolean) {
+  try {
+    if (on) el.setPointerCapture?.(pointerId);
+    else el.releasePointerCapture?.(pointerId);
+  } catch {
+    // Not captured: moves outside the board are simply not seen.
+  }
+}
 
 type Props = {
   fen: string;
@@ -170,8 +191,9 @@ export function ThemedBoard({
   const pointer = useRef({ x: 0, y: 0, startX: 0, startY: 0, size: 1, wasSelected: false });
   const [drag, setDrag] = useState<Drag>();
   const [hover, setHover] = useState<string>();
-  // Where a right-button arrow started, while the button is held.
+  // Where a right-button arrow started, while the button is held (the ref for the window listeners).
   const [drawFrom, setDrawFrom] = useState<string>();
+  const drawEndedAt = useRef(0);
 
   useEffect(() => {
     if (interactive) primeBoardSounds();
@@ -188,29 +210,57 @@ export function ThemedBoard({
     if (drag?.moved) placeFloat();
   }, [drag?.moved]);
 
-  const local = (event: PointerEvent) => {
+  const local = (event: { clientX: number; clientY: number }) => {
     const rect = boardRef.current?.getBoundingClientRect();
     const x = event.clientX - (rect?.left ?? 0);
     const y = event.clientY - (rect?.top ?? 0);
     const size = rect?.width || 1;
     return { x, y, size, square: squareAt(x, y, size, orientation) };
   };
+
+  // The right button draws. Mouse events, not pointer events, and the end is watched on the
+  // window: WebKit (the Tauri window) opens its context menu on the press, may send no pointer
+  // events for the right button, and may never send the release; so a press is also read from
+  // the context-menu event, and a move with no button held ends the drawing where it is.
+  const startDrawing = (event: ReactMouseEvent) => {
+    if (!interactive) return;
+    const { square } = local(event);
+    if (!square) return;
+    onPick?.(undefined);
+    setDrawFrom(square);
+  };
+  useEffect(() => {
+    if (!drawFrom) return;
+    const finish = (event: MouseEvent) => {
+      const to = local(event).square;
+      drawEndedAt.current = performance.now();
+      setDrawFrom(undefined);
+      if (to) setView((v) => ({ ...v, drawings: toggleDrawing(v.drawings, { from: drawFrom, to }) }));
+    };
+    const onMove = (event: MouseEvent) => {
+      if ((event.buttons & 2) === 0) finish(event);
+      else setHover(local(event).square);
+    };
+    const onUp = (event: MouseEvent) => {
+      if (event.button === 2) finish(event);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    // `local` reads the board's box and orientation when the event comes; a new drawing re-binds.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawFrom]);
   const pieceOn = (square: string | undefined) => view.placed.find((p) => p.square === square)?.piece;
   const isTarget = (square: string | undefined) => targets.some((t) => t.square === square);
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (!interactive) return;
-    const { x, y, size, square } = local(event);
-    if (event.button === 2) {
-      // The right button draws: an arrow to where it is let go, or a circle on this square.
-      onPick?.(undefined);
-      if (square) {
-        event.currentTarget.setPointerCapture?.(event.pointerId);
-        setDrawFrom(square);
-      }
-      return;
-    }
+    // The right button draws (onMouseDown below); only the left one picks and plays.
     if (event.button !== 0) return;
+    const { x, y, size, square } = local(event);
     // A left press wipes the drawings, as on chess sites.
     if (view.drawings.length > 0) setView((v) => ({ ...v, drawings: [] }));
     if (!square) return;
@@ -223,7 +273,7 @@ export function ThemedBoard({
       onPick?.(undefined);
       return;
     }
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+    capture(event.currentTarget, event.pointerId, true);
     pointer.current = { x, y, startX: x, startY: y, size, wasSelected: selected === square };
     setDrag({ from: square, piece, moved: false });
     if (selected !== square) onPick?.(square);
@@ -242,15 +292,8 @@ export function ThemedBoard({
   };
 
   const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
-    if (drawFrom) {
-      event.currentTarget.releasePointerCapture?.(event.pointerId);
-      const to = local(event).square;
-      setDrawFrom(undefined);
-      if (to) setView((v) => ({ ...v, drawings: toggleDrawing(v.drawings, { from: drawFrom, to }) }));
-      return;
-    }
     if (!drag) return;
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    capture(event.currentTarget, event.pointerId, false);
     const { square } = local(event);
     setDrag(undefined);
     if (!drag.moved) {
@@ -341,12 +384,16 @@ export function ThemedBoard({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={() => {
-          setDrag(undefined);
-          setDrawFrom(undefined);
+        onPointerCancel={() => setDrag(undefined)}
+        onMouseDown={(event) => {
+          if (event.button === 2) startDrawing(event);
         }}
         onPointerLeave={() => setHover(undefined)}
-        onContextMenu={(event) => event.preventDefault()}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          // WebKit may send only this for a right press; Windows sends it after the release.
+          if (!drawFrom && performance.now() - drawEndedAt.current > AFTER_DRAWING_MS) startDrawing(event);
+        }}
       >
         <div className="grid size-full grid-cols-8 grid-rows-8">
           {cells.map(({ col, row, square }) => (
