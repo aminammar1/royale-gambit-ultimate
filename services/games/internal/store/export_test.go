@@ -30,3 +30,15 @@ func (s *Store) Seed(ctx context.Context, owner uuid.UUID, n int) error {
 		FROM generate_series(1, $2) AS i`, owner, n)
 	return err
 }
+
+// Unindex forgets that owner's games were indexed, as games saved before the index existed.
+func (s *Store) Unindex(ctx context.Context, owner uuid.UUID) error {
+	if _, err := s.pool.Exec(ctx, `DELETE FROM position_moves WHERE owner_id = $1`, owner); err != nil {
+		return err
+	}
+	if _, err := s.pool.Exec(ctx, `DELETE FROM game_positions WHERE owner_id = $1`, owner); err != nil {
+		return err
+	}
+	_, err := s.pool.Exec(ctx, `UPDATE games SET indexed = false WHERE owner_id = $1`, owner)
+	return err
+}

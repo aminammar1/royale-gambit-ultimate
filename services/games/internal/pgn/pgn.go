@@ -38,10 +38,24 @@ type Game struct {
 	PlyCount    int
 	// FirstMoves is the first three moves of each side in SAN, numbered, for an index card.
 	FirstMoves string
+	// Steps are the first IndexedPlies moves with the position each was played from, for the
+	// player's own explorer.
+	Steps []Step
 	// Hash names the game across saves: the site's own id when it has one (so the same game
 	// linked from either side is one game), else the players, the day and the moves.
 	Hash string
 }
+
+// Step is one move and the position it was played from (an opening-table key: board, side to
+// move, castling, en passant when a capture is legal).
+type Step struct {
+	Position string
+	UCI      string
+	SAN      string
+}
+
+// IndexedPlies is how deep a game is indexed for "My games": the opening, not the whole game.
+const IndexedPlies = 30
 
 // Parsed is one game of a PGN text: the game, or why it was refused. Index counts from 0.
 type Parsed struct {
@@ -305,10 +319,17 @@ func parse(scanned *chess.GameScanned) (*Game, error) {
 	var san []string
 	var uci []string
 	for i, m := range moves {
-		if i < firstPlies && i < len(positions) {
-			san = append(san, chess.AlgebraicNotation{}.Encode(positions[i], m))
+		u := chess.UCINotation{}.Encode(nil, m)
+		if i < len(positions) && (i < firstPlies || i < IndexedPlies) {
+			s := chess.AlgebraicNotation{}.Encode(positions[i], m)
+			if i < firstPlies {
+				san = append(san, s)
+			}
+			if i < IndexedPlies {
+				g.Steps = append(g.Steps, Step{Position: epd(positions[i]), UCI: u, SAN: s})
+			}
 		}
-		uci = append(uci, chess.UCINotation{}.Encode(nil, m))
+		uci = append(uci, u)
 	}
 	g.FirstMoves = numbered(san, positions)
 
@@ -424,6 +445,43 @@ func StandardCastling(fen, uci string) string {
 	return from + "c" + rank
 }
 
+// OpeningOf names a position key (board, side to move, castling, en passant), when the
+// opening table does.
+func OpeningOf(position string) (eco, name string, ok bool) {
+	o, ok := openings()[position]
+	return o.code, o.title, ok
+}
+
+// possibleCastling keeps only the castling rights the board can have: the king and that rook on
+// their home squares (the rule chess.js applies on the desktop). The library keeps a set-up FEN's
+// rights as written.
+func possibleCastling(p *chess.Position, rights string) string {
+	board := map[string]chess.Piece{}
+	for sq, pc := range p.Board().SquareMap() {
+		board[sq.String()] = pc
+	}
+	has := func(sq string, want chess.Piece) bool { return board[sq] == want }
+	keep := ""
+	for _, r := range []struct {
+		flag           string
+		king, rook     string
+		kingPc, rookPc chess.Piece
+	}{
+		{"K", "e1", "h1", chess.WhiteKing, chess.WhiteRook},
+		{"Q", "e1", "a1", chess.WhiteKing, chess.WhiteRook},
+		{"k", "e8", "h8", chess.BlackKing, chess.BlackRook},
+		{"q", "e8", "a8", chess.BlackKing, chess.BlackRook},
+	} {
+		if strings.Contains(rights, r.flag) && has(r.king, r.kingPc) && has(r.rook, r.rookPc) {
+			keep += r.flag
+		}
+	}
+	if keep == "" {
+		return "-"
+	}
+	return keep
+}
+
 // PositionKey checks fen with the chess library and gives the position back as a FEN with
 // neutral counters ("... 0 1") and an en passant square only when a capture is legal: the same
 // position reached by any move order has the same key (the explorer's cache key).
@@ -455,6 +513,7 @@ func epd(p *chess.Position) string {
 	if len(f) < 4 {
 		return strings.Join(f, " ")
 	}
+	f[2] = possibleCastling(p, f[2])
 	if f[3] != "-" {
 		legal := false
 		for _, m := range p.ValidMoves() {

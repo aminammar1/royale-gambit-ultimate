@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { explorer, type Explorer, type ExplorerDb, type TopGame } from "../../api";
-import { auth } from "../../api/auth/session";
+import { Link } from "react-router";
+import { auth, useSession } from "../../api/auth/session";
 import { describeError, toApiError, type ApiError } from "../../api/problem";
 import { Kicker } from "../../ui/Kicker";
 import { compactCount, gameResult, shares } from "./explorerFormat";
@@ -8,7 +9,9 @@ import { compactCount, gameResult, shares } from "./explorerFormat";
 const DBS: readonly [ExplorerDb, string][] = [
   ["masters", "Masters"],
   ["lichess", "Lichess"],
+  ["mine", "My games"],
 ];
+const DB_NAMES: Record<ExplorerDb, string> = { masters: "Masters", lichess: "Lichess", mine: "My games" };
 
 /** Answers already seen, by database and position: shown, labelled, when the server is out of reach. */
 const seen = new Map<string, Explorer>();
@@ -38,9 +41,13 @@ export function ExplorerPanel({
   const [attempt, setAttempt] = useState(0);
   const [answer, setAnswer] = useState<Answer>();
   const [signingIn, setSigningIn] = useState(false);
+  // A guest's games are no archive: "My games" needs an account (the Library's rule).
+  const signedIn = useSession((st) => st.status === "signedIn");
+  const needsAccount = db === "mine" && !signedIn;
   const key = `${db}|${fen}`;
 
   useEffect(() => {
+    if (needsAccount) return;
     const stop = new AbortController();
     // A short wait, so stepping through moves asks only where the player stops.
     const wait = setTimeout(() => {
@@ -59,7 +66,7 @@ export function ExplorerPanel({
       clearTimeout(wait);
       stop.abort();
     };
-  }, [db, fen, key, attempt]);
+  }, [db, fen, key, attempt, needsAccount]);
 
   const current = answer?.key === key ? answer : undefined;
   const loading = !current;
@@ -99,11 +106,24 @@ export function ExplorerPanel({
 
       <div className="mt-6">
         <Kicker aside={shown && total > 0 ? `${compactCount(total)} games` : undefined}>
-          Most played here · {db === "masters" ? "Masters" : "Lichess"}
+          Most played here · {DB_NAMES[db]}
         </Kicker>
       </div>
 
-      {needsLichess ? (
+      {needsAccount ? (
+        <div className="mt-4 border border-ink p-4">
+          <p className="font-masthead text-[length:var(--text-lg)] font-bold">Your own games</p>
+          <p className="mt-2 font-body text-[length:var(--text-sm)] text-ink-2">
+            The moves you play, from the games in your archive. An archive is kept under an account.
+          </p>
+          <Link
+            to="/sign-in"
+            className="label mt-4 inline-block rounded-[var(--radius)] border border-ink px-4 py-2 text-ink hover:bg-ink hover:text-paper"
+          >
+            Sign in
+          </Link>
+        </div>
+      ) : needsLichess ? (
         <div className="mt-4 border border-ink p-4">
           <p className="font-masthead text-[length:var(--text-lg)] font-bold">Sign in with Lichess</p>
           <p className="mt-2 font-body text-[length:var(--text-sm)] text-ink-2">
@@ -141,13 +161,15 @@ export function ExplorerPanel({
         </p>
       ) : null}
 
-      {shown && !needsLichess ? (
+      {shown && !needsLichess && !needsAccount ? (
         // While the next answer loads, the last one is only a picture: its moves and games
         // belong to another position, so nothing in it can be clicked.
         <div inert={loading} className={loading ? "opacity-60 transition-opacity" : "transition-opacity"}>
           {shown.moves.length === 0 ? (
             <p className="mt-4 font-body text-[length:var(--text-sm)] text-ink-2 italic">
-              No game in this database reached this position.
+              {db === "mine"
+                ? "None of your games reached this position. Import yours in the Library."
+                : "No game in this database reached this position."}
             </p>
           ) : (
             <table className="mt-2 w-full">
@@ -238,7 +260,7 @@ export function ExplorerPanel({
             </>
           ) : null}
         </div>
-      ) : loading && !needsLichess ? (
+      ) : loading && !needsLichess && !needsAccount ? (
         <p className="mt-4 font-body text-[length:var(--text-sm)] text-ink-2">Reading the database…</p>
       ) : null}
     </section>

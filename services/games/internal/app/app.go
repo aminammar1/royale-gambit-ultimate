@@ -79,6 +79,7 @@ func New(opts Options) *gin.Engine {
 	v1.GET("/games/:id", s.getGame)
 	v1.GET("/explorer", s.explore)
 	v1.GET("/explorer/games/:db/:id", s.explorerGame)
+	v1.GET("/explorer/popular", s.popular)
 	v1.POST("/imports", s.startImport)
 	v1.GET("/imports/:id", s.getImport)
 
@@ -331,6 +332,15 @@ func (s *server) searchGames(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": games, "next_cursor": nextCursor})
 }
 
+// firstN is the n characters after marker in text, or "".
+func firstN(text, marker string, n int) string {
+	i := strings.Index(text, marker)
+	if i < 0 || i+len(marker)+n > len(text) {
+		return ""
+	}
+	return text[i+len(marker) : i+len(marker)+n]
+}
+
 // plainText is UTF-8 without NUL, which Postgres text cannot hold.
 func plainText(s string) bool { return utf8.ValidString(s) && !strings.ContainsRune(s, 0) }
 
@@ -382,8 +392,8 @@ func (s *server) explorerFailed(c *gin.Context, err error) {
 func (s *server) explore(c *gin.Context) {
 	q := c.Request.URL.Query()
 	db, fen := q.Get("db"), q.Get("fen")
-	if db != "masters" && db != "lichess" {
-		invalid(c, "db is masters or lichess")
+	if db != "masters" && db != "lichess" && db != "mine" {
+		invalid(c, "db is masters, lichess or mine")
 		return
 	}
 	if fen == "" || len(fen) > 100 || !plainText(fen) {
@@ -393,6 +403,10 @@ func (s *server) explore(c *gin.Context) {
 	key, err := pgn.PositionKey(fen)
 	if err != nil {
 		httpx.Abort(c, httpx.NewProblem(c, http.StatusBadRequest, "invalid-position", "Invalid position", err.Error()))
+		return
+	}
+	if db == "mine" {
+		s.myExplorer(c, key)
 		return
 	}
 	r, cached, err := s.Explorer.Explore(c.Request.Context(), db, key, owner(c))
@@ -406,6 +420,55 @@ func (s *server) explore(c *gin.Context) {
 	c.JSON(http.StatusOK, r)
 }
 
+// myExplorer answers the player's own games at the position (key from pgn.PositionKey).
+func (s *server) myExplorer(c *gin.Context, key string) {
+	position := strings.TrimSuffix(key, " 0 1")
+	m, err := s.Store.MyExplorer(c.Request.Context(), owner(c), position)
+	if err != nil {
+		s.internal(c, err)
+		return
+	}
+	r := explorer.Result{DB: "mine", White: m.White, Draws: m.Draws, Black: m.Black,
+		Moves: []explorer.Move{}, TopGames: []explorer.Game{}}
+	if eco, name, ok := pgn.OpeningOf(position); ok {
+		r.Opening = &explorer.Opening{ECO: eco, Name: name}
+	}
+	for _, mv := range m.Moves {
+		r.Moves = append(r.Moves, explorer.Move{UCI: mv.UCI, SAN: mv.SAN, White: mv.White, Draws: mv.Draws, Black: mv.Black})
+	}
+	for _, g := range m.Top {
+		var winner *string
+		switch g.Result {
+		case "1-0":
+			w := "white"
+			winner = &w
+		case "0-1":
+			b := "black"
+			winner = &b
+		}
+		var year *int
+		if g.PlayedAt != nil {
+			y := g.PlayedAt.Year()
+			year = &y
+		}
+		r.TopGames = append(r.TopGames, explorer.Game{ID: g.ID.String(), Winner: winner, Year: year, UCI: g.UCI,
+			White: explorer.Player{Name: g.White, Rating: g.WhiteElo}, Black: explorer.Player{Name: g.Black, Rating: g.BlackElo}})
+	}
+	c.JSON(http.StatusOK, r)
+}
+
+func (s *server) popular(c *gin.Context) {
+	items, err := s.Store.Popular(c.Request.Context(), 7)
+	if err != nil {
+		s.internal(c, err)
+		return
+	}
+	if items == nil {
+		items = []store.PopularGame{}
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
 func (s *server) explorerGame(c *gin.Context) {
 	db, id := c.Param("db"), c.Param("id")
 	if (db != "masters" && db != "lichess") || !lichessGameID.MatchString(id) {
@@ -416,6 +479,22 @@ func (s *server) explorerGame(c *gin.Context) {
 	if err != nil {
 		s.explorerFailed(c, err)
 		return
+	}
+	// Opened from the explorer: it counts toward the week's popular games.
+	if g, err := pgn.One(text); err == nil {
+		v := store.Viewed{DB: db, ID: id, White: g.White, Black: g.Black, Result: g.Result}
+		if g.PlayedAt != nil {
+			y := g.PlayedAt.Year()
+			v.Year = &y
+		} else if y, err := strconv.Atoi(firstN(g.Raw, "[Date \"", 4)); err == nil {
+			v.Year = &y
+		}
+		if g.Event != "" {
+			v.Event = &g.Event
+		}
+		if err := s.Store.RecordView(c.Request.Context(), owner(c), v); err != nil {
+			s.Log.WarnContext(c.Request.Context(), "recording a view", "error", err)
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{"pgn": text})
 }

@@ -435,3 +435,42 @@ func TestStandardCastling(t *testing.T) {
 		t.Errorf("e1a1 with Black to move: %s", got)
 	}
 }
+
+// The steps of a game's opening, for the player's own explorer ("My games").
+func TestTheFirstStepsAreIndexed(t *testing.T) {
+	g := one(t, fixture(t, "opera-game.pgn"))
+	if len(g.Steps) != 30 {
+		t.Fatalf("%d steps, want the first 30 of 33 plies", len(g.Steps))
+	}
+	first := g.Steps[0]
+	if first.Position != "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -" || first.UCI != "e2e4" || first.SAN != "e4" {
+		t.Fatalf("first step %+v", first)
+	}
+	// 12. O-O-O is ply 23, written in standard UCI.
+	if g.Steps[22].UCI != "e1c1" || g.Steps[22].SAN != "O-O-O" {
+		t.Fatalf("ply 23 %+v", g.Steps[22])
+	}
+	// After 1. e4 the en passant square is no part of the position (no capture can use it).
+	if g.Steps[1].Position != "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq -" {
+		t.Fatalf("after 1. e4: %q", g.Steps[1].Position)
+	}
+	if short := one(t, "[White \"a\"]\n[Black \"b\"]\n\n1. e4 e5 *\n"); len(short.Steps) != 2 {
+		t.Fatalf("a short game: %d steps", len(short.Steps))
+	}
+}
+
+// From the chess review: castling rights the board cannot have are no part of the position, as
+// chess.js reads them on the desktop.
+func TestImpossibleCastlingRightsAreDropped(t *testing.T) {
+	key, err := pgn.PositionKey("4k3/8/8/8/8/8/8/4K2R w KQkq - 0 1")
+	if err != nil || key != "4k3/8/8/8/8/8/8/4K2R w K - 0 1" {
+		t.Fatalf("%q %v", key, err)
+	}
+	g := one(t, "[FEN \"4k3/8/8/8/8/8/8/4K2R w KQkq - 0 1\"]\n[SetUp \"1\"]\n\n1. Kf2 Kf7 *\n")
+	if g.Steps[0].Position != "4k3/8/8/8/8/8/8/4K2R w K -" || g.Steps[1].Position != "4k3/8/8/8/8/8/5K2/7R b - -" {
+		t.Fatalf("steps %+v", g.Steps)
+	}
+	if full, _ := pgn.PositionKey("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1"); full != "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1" {
+		t.Fatalf("all four rights: %q", full)
+	}
+}

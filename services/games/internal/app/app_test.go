@@ -481,3 +481,41 @@ func TestExplorer(t *testing.T) {
 		t.Fatalf("missing game %d", code)
 	}
 }
+
+func TestMyGamesInTheExplorer(t *testing.T) {
+	me := uuid.Must(uuid.NewV7())
+	pgns := game("me", "a", "1-0", "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6") + "\n" + game("b", "me", "0-1", "1. e4 c5")
+	if code, _, _ := call(t, "POST", "/v1/games", me, map[string]string{"pgn": pgns}); code != 200 {
+		t.Fatal(code)
+	}
+	afterE4 := "rnbqkbnr%2Fpppppppp%2F8%2F8%2F4P3%2F8%2FPPPP1PPP%2FRNBQKBNR+b+KQkq+-+0+1"
+	code, body, _ := call(t, "GET", "/v1/explorer?db=mine&fen="+afterE4, me, nil)
+	if code != 200 || body["db"] != "mine" || body["white"] != float64(1) || body["black"] != float64(1) {
+		t.Fatalf("%d %v", code, body)
+	}
+	moves := body["moves"].([]any)
+	top := body["top_games"].([]any)
+	if len(moves) != 2 || len(top) != 2 {
+		t.Fatalf("moves %v top %v", moves, top)
+	}
+	// A top game of your own opens with GET /v1/games/{id}.
+	id := top[0].(map[string]any)["id"].(string)
+	if code, _, _ := call(t, "GET", "/v1/games/"+id, me, nil); code != 200 {
+		t.Fatalf("own top game %d", code)
+	}
+	if body["opening"].(map[string]any)["eco"] != "B00" {
+		t.Fatalf("opening %v", body["opening"])
+	}
+}
+
+func TestPopularThisWeek(t *testing.T) {
+	me := uuid.Must(uuid.NewV7())
+	if code, _, _ := call(t, "GET", "/v1/explorer/games/masters/abcdEFGH", me, nil); code != 200 {
+		t.Fatal(code)
+	}
+	code, body, _ := call(t, "GET", "/v1/explorer/popular", me, nil)
+	items := body["items"].([]any)
+	if code != 200 || len(items) == 0 || items[0].(map[string]any)["id"] != "abcdEFGH" {
+		t.Fatalf("%d %v", code, body)
+	}
+}
