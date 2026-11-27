@@ -1,42 +1,23 @@
-// Board sounds: a wooden piece set down, a capture, check, a castle. Recorded samples when the app
-// bundles them (src/assets/sounds/<kind>.ogg, credited there); otherwise a synthesised knock of
-// filtered noise and a short low thump. No two knocks are quite alike (pitch and loudness vary a
-// little, as a real piece never lands the same way twice), castling is two knocks, king then rook,
-// and a sound can wait for the piece to land. No React.
+// Board sounds: a piece set down, a capture, check, castling, a promotion and a new board, each
+// its own recording (src/assets/sounds/<kind>.ogg: CC0 recordings mastered warm by
+// sound-sources/master.sh, credited there); a synthesised knock when one is missing. No two
+// knocks are quite alike (pitch and loudness vary a little, as a real piece never lands the same
+// way twice), and a sound can wait for the piece to land. No React.
 
-export type BoardSound = "move" | "capture" | "check" | "castle" | "start";
-type Sample = "move" | "capture" | "start";
+export type BoardSound = "move" | "capture" | "check" | "castle" | "promote" | "start";
 /** One knock: which recording, when (seconds after the sound starts), its pitch and loudness. */
-export type Knock = { sample: Sample; at: number; rate: number; gain: number };
+export type Knock = { sample: BoardSound; at: number; rate: number; gain: number };
 
+const SAMPLES: readonly BoardSound[] = ["move", "capture", "check", "castle", "promote", "start"];
 const recorded = import.meta.glob<string>("../assets/sounds/*.{ogg,mp3,wav}", { eager: true, import: "default" });
-const sampleUrl = (sample: Sample) => Object.entries(recorded).find(([path]) => path.includes(`/${sample}.`))?.[1];
+const sampleUrl = (sample: BoardSound) => Object.entries(recorded).find(([path]) => path.includes(`/${sample}.`))?.[1];
 
 /**
- * The knocks of `kind`. `random` (0 to 1) spreads pitch by ±3% and loudness by ±8%; at 0.5 the
- * pitch is the recording's own.
+ * The knocks of `kind`: its recording, once. `random` (0 to 1) spreads pitch by ±2% and loudness
+ * by ±6%; at 0.5 both are the recording's own.
  */
 export function knocksFor(kind: BoardSound, random: () => number = Math.random): Knock[] {
-  const knock = (sample: Sample, at: number, gain: number, pitch = 1): Knock => ({
-    sample,
-    at,
-    rate: pitch * (1 + (random() - 0.5) * 0.06),
-    gain: gain * (1 + (random() - 0.5) * 0.16),
-  });
-  switch (kind) {
-    case "move":
-      return [knock("move", 0, 0.9)];
-    case "capture":
-      return [knock("capture", 0, 1)];
-    case "check":
-      // Set down firmly: a touch louder and lower than a plain move.
-      return [knock("move", 0, 1.08, 0.97)];
-    case "castle":
-      // The king first, then the rook beside it, a little lighter.
-      return [knock("move", 0, 0.9), knock("move", 0.11, 0.75, 1.05)];
-    case "start":
-      return [knock("start", 0, 0.9)];
-  }
+  return [{ sample: kind, at: 0, rate: 1 + (random() - 0.5) * 0.04, gain: 1 + (random() - 0.5) * 0.12 }];
 }
 
 let context: AudioContext | undefined;
@@ -65,7 +46,7 @@ function load(ctx: AudioContext, url: string): Promise<AudioBuffer | undefined> 
 export function primeBoardSounds(): void {
   const ctx = audio();
   if (!ctx) return;
-  for (const sample of ["move", "capture", "start"] as const) {
+  for (const sample of SAMPLES) {
     const url = sampleUrl(sample);
     if (url) void load(ctx, url);
   }
@@ -134,9 +115,10 @@ export async function playBoardSound(kind: BoardSound, afterMs = 0): Promise<voi
   });
 }
 
-/** Which sound a move makes, from its SAN: check wins, then capture, then castle. */
+/** Which sound a move makes, from its SAN: check wins, then promotion, capture, castle. */
 export function soundFor(san: string): BoardSound {
   if (san.includes("+") || san.includes("#")) return "check";
+  if (san.includes("=")) return "promote";
   if (san.includes("x")) return "capture";
   if (san.startsWith("O-O")) return "castle";
   return "move";
