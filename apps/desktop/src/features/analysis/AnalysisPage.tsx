@@ -68,6 +68,8 @@ export function AnalysisPage() {
   // The game opened from the Library (?game=<id>): its players and opening, for the dateline.
   const [params] = useSearchParams();
   const gameId = params.get("game");
+  // A top game from the explorer (?top=masters:<id>), as the Library's popular games link to.
+  const top = params.get("top");
   const [filedAs, setFiledAs] = useState<string>();
   const [tab, setTab] = useState<"engine" | "explorer">("engine");
   // The opening table (CC0, lichess-org/chess-openings), loaded with the page, not the app.
@@ -232,6 +234,28 @@ export function AnalysisPage() {
     };
     // replaceGame only sets state; the game to open is the id.
   }, [gameId]);
+
+  useEffect(() => {
+    const [db, id] = (top ?? "").split(":");
+    if ((db !== "masters" && db !== "lichess") || !id) return;
+    let live = true;
+    explorer
+      .gamePgn(db, id)
+      .then((pgn) => {
+        if (!live) return;
+        const result = load(pgn);
+        if (!result.ok) {
+          setSetupError(`This game could not be opened: ${result.error}`);
+          return;
+        }
+        const h = result.game.headers;
+        replaceGame(result.game, 0, h.White && h.Black ? `${h.White} – ${h.Black}` : undefined);
+      })
+      .catch((e: unknown) => live && setSetupError(`This game could not be opened: ${describeError(toApiError(e))}`));
+    return () => {
+      live = false;
+    };
+  }, [top]);
 
   /** Turning the engine back on searches afresh, never shows the last answer as if new. */
   const setEngine = (on: boolean) => {

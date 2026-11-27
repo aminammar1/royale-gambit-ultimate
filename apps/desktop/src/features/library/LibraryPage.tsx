@@ -1,7 +1,16 @@
 import { Search as SearchIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Link, useNavigate } from "react-router";
-import { games, type GameSummary, type ImportJob, type PlayerStats, type Search, type Site } from "../../api";
+import {
+  explorer,
+  games,
+  type GameSummary,
+  type ImportJob,
+  type PlayerStats,
+  type PopularGame,
+  type Search,
+  type Site,
+} from "../../api";
 import { useSession } from "../../api/auth/session";
 import { toApiError, type ApiError } from "../../api/problem";
 import { useEdition } from "../../app/edition";
@@ -295,6 +304,8 @@ function Archive({ onCount }: { onCount: (line: string) => void }) {
           Click a card to open it in Analysis.
         </p>
 
+        <PopularPanel onOpen={(g) => void navigate(`/analyze?top=${g.db}:${g.id}`)} />
+
         <ImportPanel onFiled={() => setFiled((n) => n + 1)} suggest={player} />
       </aside>
     </div>
@@ -425,6 +436,54 @@ function PlayerPanel({ player, filed }: { player?: string; filed: number }) {
         </>
       ) : null}
     </>
+  );
+}
+
+/** The top games players opened most from the explorer this week. */
+function PopularPanel({ onOpen }: { onOpen: (g: PopularGame) => void }) {
+  const [items, setItems] = useState<PopularGame[]>();
+  useEffect(() => {
+    const stop = new AbortController();
+    explorer
+      .popular(stop.signal)
+      .then(setItems)
+      .catch(() => setItems([]));
+    return () => stop.abort();
+  }, []);
+  return (
+    <section aria-labelledby="popular" className="mt-10">
+      <h3 id="popular" className="label border-b border-ink pb-2 text-ink-2">
+        Popular this week
+      </h3>
+      {items === undefined ? null : items.length === 0 ? (
+        <p className="mt-3 font-body text-[length:var(--text-md)] text-ink-2">
+          The masters games players open from the Explorer in Analysis gather here.
+        </p>
+      ) : (
+        <ol>
+          {items.map((g, i) => (
+            <li key={`${g.db}:${g.id}`} className="border-b border-rule">
+              <button
+                type="button"
+                onClick={() => onOpen(g)}
+                className="flex w-full gap-3 py-2 text-left hover:bg-paper-2"
+              >
+                <span className="numeric w-4 shrink-0 text-ink-2">{i + 1}</span>
+                <span className="min-w-0">
+                  <span className="block truncate font-label text-[length:var(--text-sm)] text-ink">
+                    {g.white} – {g.black}
+                  </span>
+                  <span className="numeric text-[length:var(--text-xs)] text-ink-2">
+                    {resultLabel(g.result)}
+                    {g.year ? ` · ${g.year}` : ""} · {g.views} {g.views === 1 ? "player" : "players"}
+                  </span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
   );
 }
 

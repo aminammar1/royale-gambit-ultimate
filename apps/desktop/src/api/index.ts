@@ -58,7 +58,7 @@ export type { Game, GameSummary, ImportJob, PlayerStats, SaveResult, Search, Sit
 /** The signed-in player's games: the Library's search, imports and the player card. */
 export const games = createGamesApi(api);
 
-export type { Explorer, ExplorerDb, ExplorerMove, TopGame } from "./explorer";
+export type { Explorer, ExplorerDb, ExplorerMove, PopularGame, TopGame } from "./explorer";
 
 /** The opening explorer; a guest reads the masters database too. */
 export const explorer = createExplorerApi(analysis.get);

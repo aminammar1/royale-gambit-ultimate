@@ -105,6 +105,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/explorer/popular": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The top games players opened most this week */
+        get: operations["popularGames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/explorer/games/{db}/{id}": {
         parameters: {
             query?: never;
@@ -228,7 +245,7 @@ export interface components {
         };
         Explorer: {
             /** @enum {string} */
-            db: "masters" | "lichess";
+            db: "masters" | "lichess" | "mine";
             /** @description Games White won from here */
             white: number;
             draws: number;
@@ -257,6 +274,19 @@ export interface components {
                 /** @description The move played from this position in that game */
                 uci: string;
             }[];
+        };
+        PopularGame: {
+            /** @enum {string} */
+            db: "masters" | "lichess";
+            id: string;
+            white: string;
+            black: string;
+            /** @enum {string} */
+            result: "1-0" | "0-1" | "1/2-1/2" | "*";
+            year: number | null;
+            event: string | null;
+            /** @description Players who opened it in the last seven days */
+            views: number;
         };
         Record: {
             wins: number;
@@ -512,7 +542,7 @@ export interface operations {
             query: {
                 /** @description The position, a legal FEN */
                 fen: string;
-                db: "masters" | "lichess";
+                db: "masters" | "lichess" | "mine";
             };
             header?: never;
             path?: never;
@@ -533,6 +563,29 @@ export interface operations {
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
             503: components["responses"]["Problem"];
+        };
+    };
+    popularGames: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Most opened first, at most 10 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["PopularGame"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
         };
     };
     explorerGame: {
