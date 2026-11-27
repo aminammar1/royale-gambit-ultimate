@@ -79,6 +79,18 @@ paths:
           content: { application/json: { schema: { $ref: "#/components/schemas/GamePage" } } }
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
+  /v1/games/stats:
+    get:
+      operationId: playerStats
+      summary: A player's record in the owner's games (the Library's player card)
+      parameters:
+        - { name: player, in: query, required: true, description: "The player's exact name, case ignored", schema: { type: string, minLength: 1, maxLength: 60 } }
+      responses:
+        "200":
+          description: The record; zero games when the player is in none of them
+          content: { application/json: { schema: { $ref: "#/components/schemas/PlayerStats" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
   /v1/games/{id}:
     get:
       operationId: getGame
@@ -213,6 +225,37 @@ components:
           required: [pgn]
           properties:
             pgn: { type: string }
+    Record:
+      type: object
+      required: [wins, draws, losses, unfinished]
+      properties:
+        wins: { type: integer, minimum: 0 }
+        draws: { type: integer, minimum: 0 }
+        losses: { type: integer, minimum: 0 }
+        unfinished: { type: integer, minimum: 0 }
+    PlayerStats:
+      type: object
+      required: [player, games, rating, as_white, as_black, openings]
+      properties:
+        player: { type: string, description: "The name as the newest game writes it" }
+        games: { type: integer, minimum: 0 }
+        rating: { type: [integer, "null"], description: "The player's rating in the newest game that has one" }
+        as_white: { $ref: "#/components/schemas/Record" }
+        as_black: { $ref: "#/components/schemas/Record" }
+        openings:
+          type: array
+          maxItems: 5
+          description: The player's most played openings, most first
+          items:
+            type: object
+            required: [eco, opening, games, wins, draws, losses]
+            properties:
+              eco: { type: [string, "null"] }
+              opening: { type: [string, "null"] }
+              games: { type: integer, minimum: 1 }
+              wins: { type: integer, minimum: 0 }
+              draws: { type: integer, minimum: 0 }
+              losses: { type: integer, minimum: 0 }
     GamePage:
       type: object
       required: [items]

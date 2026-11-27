@@ -381,3 +381,71 @@ func TestProcessedIsRead(t *testing.T) {
 		t.Fatal("not processed after handling")
 	}
 }
+
+func TestPlayerStats(t *testing.T) {
+	ctx := context.Background()
+	owner := uuid.Must(uuid.NewV7())
+	_, err := db.SaveGames(ctx, owner, "pgn", nil, games(t,
+		pgnOf("Tal", "Botvinnik", "1-0", "1960.03.15", "1. e4 c6 2. d4 d5 3. e5 Bf5"),
+		pgnOf("Botvinnik", "Tal", "1/2-1/2", "1960.03.17", "1. c4 Nf6 2. Nf3 e6"),
+		pgnOf("tal", "Smyslov", "0-1", "1959.09.10", "1. e4 c6 2. d4 d5 3. e5 Bf5"),
+		pgnOf("Petrosian", "Tal", "1-0", "1959.09.12", "1. d4 Nf6"),
+		pgnOf("Petrosian", "Smyslov", "1-0", "1959.09.14", "1. d4 d5"), // not Tal's
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := db.PlayerStats(ctx, owner, "TAL")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Games != 4 || st.Player != "Tal" {
+		t.Fatalf("games %d player %q (the newest game's spelling)", st.Games, st.Player)
+	}
+	if st.AsWhite != (store.Record{Wins: 1, Losses: 1}) || st.AsBlack != (store.Record{Draws: 1, Losses: 1}) {
+		t.Fatalf("white %+v black %+v", st.AsWhite, st.AsBlack)
+	}
+	if len(st.Openings) == 0 || st.Openings[0].Games != 2 || st.Openings[0].ECO == nil || *st.Openings[0].ECO != "B12" ||
+		st.Openings[0].Wins != 1 || st.Openings[0].Losses != 1 {
+		t.Fatalf("openings %+v", st.Openings)
+	}
+	none, err := db.PlayerStats(ctx, owner, "Fischer")
+	if err != nil || none.Games != 0 || none.Player != "Fischer" || len(none.Openings) != 0 {
+		t.Fatalf("no games: %+v %v", none, err)
+	}
+}
+
+func TestTenThousandGamesSearchFast(t *testing.T) {
+	// M9's acceptance: a 10k-game library searches in under 200 ms on the server.
+	ctx := context.Background()
+	owner := uuid.Must(uuid.NewV7())
+	if err := db.Seed(ctx, owner, 10000); err != nil {
+		t.Fatal(err)
+	}
+	searches := map[string]store.Filter{
+		"newest":            {},
+		"a player's wins":   {Player: "player7", Result: "win"},
+		"words":             {Q: "najdorf rival3"},
+		"an opening family": {ECO: "C"},
+		"a date range":      {From: day(t, "2020-01-01"), To: day(t, "2100-01-01")},
+	}
+	for name, f := range searches {
+		f.Limit = 50
+		start := time.Now()
+		got, _, err := db.Search(ctx, owner, f)
+		took := time.Since(start)
+		if err != nil || len(got) == 0 {
+			t.Fatalf("%s: %d games, %v", name, len(got), err)
+		}
+		if took > 200*time.Millisecond {
+			t.Errorf("%s took %v, want under 200 ms", name, took)
+		}
+	}
+	start := time.Now()
+	if _, err := db.PlayerStats(ctx, owner, "player7"); err != nil {
+		t.Fatal(err)
+	}
+	if took := time.Since(start); took > 200*time.Millisecond {
+		t.Errorf("player stats took %v, want under 200 ms", took)
+	}
+}

@@ -288,6 +288,85 @@ func (s *Store) Get(ctx context.Context, owner, id uuid.UUID) (Game, error) {
 	return g, err
 }
 
+// Record is a player's results with one colour (contract: Record).
+type Record struct {
+	Wins       int `json:"wins"`
+	Draws      int `json:"draws"`
+	Losses     int `json:"losses"`
+	Unfinished int `json:"unfinished"`
+}
+
+// OpeningStats is one opening a player plays, scored from their side.
+type OpeningStats struct {
+	ECO     *string `json:"eco"`
+	Opening *string `json:"opening"`
+	Games   int     `json:"games"`
+	Wins    int     `json:"wins"`
+	Draws   int     `json:"draws"`
+	Losses  int     `json:"losses"`
+}
+
+// PlayerStats is a player's record in the owner's games (contract: PlayerStats).
+type PlayerStats struct {
+	Player   string         `json:"player"`
+	Games    int            `json:"games"`
+	Rating   *int           `json:"rating"`
+	AsWhite  Record         `json:"as_white"`
+	AsBlack  Record         `json:"as_black"`
+	Openings []OpeningStats `json:"openings"`
+}
+
+// PlayerStats scores player (case ignored) in owner's games, from the player's side.
+func (s *Store) PlayerStats(ctx context.Context, owner uuid.UUID, player string) (PlayerStats, error) {
+	st := PlayerStats{Player: player, Openings: []OpeningStats{}}
+	const theirs = `FROM games WHERE owner_id = $1 AND (lower(white) = lower($2) OR lower(black) = lower($2))`
+	// Win, draw, loss and unfinished from the player's side, as SQL over one game's row.
+	const score = `
+		count(*) FILTER (WHERE (lower(white) = lower($2) AND result = '1-0') OR (lower(black) = lower($2) AND result = '0-1')),
+		count(*) FILTER (WHERE result = '1/2-1/2'),
+		count(*) FILTER (WHERE (lower(white) = lower($2) AND result = '0-1') OR (lower(black) = lower($2) AND result = '1-0')),
+		count(*) FILTER (WHERE result = '*')`
+	for _, side := range []struct {
+		col string
+		dst *Record
+	}{{"white", &st.AsWhite}, {"black", &st.AsBlack}} {
+		r := side.dst
+		if err := s.pool.QueryRow(ctx, `SELECT `+score+` FROM games WHERE owner_id = $1 AND lower(`+side.col+`) = lower($2)`,
+			owner, player).Scan(&r.Wins, &r.Draws, &r.Losses, &r.Unfinished); err != nil {
+			return st, err
+		}
+	}
+	w, b := st.AsWhite, st.AsBlack
+	st.Games = w.Wins + w.Draws + w.Losses + w.Unfinished + b.Wins + b.Draws + b.Losses + b.Unfinished
+	if st.Games == 0 {
+		return st, nil
+	}
+	// The newest game writes the name; the newest rating stands.
+	err := s.pool.QueryRow(ctx, `SELECT CASE WHEN lower(white) = lower($2) THEN white ELSE black END `+theirs+`
+		ORDER BY sort_at DESC, id DESC LIMIT 1`, owner, player).Scan(&st.Player)
+	if err != nil {
+		return st, err
+	}
+	err = s.pool.QueryRow(ctx, `SELECT CASE WHEN lower(white) = lower($2) THEN white_elo ELSE black_elo END `+theirs+`
+		AND CASE WHEN lower(white) = lower($2) THEN white_elo ELSE black_elo END IS NOT NULL
+		ORDER BY sort_at DESC, id DESC LIMIT 1`, owner, player).Scan(&st.Rating)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return st, err
+	}
+	rows, err := s.pool.Query(ctx, `SELECT eco, opening, count(*), `+score+` `+theirs+`
+		GROUP BY eco, opening ORDER BY count(*) DESC, eco NULLS LAST LIMIT 5`, owner, player)
+	if err != nil {
+		return st, err
+	}
+	st.Openings, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (OpeningStats, error) {
+		var o OpeningStats
+		var unfinished int
+		err := r.Scan(&o.ECO, &o.Opening, &o.Games, &o.Wins, &o.Draws, &o.Losses, &unfinished)
+		return o, err
+	})
+	return st, err
+}
+
 // Job is an import (contract: ImportJob).
 type Job struct {
 	ID         uuid.UUID  `json:"id"`

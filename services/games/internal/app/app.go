@@ -71,6 +71,7 @@ func New(opts Options) *gin.Engine {
 	v1 := r.Group("/v1", s.authenticate)
 	v1.POST("/games", s.saveGames)
 	v1.GET("/games", s.searchGames)
+	v1.GET("/games/stats", s.playerStats)
 	v1.GET("/games/:id", s.getGame)
 	v1.POST("/imports", s.startImport)
 	v1.GET("/imports/:id", s.getImport)
@@ -300,6 +301,20 @@ func contains(list []string, v string) bool {
 		}
 	}
 	return false
+}
+
+func (s *server) playerStats(c *gin.Context) {
+	player := c.Query("player")
+	if player == "" || len(player) > 60 || !plainText(player) {
+		invalid(c, "player is a name of 1 to 60 characters")
+		return
+	}
+	st, err := s.Store.PlayerStats(c.Request.Context(), owner(c), player)
+	if err != nil {
+		s.internal(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, st)
 }
 
 func idParam(c *gin.Context) (uuid.UUID, bool) {

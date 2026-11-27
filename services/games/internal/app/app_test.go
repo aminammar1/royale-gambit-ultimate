@@ -372,3 +372,23 @@ func TestAFinishedImportStreamsOnlyDone(t *testing.T) {
 		t.Fatalf("stream %q", b)
 	}
 }
+
+func TestPlayerStatsRoute(t *testing.T) {
+	me := uuid.Must(uuid.NewV7())
+	pgns := game("Tal", "B", "1-0", "1. e4 e5") + "\n" + game("C", "Tal", "1-0", "1. d4 d5")
+	if code, _, _ := call(t, "POST", "/v1/games", me, map[string]string{"pgn": pgns}); code != 200 {
+		t.Fatal(code)
+	}
+	code, st, _ := call(t, "GET", "/v1/games/stats?player=tal", me, nil)
+	if code != 200 || st["games"] != float64(2) || st["player"] != "Tal" {
+		t.Fatalf("%d %v", code, st)
+	}
+	if st["as_white"].(map[string]any)["wins"] != float64(1) || st["as_black"].(map[string]any)["losses"] != float64(1) {
+		t.Fatalf("records %v %v", st["as_white"], st["as_black"])
+	}
+	for _, path := range []string{"/v1/games/stats", "/v1/games/stats?player=", "/v1/games/stats?player=a%00b"} {
+		if code, _, _ := call(t, "GET", path, me, nil); code != 400 {
+			t.Errorf("%s: %d", path, code)
+		}
+	}
+}
