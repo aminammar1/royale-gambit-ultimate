@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -173,10 +174,11 @@ func (s *Store) SaveGames(ctx context.Context, owner uuid.UUID, source string, j
 	return res, err
 }
 
-// indexGame counts a game's first moves for its owner's explorer, from its result: each move
-// once per position (a move repeated from the same position is the same game), and the first
-// time the game went through each position, for its top games. An unfinished game scores
-// nothing but still goes through its positions.
+// indexGame counts a game's first moves for its owner's explorer, from its result: one move per
+// position, the first the game played there (a game that comes back and leaves by another move
+// is still one game there), and that first visit for its top games. An unfinished game scores
+// nothing but still goes through its positions. Rows are written in (position, move) order, so
+// two saves at once lock them in the same order and cannot deadlock.
 func indexGame(ctx context.Context, tx pgx.Tx, owner, gameID uuid.UUID, result string, steps []pgn.Step) error {
 	if len(steps) == 0 {
 		return nil
@@ -190,20 +192,29 @@ func indexGame(ctx context.Context, tx pgx.Tx, owner, gameID uuid.UUID, result s
 	case "1/2-1/2":
 		d = 1
 	}
-	type key struct{ pos, uci string }
-	seen := map[key]bool{}
+	type visit struct {
+		ply  int
+		step pgn.Step
+	}
+	var visits []visit
 	first := map[string]bool{}
-	var mPos, mUCI, mSAN, gPos, gUCI []string
-	var gPly []int32
 	for i, st := range steps {
-		if k := (key{st.Position, st.UCI}); !seen[k] {
-			seen[k] = true
-			mPos, mUCI, mSAN = append(mPos, st.Position), append(mUCI, st.UCI), append(mSAN, st.SAN)
-		}
 		if !first[st.Position] {
 			first[st.Position] = true
-			gPos, gUCI, gPly = append(gPos, st.Position), append(gUCI, st.UCI), append(gPly, int32(i))
+			visits = append(visits, visit{i, st})
 		}
+	}
+	sort.Slice(visits, func(a, b int) bool {
+		if visits[a].step.Position != visits[b].step.Position {
+			return visits[a].step.Position < visits[b].step.Position
+		}
+		return visits[a].step.UCI < visits[b].step.UCI
+	})
+	var mPos, mUCI, mSAN, gPos, gUCI []string
+	var gPly []int32
+	for _, v := range visits {
+		mPos, mUCI, mSAN = append(mPos, v.step.Position), append(mUCI, v.step.UCI), append(mSAN, v.step.SAN)
+		gPos, gUCI, gPly = append(gPos, v.step.Position), append(gUCI, v.step.UCI), append(gPly, int32(v.ply))
 	}
 	if w+d+b > 0 {
 		if _, err := tx.Exec(ctx, `

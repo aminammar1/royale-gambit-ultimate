@@ -452,6 +452,36 @@ func OpeningOf(position string) (eco, name string, ok bool) {
 	return o.code, o.title, ok
 }
 
+// possibleCastling keeps only the castling rights the board can have: the king and that rook on
+// their home squares (the rule chess.js applies on the desktop). The library keeps a set-up FEN's
+// rights as written.
+func possibleCastling(p *chess.Position, rights string) string {
+	board := map[string]chess.Piece{}
+	for sq, pc := range p.Board().SquareMap() {
+		board[sq.String()] = pc
+	}
+	has := func(sq string, want chess.Piece) bool { return board[sq] == want }
+	keep := ""
+	for _, r := range []struct {
+		flag           string
+		king, rook     string
+		kingPc, rookPc chess.Piece
+	}{
+		{"K", "e1", "h1", chess.WhiteKing, chess.WhiteRook},
+		{"Q", "e1", "a1", chess.WhiteKing, chess.WhiteRook},
+		{"k", "e8", "h8", chess.BlackKing, chess.BlackRook},
+		{"q", "e8", "a8", chess.BlackKing, chess.BlackRook},
+	} {
+		if strings.Contains(rights, r.flag) && has(r.king, r.kingPc) && has(r.rook, r.rookPc) {
+			keep += r.flag
+		}
+	}
+	if keep == "" {
+		return "-"
+	}
+	return keep
+}
+
 // PositionKey checks fen with the chess library and gives the position back as a FEN with
 // neutral counters ("... 0 1") and an en passant square only when a capture is legal: the same
 // position reached by any move order has the same key (the explorer's cache key).
@@ -483,6 +513,7 @@ func epd(p *chess.Position) string {
 	if len(f) < 4 {
 		return strings.Join(f, " ")
 	}
+	f[2] = possibleCastling(p, f[2])
 	if f[3] != "-" {
 		legal := false
 		for _, m := range p.ValidMoves() {

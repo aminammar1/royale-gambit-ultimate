@@ -458,3 +458,19 @@ func TestTheFirstStepsAreIndexed(t *testing.T) {
 		t.Fatalf("a short game: %d steps", len(short.Steps))
 	}
 }
+
+// From the chess review: castling rights the board cannot have are no part of the position, as
+// chess.js reads them on the desktop.
+func TestImpossibleCastlingRightsAreDropped(t *testing.T) {
+	key, err := pgn.PositionKey("4k3/8/8/8/8/8/8/4K2R w KQkq - 0 1")
+	if err != nil || key != "4k3/8/8/8/8/8/8/4K2R w K - 0 1" {
+		t.Fatalf("%q %v", key, err)
+	}
+	g := one(t, "[FEN \"4k3/8/8/8/8/8/8/4K2R w KQkq - 0 1\"]\n[SetUp \"1\"]\n\n1. Kf2 Kf7 *\n")
+	if g.Steps[0].Position != "4k3/8/8/8/8/8/8/4K2R w K -" || g.Steps[1].Position != "4k3/8/8/8/8/8/5K2/7R b - -" {
+		t.Fatalf("steps %+v", g.Steps)
+	}
+	if full, _ := pgn.PositionKey("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1"); full != "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1" {
+		t.Fatalf("all four rights: %q", full)
+	}
+}

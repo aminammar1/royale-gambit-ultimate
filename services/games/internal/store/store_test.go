@@ -546,3 +546,19 @@ func TestPopularThisWeek(t *testing.T) {
 		t.Fatalf("%+v", top)
 	}
 }
+
+// From the chess review: a game that left a position by two moves is one game there.
+func TestAGameCountsOncePerPosition(t *testing.T) {
+	ctx := context.Background()
+	owner := uuid.Must(uuid.NewV7())
+	if _, err := db.SaveGames(ctx, owner, "pgn", nil, games(t, pgnOf("me", "a", "1-0", "2025.01.01", "1. Nf3 Nf6 2. Ng1 Ng8 3. e4"))); err != nil {
+		t.Fatal(err)
+	}
+	ex, err := db.MyExplorer(ctx, owner, start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ex.White != 1 || len(ex.Moves) != 1 || ex.Moves[0].UCI != "g1f3" || len(ex.Top) != 1 {
+		t.Fatalf("totals %d, moves %+v, top %d", ex.White, ex.Moves, len(ex.Top))
+	}
+}
