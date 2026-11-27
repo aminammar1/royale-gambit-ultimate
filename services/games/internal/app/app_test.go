@@ -246,12 +246,27 @@ func TestInvalidRequests(t *testing.T) {
 		{"POST", "/v1/imports", map[string]any{"site": "lichess", "username": "a b"}, 400},
 		{"POST", "/v1/imports", map[string]any{"site": "lichess", "username": "ab", "max_games": 5000}, 400},
 		{"GET", "/v1/imports/" + uuid.Must(uuid.NewV7()).String(), nil, 404},
+		// Found by the contract fuzzer: an empty value is not a date, an enum value or a number,
+		// and null is not a number.
+		{"GET", "/v1/games?to=", nil, 400},
+		{"GET", "/v1/games?from=", nil, 400},
+		{"GET", "/v1/games?limit=", nil, 400},
+		{"GET", "/v1/games?source=", nil, 400},
+		{"GET", "/v1/games?eco=", nil, 400},
+		{"GET", "/v1/games?player=x&color=", nil, 400},
+		{"POST", "/v1/imports", map[string]any{"site": "lichess", "username": "ab", "max_games": nil}, 400},
+		{"POST", "/v1/games", map[string]any{"pgn": nil}, 400},
 	}
 	for _, c := range cases {
 		code, body, h := call(t, c.method, c.path, me, c.body)
 		if code != c.want || !strings.HasPrefix(h.Get("Content-Type"), "application/problem+json") {
 			t.Errorf("%s %s: %d %v", c.method, c.path, code, body)
 		}
+	}
+	// Text that is no game is refused game by game, never a crash (the fuzzer sent "01").
+	code, body, _ := call(t, "POST", "/v1/games", me, map[string]string{"pgn": "01"})
+	if code != 200 || body["saved"] != float64(0) || len(body["rejected"].([]any)) != 1 {
+		t.Errorf(`pgn "01": %d %v`, code, body)
 	}
 	big := map[string]string{"pgn": strings.Repeat("x", 6<<20)}
 	if code, _, _ := call(t, "POST", "/v1/games", me, big); code != 413 {

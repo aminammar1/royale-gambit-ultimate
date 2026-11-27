@@ -198,3 +198,18 @@ func TestBracketInsideACommentIsNotANewGame(t *testing.T) {
 		t.Fatalf("got %+v %v", got, err)
 	}
 }
+
+func TestNonsenseIsRejectedNotACrash(t *testing.T) {
+	// Found by the contract fuzzer: text that is no game must be refused, never panic.
+	for _, text := range []string{"01", "1.", "[", "]", "{", "1-0", "e4", "[White \"x\"]", "0-0-0"} {
+		got, err := pgn.Read(strings.NewReader(text), 10)
+		if err != nil {
+			continue
+		}
+		for _, p := range got {
+			if p.Err == nil && p.Game == nil {
+				t.Errorf("%q: neither a game nor an error", text)
+			}
+		}
+	}
+}

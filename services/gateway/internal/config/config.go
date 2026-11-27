@@ -21,6 +21,7 @@ type Config struct {
 	Port            string
 	AuthProfile     *url.URL // UPSTREAM_AUTH_PROFILE_URL
 	Analysis        *url.URL // UPSTREAM_ANALYSIS_URL
+	Games           *url.URL // UPSTREAM_GAMES_URL
 	JWKSURL         string
 	Issuer          string
 	Redis           *redis.Options
@@ -45,6 +46,9 @@ func Load() (Config, error) {
 		errs = append(errs, err)
 	}
 	if c.Analysis, err = absoluteURL("UPSTREAM_ANALYSIS_URL"); err != nil {
+		errs = append(errs, err)
+	}
+	if c.Games, err = absoluteURL("UPSTREAM_GAMES_URL"); err != nil {
 		errs = append(errs, err)
 	}
 	if _, err := absoluteURL("JWKS_URL"); err != nil {

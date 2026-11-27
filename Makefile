@@ -94,7 +94,7 @@ clean:
 	@df -h /
 
 ## smoke          start infra, templates and services in Docker, check health and the contracts, then stop
-SMOKE = $(COMPOSE) --profile templates --profile full
+SMOKE = GAMES_LICHESS_URL=http://127.0.0.1:9 GAMES_CHESSCOM_URL=http://127.0.0.1:9 $(COMPOSE) --profile templates --profile full
 smoke: .env
 	$(SMOKE) up -d --build --wait || { $(SMOKE) ps; $(SMOKE) logs --tail 40; $(SMOKE) down; exit 1; }
 	./scripts/smoke.sh; status=$$?; $(SMOKE) down; exit $$status

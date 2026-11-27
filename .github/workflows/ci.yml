@@ -29,6 +29,7 @@ jobs:
             auth-profile: ['services/auth-profile/**', 'contracts/openapi/auth-profile.yaml', 'contracts/events/**']
             gateway: ['services/gateway/**']
             analysis: ['services/analysis/**', 'contracts/openapi/analysis.yaml', 'contracts/fixtures/uci/**', 'contracts/fixtures/pgn/**']
+            games: ['services/games/**', 'contracts/openapi/games.yaml', 'contracts/events/**', 'contracts/fixtures/pgn/**']
             infra: ['infra/**', 'contracts/**', 'Makefile', 'scripts/**', '.github/workflows/**']
       - id: list
         run: echo "services=$(jq -c 'map(select(. != "infra"))' <<< '${{ steps.filter.outputs.changes }}')" >> "$GITHUB_OUTPUT"

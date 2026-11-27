@@ -9,6 +9,7 @@ import (
 func required(t *testing.T) {
 	t.Setenv("UPSTREAM_AUTH_PROFILE_URL", "http://auth-profile:8081")
 	t.Setenv("UPSTREAM_ANALYSIS_URL", "http://analysis:8084")
+	t.Setenv("UPSTREAM_GAMES_URL", "http://games:8085")
 	t.Setenv("JWKS_URL", "http://auth-profile:8081/.well-known/jwks.json")
 	t.Setenv("REDIS_URL", "redis://redis:6379/0")
 }
@@ -23,8 +24,9 @@ func TestDefaultsAreTheDocumentedOnes(t *testing.T) {
 		cfg.Limits.Guest != 60 || cfg.Limits.User != 300 || len(cfg.CORSOrigins) != 0 {
 		t.Fatalf("defaults: %+v", cfg)
 	}
-	if cfg.AuthProfile.String() != "http://auth-profile:8081" || cfg.Analysis.String() != "http://analysis:8084" {
-		t.Fatalf("upstreams %v %v", cfg.AuthProfile, cfg.Analysis)
+	if cfg.AuthProfile.String() != "http://auth-profile:8081" || cfg.Analysis.String() != "http://analysis:8084" ||
+		cfg.Games.String() != "http://games:8085" {
+		t.Fatalf("upstreams %v %v %v", cfg.AuthProfile, cfg.Analysis, cfg.Games)
 	}
 }
 
@@ -45,6 +47,7 @@ func TestMissingOrBrokenSettingsStopTheStart(t *testing.T) {
 	for name, env := range map[string][2]string{
 		"no upstream":   {"UPSTREAM_AUTH_PROFILE_URL", ""},
 		"no analysis":   {"UPSTREAM_ANALYSIS_URL", ""},
+		"no games":      {"UPSTREAM_GAMES_URL", ""},
 		"no jwks":       {"JWKS_URL", ""},
 		"no redis":      {"REDIS_URL", ""},
 		"relative url":  {"UPSTREAM_AUTH_PROFILE_URL", "auth-profile:8081"},

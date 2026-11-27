@@ -73,6 +73,21 @@ check_metrics "$base"
 # A JSON search may take up to SEARCH_LIMIT_MS (20 s): wait as long as the gateway would.
 contract_check analysis.yaml "$base" --request-timeout 30
 
+base=http://localhost:8085
+echo "== games $base"
+curl -fsS "$base/health/ready" >/dev/null
+gtoken=$(curl -fsS -X POST http://localhost:8081/v1/auth/guest | json_field access_token)
+# The Opera Game; the body built by json.dumps, since PGN tags are full of double quotes.
+opera=$(python3 -c 'import json; print(json.dumps({"pgn": "[Event \"Paris Opera\"]\n[White \"Paul Morphy\"]\n[Black \"Duke Karl\"]\n[Result \"1-0\"]\n\n1. e4 e5 2. Nf3 d6 3. d4 Bg4 4. dxe5 Bxf3 5. Qxf3 dxe5 6. Bc4 Nf6 7. Qb3 Qe7 8. Nc3 c6 9. Bg5 b5 10. Nxb5 cxb5 11. Bxb5+ Nbd7 12. O-O-O Rd8 13. Rxd7 Rxd7 14. Rd1 Qe6 15. Bxd7+ Nxd7 16. Qb8+ Nxb8 17. Rd8# 1-0"}))')
+saved=$(curl -fsS -H "Authorization: Bearer $gtoken" -H 'Content-Type: application/json' -d "$opera" \
+  "$base/v1/games" | json_field saved)
+[[ $saved == 1 ]] || { echo "   saving the Opera Game: saved $saved, want 1"; fail=1; }
+eco=$(curl -fsS -H "Authorization: Bearer $gtoken" "$base/v1/games?player=paul%20morphy&result=win" |
+  python3 -c "import json, sys; print(json.load(sys.stdin)['items'][0]['eco'])")
+[[ $eco == C41 ]] || { echo "   the Opera Game's opening: '$eco', want C41"; fail=1; }
+check_metrics "$base"
+contract_check games.yaml "$base" --header "Authorization: Bearer $gtoken"
+
 # The real path from the desktop app: everything through the gateway.
 gw=http://localhost:8080
 echo "== gateway $gw"
@@ -108,7 +123,12 @@ events=$(curl -fsSN -H "Authorization: Bearer $guest" -H 'Accept: text/event-str
 [[ $events == 1 ]] || { echo "   analysis stream through the gateway: $events result events, want 1"; fail=1; }
 status=$(curl -s -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -d "$body" "$gw/v1/analysis/positions")
 [[ $status == 401 ]] || { echo "   analysis without a token got $status at the gateway, want 401"; fail=1; }
+# Games through the gateway: a guest's own library; no token, no library.
+count=$(curl -fsS -H "Authorization: Bearer $guest" "$gw/v1/games" | python3 -c "import json, sys; print(len(json.load(sys.stdin)['items']))")
+[[ $count == 0 ]] || { echo "   a new guest's library through the gateway has $count games, want 0"; fail=1; }
+status=$(curl -s -o /dev/null -w '%{http_code}' "$gw/v1/games")
+[[ $status == 401 ]] || { echo "   games without a token got $status at the gateway, want 401"; fail=1; }
 check_metrics "$gw"
-echo "   email sign-in, identities, profile, analysis and token checks through the gateway ok"
+echo "   email sign-in, identities, profile, analysis, games and token checks through the gateway ok"
 
 exit $fail

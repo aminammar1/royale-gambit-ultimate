@@ -51,6 +51,7 @@ func (t Table) Match(path string) (Route, bool) {
 type Upstreams struct {
 	AuthProfile *url.URL
 	Analysis    *url.URL
+	Games       *url.URL
 }
 
 // AnalysisTimeout lets a deep search answer as JSON (SERVICES.md: analysis calls get 30 s).
@@ -71,5 +72,8 @@ func Build(u Upstreams) Table {
 		// Engine time is the costliest thing we give away: a token (a guest's is fine) and the
 		// per-user rate limit, always.
 		{Prefix: "/v1/analysis", Upstream: u.Analysis, Auth: Required, Timeout: AnalysisTimeout},
+		// A player's own library (M8): a token always, a guest's included.
+		{Prefix: "/v1/games", Upstream: u.Games, Auth: Required},
+		{Prefix: "/v1/imports", Upstream: u.Games, Auth: Required},
 	}
 }

@@ -36,7 +36,7 @@ services:
       PGHOST: postgres
       PGUSER: ${POSTGRES_USER}
       PGPASSWORD: ${POSTGRES_PASSWORD}
-      SERVICE_DATABASES: template_py auth_profile
+      SERVICE_DATABASES: template_py auth_profile games
     volumes: ["../db/init-databases.sh:/init-databases.sh:ro"]
     command: ["sh", "/init-databases.sh"]
     restart: "no"
@@ -81,6 +81,7 @@ services:
     depends_on:
       auth-profile: { condition: service_healthy }
       analysis: { condition: service_healthy }
+      games: { condition: service_healthy }
       redis: { condition: service_healthy }
     develop:
       watch:
@@ -89,6 +90,7 @@ services:
       PORT: "8080"
       UPSTREAM_AUTH_PROFILE_URL: http://auth-profile:8081
       UPSTREAM_ANALYSIS_URL: http://analysis:8084
+      UPSTREAM_GAMES_URL: http://games:8085
       JWKS_URL: http://auth-profile:8081/.well-known/jwks.json
       REDIS_URL: redis://redis:6379/0
       # Vite dev server, then the packaged app's origins (macOS/Linux, Windows).
@@ -151,6 +153,32 @@ services:
     ports: ["127.0.0.1:8084:8084"]
 
   # ---- template (copied to create a Python service; never deployed)
+  games:
+    <<: *service-defaults
+    profiles: [full]
+    build: ../../services/games
+    depends_on:
+      postgres-init: { condition: service_completed_successfully }
+      rabbitmq: { condition: service_healthy }
+      auth-profile: { condition: service_healthy }
+    develop:
+      watch:
+        - { action: rebuild, path: ../../services/games }
+    environment:
+      PORT: "8085"
+      DATABASE_URL: postgres://games:games@postgres:5432/games?sslmode=disable
+      MIGRATE_ON_START: "true"
+      RABBITMQ_URL: amqp://rg:rg@rabbitmq:5672/
+      JWKS_URL: http://auth-profile:8081/.well-known/jwks.json
+      # The smoke test points these at a closed port: fuzzing must never reach the real sites.
+      LICHESS_URL: ${GAMES_LICHESS_URL:-https://lichess.org}
+      CHESSCOM_URL: ${GAMES_CHESSCOM_URL:-https://api.chess.com}
+      IMPORT_WORKERS: "2"
+      MAX_IMPORT_GAMES: "2000"
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_IN_DOCKER:-}
+    mem_limit: 256m
+    ports: ["127.0.0.1:8085:8085"]
+
   template-py:
     <<: *service-defaults
     profiles: [templates]

@@ -230,8 +230,9 @@ func (s *server) searchGames(c *gin.Context) {
 		Q: q.Get("q"), Player: q.Get("player"), Color: q.Get("color"), Result: q.Get("result"),
 		ECO: q.Get("eco"), Source: q.Get("source"), Cursor: q.Get("cursor"), Limit: 50,
 	}
+	// A typed parameter that is present must be valid; empty is not a value.
 	for name, allowed := range enums {
-		if v := q.Get(name); v != "" && !contains(allowed, v) {
+		if v := q.Get(name); q.Has(name) && !contains(allowed, v) {
 			invalid(c, fmt.Sprintf("%s must be one of %s", name, strings.Join(allowed, ", ")))
 			return
 		}
@@ -243,13 +244,13 @@ func (s *server) searchGames(c *gin.Context) {
 	case (f.Color != "" || f.Result != "") && f.Player == "":
 		invalid(c, "color and result are read from a player's side: give player too")
 		return
-	case f.ECO != "" && !ecoPattern.MatchString(f.ECO):
+	case q.Has("eco") && !ecoPattern.MatchString(f.ECO):
 		invalid(c, "eco is a code such as C95, or its first letters (C, C9)")
 		return
 	}
 	for name, dst := range map[string]**time.Time{"from": &f.From, "to": &f.To} {
-		if v := q.Get(name); v != "" {
-			d, err := time.Parse(time.DateOnly, v)
+		if q.Has(name) {
+			d, err := time.Parse(time.DateOnly, q.Get(name))
 			if err != nil {
 				invalid(c, name+" is a date such as 2026-11-28")
 				return
@@ -257,8 +258,8 @@ func (s *server) searchGames(c *gin.Context) {
 			*dst = &d
 		}
 	}
-	if v := q.Get("limit"); v != "" {
-		n, err := strconv.Atoi(v)
+	if q.Has("limit") {
+		n, err := strconv.Atoi(q.Get("limit"))
 		if err != nil || n < 1 || n > 100 {
 			invalid(c, "limit is a whole number from 1 to 100")
 			return
@@ -318,14 +319,24 @@ func (s *server) getGame(c *gin.Context) {
 
 func (s *server) startImport(c *gin.Context) {
 	var req struct {
-		Site     string `json:"site"`
-		Username string `json:"username"`
-		MaxGames *int   `json:"max_games"`
+		Site     string          `json:"site"`
+		Username string          `json:"username"`
+		MaxGames json.RawMessage `json:"max_games"`
 	}
 	if !decode(c, 4096, &req) {
 		return
 	}
 	limit := s.MaxImport
+	var maxGames *int
+	if req.MaxGames != nil {
+		// Left out is the default; given, it is a whole number (null is not).
+		var n int
+		if err := json.Unmarshal(req.MaxGames, &n); err != nil || string(req.MaxGames) == "null" {
+			invalid(c, "max_games is a whole number from 1 to 2000")
+			return
+		}
+		maxGames = &n
+	}
 	switch {
 	case req.Site != "lichess" && req.Site != "chesscom":
 		invalid(c, "site is lichess or chesscom")
@@ -333,11 +344,11 @@ func (s *server) startImport(c *gin.Context) {
 	case !usernamePattern.MatchString(req.Username):
 		invalid(c, "username is 2 to 30 letters, digits, - or _")
 		return
-	case req.MaxGames != nil && (*req.MaxGames < 1 || *req.MaxGames > 2000):
+	case maxGames != nil && (*maxGames < 1 || *maxGames > 2000):
 		invalid(c, "max_games is from 1 to 2000")
 		return
-	case req.MaxGames != nil:
-		limit = min(*req.MaxGames, s.MaxImport)
+	case maxGames != nil:
+		limit = min(*maxGames, s.MaxImport)
 	}
 	job, created, err := s.Store.CreateImport(c.Request.Context(), owner(c), req.Site, req.Username, limit)
 	if err != nil {

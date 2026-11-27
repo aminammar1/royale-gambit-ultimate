@@ -108,8 +108,15 @@ func split(text string) []string {
 	return games
 }
 
-// parseText reads one game's text with the library.
-func parseText(text string) (*Game, error) {
+// parseText reads one game's text with the library. The library can panic on some malformed
+// text (corentings/chess v2.6.1 indexes past the end of "01" looking for a game without tags), so
+// a panic is that game's error, never the request's.
+func parseText(text string) (g *Game, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			g, err = nil, fmt.Errorf("unreadable PGN: %v", r)
+		}
+	}()
 	sc := chess.NewScanner(strings.NewReader(text))
 	if !sc.HasNext() {
 		return nil, errors.New("no game in the text")
