@@ -104,7 +104,23 @@ func run() error {
 	errc := make(chan error, cfg.ImportWorkers+1)
 	// Everything that uses the database and the broker, waited for before they close.
 	var running sync.WaitGroup
-	running.Add(1 + cfg.ImportWorkers)
+	running.Add(2 + cfg.ImportWorkers)
+	// Games saved before "My games" existed are indexed in the background, a hundred at a time.
+	go func() {
+		defer running.Done()
+		for ctx.Err() == nil {
+			n, err := db.Backfill(ctx, 100)
+			if err != nil && ctx.Err() == nil {
+				log.Warn("indexing old games", "error", err)
+			}
+			if n == 0 || err != nil {
+				select {
+				case <-ctx.Done():
+				case <-time.After(30 * time.Second):
+				}
+			}
+		}
+	}()
 	go func() {
 		defer running.Done()
 		(&outbox.Relay{Store: db, Pub: mq, Log: log, Every: 500 * time.Millisecond}).Run(ctx)

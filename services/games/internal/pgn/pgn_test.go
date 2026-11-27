@@ -435,3 +435,26 @@ func TestStandardCastling(t *testing.T) {
 		t.Errorf("e1a1 with Black to move: %s", got)
 	}
 }
+
+// The steps of a game's opening, for the player's own explorer ("My games").
+func TestTheFirstStepsAreIndexed(t *testing.T) {
+	g := one(t, fixture(t, "opera-game.pgn"))
+	if len(g.Steps) != 30 {
+		t.Fatalf("%d steps, want the first 30 of 33 plies", len(g.Steps))
+	}
+	first := g.Steps[0]
+	if first.Position != "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -" || first.UCI != "e2e4" || first.SAN != "e4" {
+		t.Fatalf("first step %+v", first)
+	}
+	// 12. O-O-O is ply 23, written in standard UCI.
+	if g.Steps[22].UCI != "e1c1" || g.Steps[22].SAN != "O-O-O" {
+		t.Fatalf("ply 23 %+v", g.Steps[22])
+	}
+	// After 1. e4 the en passant square is no part of the position (no capture can use it).
+	if g.Steps[1].Position != "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq -" {
+		t.Fatalf("after 1. e4: %q", g.Steps[1].Position)
+	}
+	if short := one(t, "[White \"a\"]\n[Black \"b\"]\n\n1. e4 e5 *\n"); len(short.Steps) != 2 {
+		t.Fatalf("a short game: %d steps", len(short.Steps))
+	}
+}

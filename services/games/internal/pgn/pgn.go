@@ -38,10 +38,24 @@ type Game struct {
 	PlyCount    int
 	// FirstMoves is the first three moves of each side in SAN, numbered, for an index card.
 	FirstMoves string
+	// Steps are the first IndexedPlies moves with the position each was played from, for the
+	// player's own explorer.
+	Steps []Step
 	// Hash names the game across saves: the site's own id when it has one (so the same game
 	// linked from either side is one game), else the players, the day and the moves.
 	Hash string
 }
+
+// Step is one move and the position it was played from (an opening-table key: board, side to
+// move, castling, en passant when a capture is legal).
+type Step struct {
+	Position string
+	UCI      string
+	SAN      string
+}
+
+// IndexedPlies is how deep a game is indexed for "My games": the opening, not the whole game.
+const IndexedPlies = 30
 
 // Parsed is one game of a PGN text: the game, or why it was refused. Index counts from 0.
 type Parsed struct {
@@ -305,10 +319,17 @@ func parse(scanned *chess.GameScanned) (*Game, error) {
 	var san []string
 	var uci []string
 	for i, m := range moves {
-		if i < firstPlies && i < len(positions) {
-			san = append(san, chess.AlgebraicNotation{}.Encode(positions[i], m))
+		u := chess.UCINotation{}.Encode(nil, m)
+		if i < len(positions) && (i < firstPlies || i < IndexedPlies) {
+			s := chess.AlgebraicNotation{}.Encode(positions[i], m)
+			if i < firstPlies {
+				san = append(san, s)
+			}
+			if i < IndexedPlies {
+				g.Steps = append(g.Steps, Step{Position: epd(positions[i]), UCI: u, SAN: s})
+			}
 		}
-		uci = append(uci, chess.UCINotation{}.Encode(nil, m))
+		uci = append(uci, u)
 	}
 	g.FirstMoves = numbered(san, positions)
 
@@ -422,6 +443,13 @@ func StandardCastling(fen, uci string) string {
 		return from + "g" + rank
 	}
 	return from + "c" + rank
+}
+
+// OpeningOf names a position key (board, side to move, castling, en passant), when the
+// opening table does.
+func OpeningOf(position string) (eco, name string, ok bool) {
+	o, ok := openings()[position]
+	return o.code, o.title, ok
 }
 
 // PositionKey checks fen with the chess library and gives the position back as a FEN with

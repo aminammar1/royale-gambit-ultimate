@@ -143,8 +143,8 @@ func (s *Store) SaveGames(ctx context.Context, owner uuid.UUID, source string, j
 			row := tx.QueryRow(ctx, `
 				INSERT INTO games (id, owner_id, game_hash, source, import_job_id, site_url, white, black,
 					white_elo, black_elo, result, played_at, event, time_control, eco, opening, ply_count,
-					first_moves, pgn)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+					first_moves, pgn, indexed)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, true)
 				ON CONFLICT (owner_id, game_hash) DO NOTHING
 				RETURNING `+summaryCols,
 				id, owner, g.Hash, source, jobID, nullable(g.SiteURL), g.White, g.Black, g.WhiteElo, g.BlackElo,
@@ -159,6 +159,9 @@ func (s *Store) SaveGames(ctx context.Context, owner uuid.UUID, source string, j
 				return err
 			}
 			res.Saved = append(res.Saved, saved)
+			if err := indexGame(ctx, tx, owner, saved.ID, saved.Result, g.Steps); err != nil {
+				return err
+			}
 			if err := addEvent(ctx, tx, "game.saved", map[string]any{
 				"game_id": saved.ID, "user_id": owner, "source": source, "import_job_id": jobID, "saved_at": saved.CreatedAt,
 			}); err != nil {
@@ -168,6 +171,194 @@ func (s *Store) SaveGames(ctx context.Context, owner uuid.UUID, source string, j
 		return nil
 	})
 	return res, err
+}
+
+// indexGame counts a game's first moves for its owner's explorer, from its result: each move
+// once per position (a move repeated from the same position is the same game), and the first
+// time the game went through each position, for its top games. An unfinished game scores
+// nothing but still goes through its positions.
+func indexGame(ctx context.Context, tx pgx.Tx, owner, gameID uuid.UUID, result string, steps []pgn.Step) error {
+	if len(steps) == 0 {
+		return nil
+	}
+	var w, d, b int
+	switch result {
+	case "1-0":
+		w = 1
+	case "0-1":
+		b = 1
+	case "1/2-1/2":
+		d = 1
+	}
+	type key struct{ pos, uci string }
+	seen := map[key]bool{}
+	first := map[string]bool{}
+	var mPos, mUCI, mSAN, gPos, gUCI []string
+	var gPly []int32
+	for i, st := range steps {
+		if k := (key{st.Position, st.UCI}); !seen[k] {
+			seen[k] = true
+			mPos, mUCI, mSAN = append(mPos, st.Position), append(mUCI, st.UCI), append(mSAN, st.SAN)
+		}
+		if !first[st.Position] {
+			first[st.Position] = true
+			gPos, gUCI, gPly = append(gPos, st.Position), append(gUCI, st.UCI), append(gPly, int32(i))
+		}
+	}
+	if w+d+b > 0 {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO position_moves (owner_id, position, uci, san, white, draws, black)
+			SELECT $1, p, u, s, $5, $6, $7 FROM unnest($2::text[], $3::text[], $4::text[]) AS t (p, u, s)
+			ON CONFLICT (owner_id, position, uci) DO UPDATE SET
+				white = position_moves.white + excluded.white,
+				draws = position_moves.draws + excluded.draws,
+				black = position_moves.black + excluded.black`,
+			owner, mPos, mUCI, mSAN, w, d, b); err != nil {
+			return err
+		}
+	}
+	_, err := tx.Exec(ctx, `
+		INSERT INTO game_positions (owner_id, position, game_id, ply, uci)
+		SELECT $1, p, $2, n, u FROM unnest($3::text[], $4::int[], $5::text[]) AS t (p, n, u)
+		ON CONFLICT DO NOTHING`, owner, gameID, gPos, gPly, gUCI)
+	return err
+}
+
+// Backfill indexes up to n games saved before the explorer's index existed; it answers how many
+// it did (0: none left). Safe to run from several workers at once.
+func (s *Store) Backfill(ctx context.Context, n int) (int, error) {
+	done := 0
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `SELECT id, owner_id, pgn, result FROM games WHERE NOT indexed
+			ORDER BY created_at LIMIT $1 FOR UPDATE SKIP LOCKED`, n)
+		if err != nil {
+			return err
+		}
+		type todo struct {
+			id, owner   uuid.UUID
+			text, score string
+		}
+		list, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (todo, error) {
+			var t todo
+			err := r.Scan(&t.id, &t.owner, &t.text, &t.score)
+			return t, err
+		})
+		if err != nil {
+			return err
+		}
+		for _, t := range list {
+			// A game that no longer reads is only marked: there is nothing to count.
+			if g, err := pgn.One(t.text); err == nil {
+				if err := indexGame(ctx, tx, t.owner, t.id, t.score, g.Steps); err != nil {
+					return err
+				}
+			}
+			if _, err := tx.Exec(ctx, `UPDATE games SET indexed = true WHERE id = $1`, t.id); err != nil {
+				return err
+			}
+			done++
+		}
+		return nil
+	})
+	return done, err
+}
+
+// MyMove is a move the owner played from a position, scored.
+type MyMove struct {
+	UCI, SAN            string
+	White, Draws, Black int
+}
+
+// MyTop is one of the owner's games through a position, and the move played there.
+type MyTop struct {
+	Summary
+	UCI string
+}
+
+// Mine is the owner's own explorer at a position.
+type Mine struct {
+	White, Draws, Black int
+	Moves               []MyMove
+	Top                 []MyTop
+}
+
+// MyExplorer answers the owner's games at position (an opening-table key): the moves played
+// from it, most played first, and the newest games through it.
+func (s *Store) MyExplorer(ctx context.Context, owner uuid.UUID, position string) (Mine, error) {
+	var m Mine
+	if err := s.pool.QueryRow(ctx, `SELECT coalesce(sum(white), 0), coalesce(sum(draws), 0), coalesce(sum(black), 0)
+		FROM position_moves WHERE owner_id = $1 AND position = $2`, owner, position).Scan(&m.White, &m.Draws, &m.Black); err != nil {
+		return m, err
+	}
+	rows, err := s.pool.Query(ctx, `SELECT uci, san, white, draws, black FROM position_moves
+		WHERE owner_id = $1 AND position = $2 ORDER BY white + draws + black DESC, uci LIMIT 12`, owner, position)
+	if err != nil {
+		return m, err
+	}
+	if m.Moves, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (MyMove, error) {
+		var mv MyMove
+		err := r.Scan(&mv.UCI, &mv.SAN, &mv.White, &mv.Draws, &mv.Black)
+		return mv, err
+	}); err != nil {
+		return m, err
+	}
+	rows, err = s.pool.Query(ctx, `SELECT `+summaryCols+`, p.uci FROM games g
+		JOIN game_positions p ON p.game_id = g.id
+		WHERE p.owner_id = $1 AND p.position = $2 ORDER BY g.sort_at DESC, g.id DESC LIMIT 8`, owner, position)
+	if err != nil {
+		return m, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var t MyTop
+		sum, err := scanSummary(rows, &t.UCI)
+		if err != nil {
+			return m, err
+		}
+		t.Summary = sum
+		m.Top = append(m.Top, t)
+	}
+	return m, rows.Err()
+}
+
+// Viewed is a top game a player opened from the explorer.
+type Viewed struct {
+	DB     string  `json:"db"`
+	ID     string  `json:"id"`
+	White  string  `json:"white"`
+	Black  string  `json:"black"`
+	Result string  `json:"result"`
+	Year   *int    `json:"year"`
+	Event  *string `json:"event"`
+}
+
+// PopularGame is a top game and how many players opened it lately (contract: PopularGame).
+type PopularGame struct {
+	Viewed
+	Views int `json:"views"`
+}
+
+// RecordView counts viewer opening a top game today; twice the same day is once.
+func (s *Store) RecordView(ctx context.Context, viewer uuid.UUID, v Viewed) error {
+	_, err := s.pool.Exec(ctx, `INSERT INTO game_views (day, db, game_id, viewer, white, black, result, year, event)
+		VALUES (current_date, $1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING`,
+		v.DB, v.ID, viewer, v.White, v.Black, v.Result, v.Year, v.Event)
+	return err
+}
+
+// Popular lists the top games most players opened in the last days, at most 10.
+func (s *Store) Popular(ctx context.Context, days int) ([]PopularGame, error) {
+	rows, err := s.pool.Query(ctx, `SELECT db, game_id, max(white), max(black), max(result), max(year), max(event), count(*)
+		FROM game_views WHERE day > current_date - $1::int
+		GROUP BY db, game_id ORDER BY count(*) DESC, max(day) DESC, game_id LIMIT 10`, days)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (PopularGame, error) {
+		var p PopularGame
+		err := r.Scan(&p.DB, &p.ID, &p.White, &p.Black, &p.Result, &p.Year, &p.Event, &p.Views)
+		return p, err
+	})
 }
 
 // Filter narrows a search (contract: searchGames).

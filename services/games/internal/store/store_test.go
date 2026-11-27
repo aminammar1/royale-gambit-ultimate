@@ -449,3 +449,100 @@ func TestTenThousandGamesSearchFast(t *testing.T) {
 		t.Errorf("player stats took %v, want under 200 ms", took)
 	}
 }
+
+const start = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
+const afterE4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq -"
+
+func TestMyGamesExplorer(t *testing.T) {
+	ctx := context.Background()
+	owner := uuid.Must(uuid.NewV7())
+	_, err := db.SaveGames(ctx, owner, "pgn", nil, games(t,
+		pgnOf("me", "a", "1-0", "2025.01.01", "1. e4 e5 2. Nf3"),
+		pgnOf("b", "me", "0-1", "2025.01.02", "1. e4 c5"),
+		pgnOf("me", "c", "1/2-1/2", "2025.01.03", "1. d4 d5"),
+		// Nf3, Ng1 and back: the same move from the same position twice is one game, not two.
+		pgnOf("me", "d", "1-0", "2025.01.04", "1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3"),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Someone else's games are not yours.
+	if _, err := db.SaveGames(ctx, uuid.Must(uuid.NewV7()), "pgn", nil, games(t, pgnOf("x", "y", "1-0", "2025.01.01", "1. e4 e5"))); err != nil {
+		t.Fatal(err)
+	}
+	ex, err := db.MyExplorer(ctx, owner, start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// e4 won once each way, d4 drawn, Nf3 won by White.
+	if ex.White != 2 || ex.Draws != 1 || ex.Black != 1 {
+		t.Fatalf("totals %d/%d/%d", ex.White, ex.Draws, ex.Black)
+	}
+	if len(ex.Moves) != 3 || ex.Moves[0].UCI != "e2e4" || ex.Moves[0].White != 1 || ex.Moves[0].Black != 1 || ex.Moves[0].SAN != "e4" {
+		t.Fatalf("moves %+v", ex.Moves)
+	}
+	if nf3 := ex.Moves[2]; nf3.UCI != "g1f3" || nf3.White != 1 {
+		t.Fatalf("Nf3 counted once: %+v", nf3)
+	}
+	after, err := db.MyExplorer(ctx, owner, afterE4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(after.Top) != 2 || after.Top[0].White != "b" || after.Top[0].UCI != "c7c5" {
+		t.Fatalf("top games, newest first, with the move played: %+v", after.Top)
+	}
+	none, _ := db.MyExplorer(ctx, uuid.Must(uuid.NewV7()), start)
+	if len(none.Moves) != 0 || len(none.Top) != 0 {
+		t.Fatalf("a stranger's explorer %+v", none)
+	}
+}
+
+func TestOldGamesAreBackfilled(t *testing.T) {
+	ctx := context.Background()
+	owner := uuid.Must(uuid.NewV7())
+	if _, err := db.SaveGames(ctx, owner, "pgn", nil, games(t, pgnOf("me", "a", "1-0", "2025.01.01", "1. e4 e5"))); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Unindex(ctx, owner); err != nil {
+		t.Fatal(err)
+	}
+	if ex, _ := db.MyExplorer(ctx, owner, start); len(ex.Moves) != 0 {
+		t.Fatal("still indexed")
+	}
+	for {
+		n, err := db.Backfill(ctx, 100)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n == 0 {
+			break
+		}
+	}
+	if ex, _ := db.MyExplorer(ctx, owner, start); len(ex.Moves) != 1 || ex.Moves[0].White != 1 {
+		t.Fatalf("after the backfill %+v", ex.Moves)
+	}
+}
+
+func TestPopularThisWeek(t *testing.T) {
+	ctx := context.Background()
+	game := store.Viewed{DB: "masters", ID: "popular1", White: "Carlsen, M.", Black: "Caruana, F.", Result: "1-0"}
+	for _, viewer := range []uuid.UUID{uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())} {
+		// Twice the same day is one view.
+		for i := 0; i < 2; i++ {
+			if err := db.RecordView(ctx, viewer, game); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	other := store.Viewed{DB: "lichess", ID: "popular2", White: "a", Black: "b", Result: "*"}
+	if err := db.RecordView(ctx, uuid.Must(uuid.NewV7()), other); err != nil {
+		t.Fatal(err)
+	}
+	top, err := db.Popular(ctx, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(top) < 2 || top[0].ID != "popular1" || top[0].Views != 2 || top[0].White != "Carlsen, M." {
+		t.Fatalf("%+v", top)
+	}
+}
