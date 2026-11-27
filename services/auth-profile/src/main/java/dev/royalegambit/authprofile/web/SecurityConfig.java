@@ -69,6 +69,11 @@ class SecurityConfig {
 				.hasRole(Role.USER.name())
 				.requestMatchers(PUBLIC)
 				.permitAll()
+				// Other services, with their shared secret, checked by
+				// InternalController;
+				// the gateway never routes /internal.
+				.requestMatchers("/internal/**")
+				.permitAll()
 				// Guests keep their profile on the device (ADR-15).
 				.requestMatchers("/v1/profile")
 				.hasRole(Role.USER.name())

@@ -45,7 +45,17 @@ public final class Http {
 		return send("PUT", path, body, bearer);
 	}
 
+	/** A GET with one extra header, as another service would send it. */
+	public HttpResponse<String> getWithHeader(String path, String header, String value) {
+		return send("GET", path, null, null, header, value);
+	}
+
 	public HttpResponse<String> send(String method, String path, String body, String bearer) {
+		return send(method, path, body, bearer, null, null);
+	}
+
+	private HttpResponse<String> send(String method, String path, String body, String bearer, String header,
+			String value) {
 		HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(this.base + path))
 			.method(method,
 					(body != null) ? HttpRequest.BodyPublishers.ofString(body) : HttpRequest.BodyPublishers.noBody());
@@ -54,6 +64,9 @@ public final class Http {
 		}
 		if (bearer != null) {
 			request.header("Authorization", "Bearer " + bearer);
+		}
+		if (header != null) {
+			request.header(header, value);
 		}
 		try {
 			return CLIENT.send(request.build(), HttpResponse.BodyHandlers.ofString());
