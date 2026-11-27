@@ -139,6 +139,8 @@ Shown on the boards but in no milestone yet: "Train on puzzles from these mistak
 - `games` explorer stats (Lichess database + user games, key = EPD, Redis cache). Explorer panel with three sections: engine best move, top 3 lines (local engine), most played moves (printed opening table with White/draw/Black bars); click a move to play it.
 **Accept:** panel works at the start and a mid-game position; p95 under 300 ms on a load test; offline shows cached data with a clear label; never blocks the board or engine.
 
+
+*Pulled forward (2026-11-28), with M8 and M9:* the explorer on lichess's opening explorer through `games` (ADR-19): masters for anyone, lichess's database with the player's own Lichess token from `auth-profile`'s internal route (the desktop Lichess sign-in, built earlier, offered from the panel). Explorer tab per `explorer-panel.png`, Redis cache by position, offline copy labelled. Left: the player's own games as a third database (`position_stats`), and the masters database and famous games Amine asked to plan next.
 ---
 
 # v1.4: Lessons

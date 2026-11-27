@@ -364,6 +364,9 @@ func (s *server) explorerFailed(c *gin.Context, err error) {
 	case errors.Is(err, explorer.ErrLichessNeeded):
 		httpx.Abort(c, httpx.NewProblem(c, http.StatusForbidden, "lichess-needed", "Lichess sign-in needed",
 			"The Lichess database is read with your own Lichess account: sign in with Lichess first."))
+	case errors.Is(err, explorer.ErrInvalidPosition):
+		httpx.Abort(c, httpx.NewProblem(c, http.StatusBadRequest, "invalid-position", "Invalid position",
+			"Lichess's explorer does not take this position."))
 	case errors.Is(err, explorer.ErrNotFound):
 		httpx.WriteProblem(c, http.StatusNotFound, "no such game")
 	case errors.Is(err, explorer.ErrUnavailable):

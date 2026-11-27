@@ -142,7 +142,9 @@ export function ExplorerPanel({
       ) : null}
 
       {shown && !needsLichess ? (
-        <div className={loading ? "opacity-60 transition-opacity" : "transition-opacity"}>
+        // While the next answer loads, the last one is only a picture: its moves and games
+        // belong to another position, so nothing in it can be clicked.
+        <div inert={loading} className={loading ? "opacity-60 transition-opacity" : "transition-opacity"}>
           {shown.moves.length === 0 ? (
             <p className="mt-4 font-body text-[length:var(--text-sm)] text-ink-2 italic">
               No game in this database reached this position.

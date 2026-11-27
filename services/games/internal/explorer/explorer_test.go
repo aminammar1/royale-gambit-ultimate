@@ -148,3 +148,34 @@ func TestTopGamePGN(t *testing.T) {
 		t.Fatalf("want ErrNotFound, got %v", err)
 	}
 }
+
+// Found by the chess review: lichess writes castling as the king taking its own rook.
+func TestCastlingComesBackAsStandardUCI(t *testing.T) {
+	const italian = "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 1"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"white":1,"draws":1,"black":1,"moves":[
+			{"uci":"e1h1","san":"O-O","white":1,"draws":1,"black":1},
+			{"uci":"h1g1","san":"Rg1","white":0,"draws":0,"black":1}],
+			"topGames":[{"uci":"e1h1","id":"abcdEFGH","winner":"white","white":{"name":"a","rating":1},"black":{"name":"b","rating":2},"year":2020}]}`))
+	}))
+	defer srv.Close()
+	e, _ := explorerFor(srv, tokens{})
+	r, _, err := e.Explore(context.Background(), "masters", italian, uuid.Nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Moves[0].UCI != "e1g1" || r.Moves[1].UCI != "h1g1" || r.TopGames[0].UCI != "e1g1" {
+		t.Fatalf("moves %+v top %+v", r.Moves, r.TopGames)
+	}
+}
+
+func TestAPositionLichessRefusesIsInvalid(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "illegal position: opposite check", http.StatusBadRequest)
+	}))
+	defer srv.Close()
+	e, _ := explorerFor(srv, tokens{})
+	if _, _, err := e.Explore(context.Background(), "masters", "4k3/4R3/8/8/8/8/8/4K3 w - - 0 1", uuid.Nil); !errors.Is(err, explorer.ErrInvalidPosition) {
+		t.Fatalf("want ErrInvalidPosition, got %v", err)
+	}
+}

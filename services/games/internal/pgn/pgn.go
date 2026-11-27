@@ -387,6 +387,43 @@ func openings() map[string]named {
 	return byEPD
 }
 
+// StandardCastling turns lichess's castling, written as the king taking its own rook (e1h1),
+// into standard UCI (e1g1), when fen has the king and rook of the side to move on those squares.
+// Any other
+// move comes back unchanged. The board is read by the chess library.
+func StandardCastling(fen, uci string) string {
+	if len(uci) != 4 {
+		return uci
+	}
+	from, to := uci[:2], uci[2:]
+	rank := from[1:]
+	if (from != "e1" && from != "e8") || to[1:] != rank || (to[0] != 'a' && to[0] != 'h') {
+		return uci
+	}
+	opt, err := chess.FEN(fen)
+	if err != nil {
+		return uci
+	}
+	pos := chess.NewGame(opt).Position()
+	board := pos.Board().SquareMap()
+	at := func(name string) chess.Piece {
+		for sq, p := range board {
+			if sq.String() == name {
+				return p
+			}
+		}
+		return chess.NoPiece
+	}
+	king, rook := at(from), at(to)
+	if king.Type() != chess.King || rook.Type() != chess.Rook || king.Color() != rook.Color() || king.Color() != pos.Turn() {
+		return uci
+	}
+	if to[0] == 'h' {
+		return from + "g" + rank
+	}
+	return from + "c" + rank
+}
+
 // PositionKey checks fen with the chess library and gives the position back as a FEN with
 // neutral counters ("... 0 1") and an en passant square only when a capture is legal: the same
 // position reached by any move order has the same key (the explorer's cache key).

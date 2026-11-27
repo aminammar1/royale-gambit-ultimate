@@ -418,3 +418,20 @@ func TestPositionKey(t *testing.T) {
 		}
 	}
 }
+
+func TestStandardCastling(t *testing.T) {
+	italian := "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 1"
+	for in, want := range map[string]string{"e1h1": "e1g1", "e1g1": "e1g1", "f3g5": "f3g5", "e1f1": "e1f1"} {
+		if got := pgn.StandardCastling(italian, in); got != want {
+			t.Errorf("%s: %s, want %s", in, got, want)
+		}
+	}
+	long := "r3kbnr/pppqpppp/2n5/3p1b2/3P1B2/2N5/PPPQPPPP/R3KBNR b KQkq - 0 1"
+	if got := pgn.StandardCastling(long, "e8a8"); got != "e8c8" {
+		t.Errorf("e8a8: %s", got)
+	}
+	// Not a king and its own rook: left alone.
+	if got := pgn.StandardCastling(long, "e1a1"); got != "e1a1" {
+		t.Errorf("e1a1 with Black to move: %s", got)
+	}
+}

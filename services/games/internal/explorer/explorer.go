@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/pgn"
 )
 
 var (
@@ -24,6 +26,9 @@ var (
 	ErrUnavailable = errors.New("the explorer is unavailable")
 	// ErrNotFound: no such game.
 	ErrNotFound = errors.New("no such game")
+	// ErrInvalidPosition: lichess refuses the position (a check on the side not to move, a pawn
+	// on the back rank...).
+	ErrInvalidPosition = errors.New("lichess refuses this position")
 	// ErrNoToken, from Tokens: the player has no Lichess token.
 	ErrNoToken = errors.New("no lichess token")
 )
@@ -99,7 +104,7 @@ var ttl = map[string]time.Duration{"masters": 7 * 24 * time.Hour, "lichess": 24 
 // key (pgn.PositionKey), shared by every move order that reaches it. cached says the answer
 // came from the cache.
 func (e *Explorer) Explore(ctx context.Context, db, fen string, user uuid.UUID) (Result, bool, error) {
-	key := "explorer:v1:" + db + ":" + fen
+	key := "explorer:v2:" + db + ":" + fen // v2: castling in standard UCI
 	if raw, ok := e.Cache.Get(ctx, key); ok {
 		var r Result
 		if json.Unmarshal(raw, &r) == nil {
@@ -147,10 +152,11 @@ func (e *Explorer) Explore(ctx context.Context, db, fen string, user uuid.UUID) 
 	r := Result{DB: db, White: raw.White, Draws: raw.Draws, Black: raw.Black, Opening: raw.Opening,
 		Moves: []Move{}, TopGames: []Game{}}
 	for _, m := range raw.Moves {
-		r.Moves = append(r.Moves, Move{UCI: m.UCI, SAN: m.SAN, White: m.White, Draws: m.Draws, Black: m.Black, AverageRating: m.AverageRating})
+		r.Moves = append(r.Moves, Move{UCI: pgn.StandardCastling(fen, m.UCI), SAN: m.SAN, White: m.White, Draws: m.Draws, Black: m.Black, AverageRating: m.AverageRating})
 	}
 	for _, g := range raw.TopGames {
-		r.TopGames = append(r.TopGames, Game{ID: g.ID, White: g.White, Black: g.Black, Winner: g.Winner, Year: g.Year, UCI: g.UCI})
+		r.TopGames = append(r.TopGames, Game{ID: g.ID, White: g.White, Black: g.Black, Winner: g.Winner, Year: g.Year,
+			UCI: pgn.StandardCastling(fen, g.UCI)})
 	}
 	if out, err := json.Marshal(r); err == nil {
 		e.Cache.Set(context.WithoutCancel(ctx), key, out, ttl[db])
@@ -161,7 +167,7 @@ func (e *Explorer) Explore(ctx context.Context, db, fen string, user uuid.UUID) 
 // GamePGN is a top game's PGN: a masters game from the explorer, a lichess game from lichess.org
 // (both public, no token).
 func (e *Explorer) GamePGN(ctx context.Context, db, id string) (string, error) {
-	key := "explorer:v1:pgn:" + db + ":" + id
+	key := "explorer:v2:pgn:" + db + ":" + id
 	if raw, ok := e.Cache.Get(ctx, key); ok {
 		return string(raw), nil
 	}
@@ -201,6 +207,8 @@ func (e *Explorer) get(ctx context.Context, u, token, accept string) ([]byte, er
 		return nil, ErrLichessNeeded // the token was revoked or expired: sign in again
 	case resp.StatusCode == http.StatusNotFound:
 		return nil, ErrNotFound
+	case resp.StatusCode == http.StatusBadRequest:
+		return nil, ErrInvalidPosition
 	case resp.StatusCode != http.StatusOK:
 		return nil, fmt.Errorf("%w: lichess answered %s", ErrUnavailable, resp.Status)
 	}

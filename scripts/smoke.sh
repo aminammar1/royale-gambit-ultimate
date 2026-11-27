@@ -86,7 +86,11 @@ eco=$(curl -fsS -H "Authorization: Bearer $gtoken" "$base/v1/games?player=paul%2
   python3 -c "import json, sys; print(json.load(sys.stdin)['items'][0]['eco'])")
 [[ $eco == C41 ]] || { echo "   the Opera Game's opening: '$eco', want C41"; fail=1; }
 check_metrics "$base"
-contract_check games.yaml "$base" --header "Authorization: Bearer $gtoken"
+contract_check games.yaml "$base" --header "Authorization: Bearer $gtoken" --exclude-path-regex '^/v1/explorer'
+# The explorer's upstream is a closed port under smoke, so its documented answer is 503
+# explorer-unavailable: every check but "no 5xx" for those two routes.
+contract_check games.yaml "$base" --header "Authorization: Bearer $gtoken" --include-path-regex '^/v1/explorer' \
+  --exclude-checks positive_data_acceptance,not_a_server_error
 
 # The real path from the desktop app: everything through the gateway.
 gw=http://localhost:8080
