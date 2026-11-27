@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://royale-gambit.dev/contracts/events/import.requested.schema.json",
+  "title": "import.requested",
+  "description": "`data` of the event games publishes when a player asks to import a username's games (POST /v1/imports). The games service's own import worker consumes it: the import is a long job, so it travels as an event (ADR-11).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["job_id", "user_id", "site", "username", "max_games", "requested_at"],
+  "properties": {
+    "job_id": { "type": "string", "format": "uuid", "description": "UUIDv7 of the import job" },
+    "user_id": { "type": "string", "format": "uuid", "description": "The owner, the JWT `sub`" },
+    "site": { "type": "string", "enum": ["lichess", "chesscom"] },
+    "username": { "type": "string", "pattern": "^[A-Za-z0-9_-]{2,30}$" },
+    "max_games": { "type": "integer", "minimum": 1, "maximum": 2000 },
+    "requested_at": { "type": "string", "format": "date-time" }
+  }
+}
