@@ -116,6 +116,8 @@ Shown on the boards but in no milestone yet: "Train on puzzles from these mistak
 - Client sync of local games through the outbox; search by player, opening, result, date, source; filters and sort; virtualized list; "review all unreviewed"; per-player stats (openings, win/draw/loss by color, common mistakes).
 **Accept:** a 10k-game fixture searches in under 200 ms server-side; offline shows local games only; screenshots in both editions.
 
+
+*Pulled forward (2026-11-28), with M8:* the Library page as specified, on the `games` service: search by player, opening and words, result and dates, paged cards (thirty at a time, more on scroll), the player's record (`GET /v1/games/stats`), imports followed live and PGN files, a card opening in Analysis. Accepted: a 10,000-game library searches in under 200 ms (a test seeds it); screenshots in both editions with 2,000 real games. My choice, to confirm with Amine: the archive needs an account (a guest's identity is new each session). Left for later: "review all unreviewed" and common mistakes per player (need M5 `review`); a guest's local games and their sync through the outbox (need local games, M1).
 ---
 
 # v1.2: Bots

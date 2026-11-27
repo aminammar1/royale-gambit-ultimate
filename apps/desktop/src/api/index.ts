@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { auth, renewAccessToken, useSession } from "./auth/session";
 import { createAnalysisClient } from "./analysis";
 import { createApiClient } from "./client";
+import { createGamesApi } from "./games";
 import type { components } from "./generated/auth-profile";
 
 export type Identity = components["schemas"]["Identity"];
@@ -50,3 +51,8 @@ export async function getMyProfile(): Promise<Profile | undefined> {
 
 /** Creates or replaces the account's card; the server keeps the newest edit (contract: putMyProfile). */
 export const putMyProfile = (write: ProfileWrite) => api.put<Profile>("/v1/profile", write);
+
+export type { Game, GameSummary, ImportJob, PlayerStats, SaveResult, Search, Site } from "./games";
+
+/** The signed-in player's games: the Library's search, imports and the player card. */
+export const games = createGamesApi(api);

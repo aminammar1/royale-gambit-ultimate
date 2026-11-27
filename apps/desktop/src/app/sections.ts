@@ -3,13 +3,14 @@ import {
   ChessKnight,
   ChessPawn,
   IdCard,
+  Library,
   Newspaper,
   ScanSearch,
   SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 
-/** Nav sections, each with its icon (docs/DESIGN.md). Later ones: Library, Bots, Learn. */
+/** Nav sections, each with its icon (docs/DESIGN.md). Later ones: Bots, Learn. */
 export type Section = {
   icon: LucideIcon;
   /** Pages with a chess board on them show the board placeholder until they are built. */
@@ -59,6 +60,7 @@ export const SECTIONS: readonly Section[] = [
     title: "Puzzles",
     opensIn: { milestone: "M6", what: "Tactics with hints, your record, and the daily chess column." },
   },
+  { icon: Library, path: "/library", label: "Library", kicker: "Library", title: "The archive" },
   { icon: SlidersHorizontal, path: "/settings", label: "Settings", kicker: "Settings", title: "Settings" },
   {
     icon: IdCard,

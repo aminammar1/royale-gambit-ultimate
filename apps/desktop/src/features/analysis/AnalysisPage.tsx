@@ -1,5 +1,8 @@
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
+import { games } from "../../api";
+import { describeError, toApiError } from "../../api/problem";
 import { useEdition } from "../../app/edition";
 import { editionDate } from "../../app/editionDate";
 import {
@@ -60,6 +63,10 @@ export function AnalysisPage() {
   const [promotion, setPromotion] = useState<{ from: string; to: string }>();
   const [setup, setSetup] = useState("");
   const [setupError, setSetupError] = useState<string>();
+  // The game opened from the Library (?game=<id>): its players and opening, for the dateline.
+  const [params] = useSearchParams();
+  const gameId = params.get("game");
+  const [filedAs, setFiledAs] = useState<string>();
   const [copied, setCopied] = useState<{ what: "FEN" | "PGN"; ok: boolean }>();
 
   const fen = fenAt(game, cursor);
@@ -182,14 +189,37 @@ export function AnalysisPage() {
     copied?.what === what ? (copied.ok ? "Copied" : "Copy failed") : `Copy ${what}`;
 
   /** A new game on the board: nothing picked, no promotion waiting, no old error. */
-  const replaceGame = (next: Game, at: number) => {
+  const replaceGame = (next: Game, at: number, title?: string) => {
     if (useSettings.getState().sounds) void playBoardSound("start");
     setGame(next);
     setCursor(at);
     setSelected(undefined);
     setPromotion(undefined);
     setSetupError(undefined);
+    setFiledAs(title);
   };
+
+  // A card from the Library: the game from the server, read by chess.js, from its first move.
+  useEffect(() => {
+    if (!gameId) return;
+    let live = true;
+    games
+      .get(gameId)
+      .then((g) => {
+        if (!live) return;
+        const result = load(g.pgn);
+        if (!result.ok) {
+          setSetupError(`This game could not be opened: ${result.error}`);
+          return;
+        }
+        replaceGame(result.game, 0, `${g.white} – ${g.black}${g.opening ? ` · ${g.opening}` : ""}`);
+      })
+      .catch((e: unknown) => live && setSetupError(`This game could not be opened: ${describeError(toApiError(e))}`));
+    return () => {
+      live = false;
+    };
+    // replaceGame only sets state; the game to open is the id.
+  }, [gameId]);
 
   /** Turning the engine back on searches afresh, never shows the last answer as if new. */
   const setEngine = (on: boolean) => {
@@ -207,7 +237,12 @@ export function AnalysisPage() {
       <Masthead
         kicker="Analyze"
         title="Analysis"
-        dateline={[`${edition} edition`, editionDate(new Date()), `Server engine · ${engineName}`, moveLabel]}
+        dateline={[
+          `${edition} edition`,
+          editionDate(new Date()),
+          filedAs ?? `Server engine · ${engineName}`,
+          moveLabel,
+        ]}
         actions={
           <>
             <div className="flex items-center gap-3">
