@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -78,9 +79,43 @@ func New(opts Options) *gin.Engine {
 
 	r.NoRoute(func(c *gin.Context) { httpx.WriteProblem(c, http.StatusNotFound, "no such route") })
 	r.NoMethod(func(c *gin.Context) {
+		// Gin's own Allow can name a method of a neighbouring route; list the path's own.
+		c.Header("Allow", allowed(r.Routes(), c.Request.URL.Path))
 		httpx.WriteProblem(c, http.StatusMethodNotAllowed, "method not allowed on this route")
 	})
 	return r
+}
+
+// allowed lists the methods registered for path, matching :params segment by segment and
+// preferring a static segment over a parameter, as the router does.
+func allowed(routes gin.RoutesInfo, path string) string {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	best, methods := -1, []string{}
+	for _, rt := range routes {
+		pat := strings.Split(strings.Trim(rt.Path, "/"), "/")
+		if len(pat) != len(parts) {
+			continue
+		}
+		static, ok := 0, true
+		for i, seg := range pat {
+			switch {
+			case strings.HasPrefix(seg, ":"):
+			case seg == parts[i]:
+				static++
+			default:
+				ok = false
+			}
+		}
+		switch {
+		case !ok || static < best:
+		case static > best:
+			best, methods = static, []string{rt.Method}
+		default:
+			methods = append(methods, rt.Method)
+		}
+	}
+	sort.Strings(methods)
+	return strings.Join(methods, ", ")
 }
 
 func (s *server) ready(c *gin.Context) {

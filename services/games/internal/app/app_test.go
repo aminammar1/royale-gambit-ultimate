@@ -392,3 +392,21 @@ func TestPlayerStatsRoute(t *testing.T) {
 		}
 	}
 }
+
+func TestAllowListsExactlyTheRoutesMethods(t *testing.T) {
+	// Found by the contract fuzzer: a 405 must name only the methods the path has.
+	me := uuid.Must(uuid.NewV7())
+	cases := map[string]string{
+		"/v1/games/stats":  "GET",
+		"/v1/games":        "GET, POST",
+		"/v1/imports":      "POST",
+		"/v1/imports/abc":  "GET",
+		"/v1/games/abcdef": "GET",
+	}
+	for path, want := range cases {
+		code, _, h := call(t, "DELETE", path, me, nil)
+		if code != 405 || h.Get("Allow") != want {
+			t.Errorf("DELETE %s: %d, Allow %q, want %q", path, code, h.Get("Allow"), want)
+		}
+	}
+}
