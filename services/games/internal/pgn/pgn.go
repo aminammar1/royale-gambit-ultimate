@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -61,7 +62,8 @@ func Read(r io.Reader, limit int) ([]Parsed, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading the PGN: %w", err)
 	}
-	chunks := split(string(text))
+	// A byte-order mark (Windows and ChessBase exports) is not part of the first tag.
+	chunks := split(strings.TrimPrefix(string(text), "\ufeff"))
 	if len(chunks) > limit {
 		return nil, fmt.Errorf("%w: more than %d", ErrTooMany, limit)
 	}
@@ -75,37 +77,150 @@ func Read(r io.Reader, limit int) ([]Parsed, error) {
 
 // split cuts a PGN text into games. The library's own splitter ends a game at its result and
 // does not count "*" as one, so an unfinished game would swallow the games after it. This is
-// text only, no chess: a game starts at a tag line that comes after move text, outside
-// {comments}.
+// text only, no chess: a game ends at a tag line that follows move text, or after its result;
+// braces open comments only in move text, and a ';' comment runs to the end of its line.
 func split(text string) []string {
 	var games []string
 	var cur strings.Builder
-	sawMoves, depth := false, 0
+	sawMoves, ended, depth := false, false, 0
 	flush := func() {
 		if g := strings.TrimSpace(cur.String()); g != "" {
 			games = append(games, g)
 		}
 		cur.Reset()
-		sawMoves = false
+		sawMoves, ended = false, false
 	}
 	for _, line := range strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n") {
 		trimmed := strings.TrimSpace(line)
-		if depth == 0 && strings.HasPrefix(trimmed, "[") {
+		switch {
+		case depth == 0 && strings.HasPrefix(trimmed, "["):
 			if sawMoves {
 				flush()
 			}
-		} else if depth == 0 && trimmed != "" && !strings.HasPrefix(trimmed, "%") {
+		case depth == 0 && trimmed != "" && !strings.HasPrefix(trimmed, "%"):
+			if ended {
+				flush() // a game after a finished one, with or without tags
+			}
 			sawMoves = true
-		}
-		depth += strings.Count(line, "{") - strings.Count(line, "}")
-		if depth < 0 {
-			depth = 0
+			var last string
+			depth, last = scanMoveText(line, depth)
+			ended = depth == 0 && isResult(last)
+		case depth > 0:
+			var last string
+			depth, last = scanMoveText(line, depth)
+			ended = depth == 0 && isResult(last)
 		}
 		cur.WriteString(line)
 		cur.WriteByte('\n')
 	}
 	flush()
 	return games
+}
+
+// scanMoveText follows the comment depth through one line of move text and gives back the
+// last token outside comments.
+func scanMoveText(line string, depth int) (int, string) {
+	var plain strings.Builder
+	for _, r := range line {
+		switch {
+		case depth == 0 && r == ';':
+			return 0, lastToken(plain.String())
+		case r == '{':
+			depth++
+		case r == '}':
+			if depth > 0 {
+				depth--
+			}
+			plain.WriteByte(' ')
+		case depth == 0:
+			plain.WriteRune(r)
+		}
+	}
+	return depth, lastToken(plain.String())
+}
+
+func lastToken(s string) string {
+	f := strings.Fields(s)
+	if len(f) == 0 {
+		return ""
+	}
+	return f[len(f)-1]
+}
+
+func isResult(tok string) bool {
+	return tok == "1-0" || tok == "0-1" || tok == "1/2-1/2" || tok == "*"
+}
+
+var (
+	moveNumber = regexp.MustCompile(`^[0-9]+\.+`)
+	annotation = regexp.MustCompile(`[+#!?]+$`)
+	barePromo  = regexp.MustCompile(`^((?:[a-h]x)?[a-h][18])([QRBN])$`)
+)
+
+// normalize rewrites, in move text only (never in tags or comments), what the library's lexer
+// misreads: castling with zeros (0-0, 0-0-0), read as a move number; a promotion without "="
+// (e8Q); and a ";" comment, which holds no moves and is dropped (a brace in one confuses the
+// lexer). This is spelling, not rules: the library still checks each move. The stored PGN is the
+// text as given.
+func normalize(text string) string {
+	var out strings.Builder
+	depth := 0
+	for _, line := range strings.SplitAfter(text, "\n") {
+		if depth == 0 && strings.HasPrefix(strings.TrimSpace(line), "[") {
+			out.WriteString(line)
+			continue
+		}
+		var plain strings.Builder
+		emit := func() {
+			out.WriteString(fixTokens(plain.String()))
+			plain.Reset()
+		}
+		for i, r := range line {
+			switch {
+			case depth == 0 && r == ';':
+				emit()
+				if strings.HasSuffix(line[i:], "\n") {
+					out.WriteByte('\n')
+				}
+				goto next
+			case r == '{':
+				emit()
+				depth++
+				out.WriteRune(r)
+			case r == '}' && depth > 0:
+				depth--
+				out.WriteRune(r)
+			case depth > 0:
+				out.WriteRune(r)
+			default:
+				plain.WriteRune(r)
+			}
+		}
+		emit()
+	next:
+	}
+	return out.String()
+}
+
+// fixTokens rewrites each whitespace-separated token of plain move text, keeping the spacing.
+func fixTokens(s string) string {
+	return regexp.MustCompile(`\S+`).ReplaceAllStringFunc(s, func(tok string) string {
+		num := moveNumber.FindString(tok)
+		rest := tok[len(num):]
+		suffix := annotation.FindString(rest)
+		core := rest[:len(rest)-len(suffix)]
+		switch core {
+		case "0-0":
+			core = "O-O"
+		case "0-0-0":
+			core = "O-O-O"
+		default:
+			if m := barePromo.FindStringSubmatch(core); m != nil {
+				core = m[1] + "=" + m[2]
+			}
+		}
+		return num + core + suffix
+	})
 }
 
 // parseText reads one game's text with the library. The library can panic on some malformed
@@ -117,7 +232,7 @@ func parseText(text string) (g *Game, err error) {
 			g, err = nil, fmt.Errorf("unreadable PGN: %v", r)
 		}
 	}()
-	sc := chess.NewScanner(strings.NewReader(text))
+	sc := chess.NewScanner(strings.NewReader(normalize(text)))
 	if !sc.HasNext() {
 		return nil, errors.New("no game in the text")
 	}
@@ -125,7 +240,15 @@ func parseText(text string) (g *Game, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("unreadable PGN: %w", err)
 	}
-	return parse(scanned)
+	// Never drop a game silently: text left over is this part's error.
+	if sc.HasNext() {
+		return nil, errors.New("more than one game ran together here; leave a blank line and tags between games")
+	}
+	g, err = parse(scanned)
+	if g != nil {
+		g.Raw = strings.TrimSpace(text) // as given, not as normalized
+	}
+	return g, err
 }
 
 // One reads a single game, as a site sends it.
@@ -186,16 +309,23 @@ func parse(scanned *chess.GameScanned) (*Game, error) {
 		}
 		uci = append(uci, chess.UCINotation{}.Encode(nil, m))
 	}
-	g.FirstMoves = numbered(san)
+	g.FirstMoves = numbered(san, positions)
 
-	// Openings are named from the standard start only.
+	// Openings are named by position, the deepest the game reaches, so another move order
+	// (1. Nf3 c5 2. e4 into a Najdorf) finds the same name. From a set position there is none.
 	if tag("FEN") == "" && tag("SetUp") != "1" {
-		if o := book().Find(moves); o != nil {
-			g.ECO, g.Opening = o.Code(), o.Title()
+		for i := len(positions) - 1; i >= 0; i-- {
+			if o, ok := openings()[epd(positions[i])]; ok {
+				g.ECO, g.Opening = o.code, o.title
+				break
+			}
 		}
 	}
 	if g.ECO == "" {
-		g.ECO, g.Opening = tag("ECO"), tag("Opening")
+		// The PGN's own tag, kept only as a plain code (some exports write C42a).
+		if code := ecoCode.FindString(tag("ECO")); code != "" {
+			g.ECO, g.Opening = code, tag("Opening")
+		}
 	}
 
 	if g.Hash == "" {
@@ -207,15 +337,38 @@ func parse(scanned *chess.GameScanned) (*Game, error) {
 	return g, nil
 }
 
+type named struct{ code, title string }
+
 var (
 	bookOnce sync.Once
-	ecoBook  *opening.BookECO
+	byEPD    map[string]named
+	ecoCode  = regexp.MustCompile(`^[A-E][0-9]{2}`)
 )
 
-// book loads the opening table once; it is a few thousand lines.
-func book() *opening.BookECO {
-	bookOnce.Do(func() { ecoBook = opening.NewBookECO() })
-	return ecoBook
+// openings indexes the opening table by the position each line reaches, once: the table is
+// meant to be read by position, and the book's own lookup follows one move order only.
+func openings() map[string]named {
+	bookOnce.Do(func() {
+		byEPD = map[string]named{}
+		for _, o := range opening.NewBookECO().Possible(nil) {
+			key := epd(o.Game().Position())
+			if _, seen := byEPD[key]; !seen {
+				byEPD[key] = named{o.Code(), o.Title()}
+			}
+		}
+	})
+	return byEPD
+}
+
+// epd keys a position for the opening table: board, side to move and castling. The en passant
+// square is left out: it is written after any double pawn step, so 5. d4 into a position would
+// not match the same position reached by 5. Nf3.
+func epd(p *chess.Position) string {
+	f := strings.Fields(p.String())
+	if len(f) > 3 {
+		f = f[:3]
+	}
+	return strings.Join(f, " ")
 }
 
 func orUnknown(name string) string {
@@ -259,9 +412,19 @@ func playedAt(utcDate, utcTime, date string) *time.Time {
 	return nil
 }
 
-// siteOf finds the game's page and its id on the site: lichess.org/<8-character id> (also
-// written lichess.org/game/<id>, or with a side after it; the page given back is the plain one);
-// chess.com/game/<live|daily>/<number>, given in the Link tag.
+var (
+	lichessID = regexp.MustCompile(`^[A-Za-z0-9]{8}([A-Za-z0-9]{4})?$`)
+	// Lichess pages whose name has the shape of a game id.
+	lichessPages = map[string]bool{"analysis": true, "training": true, "practice": true, "streamer": true,
+		"insights": true, "calendar": true, "research": true, "patron": true}
+	chessComID = regexp.MustCompile(`^[0-9]+$`)
+)
+
+// siteOf finds the game's page and its id on the site. Lichess: lichess.org/<id>, also written
+// lichess.org/game/<id> or with a side after it; an id is 8 letters and digits (12 when it names a
+// side), so a tournament or broadcast page is no game. The page given back is the plain one.
+// Chess.com, in the Link tag: chess.com/game/<live|daily>/<number>, or the older
+// chess.com/<live|daily>/game/<number>.
 func siteOf(site, link string) (pageURL, hash string) {
 	for _, raw := range []string{link, site} {
 		u, err := url.Parse(raw)
@@ -270,35 +433,66 @@ func siteOf(site, link string) (pageURL, hash string) {
 		}
 		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
 		host := strings.TrimPrefix(u.Host, "www.")
-		switch {
-		case host == "lichess.org" && len(parts) >= 1:
-			// lichess.org/<id>, lichess.org/<id>/black, or the export's lichess.org/game/<id>.
+		switch host {
+		case "lichess.org":
 			id := parts[0]
 			if id == "game" && len(parts) >= 2 {
 				id = parts[1]
 			}
-			if len(id) < 8 {
+			if !lichessID.MatchString(id) || lichessPages[strings.ToLower(id)] {
 				return raw, ""
 			}
 			return "https://lichess.org/" + id[:8], "lichess:" + id[:8]
-		case host == "chess.com" && len(parts) >= 3 && parts[0] == "game":
-			return raw, "chesscom:" + parts[1] + "/" + parts[2]
+		case "chess.com":
+			if len(parts) < 3 {
+				return raw, ""
+			}
+			kind, id := "", parts[2]
+			switch {
+			case parts[0] == "game" && (parts[1] == "live" || parts[1] == "daily"):
+				kind = parts[1]
+			case parts[1] == "game" && (parts[0] == "live" || parts[0] == "daily"):
+				kind = parts[0]
+			}
+			if kind == "" || !chessComID.MatchString(id) {
+				return raw, ""
+			}
+			return raw, "chesscom:" + kind + "/" + id
 		}
 		return raw, ""
 	}
 	return "", ""
 }
 
-func numbered(san []string) string {
+// numbered writes SAN with move numbers, from where the game starts: "1. e4 e5", or from a
+// position with Black to move at move 40, "40... a1=N 41. Kd2".
+func numbered(san []string, positions []*chess.Position) string {
+	move, black := 1, false
+	if len(positions) > 0 {
+		f := strings.Fields(positions[0].String())
+		if len(f) >= 6 {
+			black = f[1] == "b"
+			if n, err := strconv.Atoi(f[5]); err == nil && n > 0 {
+				move = n
+			}
+		}
+	}
 	var b strings.Builder
 	for i, m := range san {
 		if i > 0 {
 			b.WriteByte(' ')
 		}
-		if i%2 == 0 {
-			fmt.Fprintf(&b, "%d. ", i/2+1)
+		switch {
+		case i == 0 && black:
+			fmt.Fprintf(&b, "%d... ", move)
+		case !black:
+			fmt.Fprintf(&b, "%d. ", move)
 		}
 		b.WriteString(m)
+		if black {
+			move++
+		}
+		black = !black
 	}
 	return b.String()
 }

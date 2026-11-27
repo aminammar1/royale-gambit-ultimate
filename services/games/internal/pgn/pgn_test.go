@@ -224,3 +224,122 @@ func TestLichessGamePathIsTheSameGame(t *testing.T) {
 		}
 	}
 }
+
+// Found by the chess review, 2026-11-28.
+
+func TestCastlingWrittenWithZeros(t *testing.T) {
+	// Some tools write castling with zeros. Mid-game it must not be refused, and as the last
+	// move it must not be dropped (the library's lexer reads 0-0 as a move number).
+	mid := one(t, "[White \"a\"]\n[Black \"b\"]\n\n1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. 0-0 Be7 6. Re1 0-0 *\n")
+	if mid.PlyCount != 12 {
+		t.Fatalf("mid-game castling: %d plies, want 12", mid.PlyCount)
+	}
+	last := one(t, "[White \"a\"]\n[Black \"b\"]\n\n1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5.0-0 *\n")
+	if last.PlyCount != 9 {
+		t.Fatalf("castling last: %d plies, want 9", last.PlyCount)
+	}
+	long := one(t, "[White \"a\"]\n[Black \"b\"]\n\n1. d4 d5 2. Nc3 Nc6 3. Bf4 Bf5 4. Qd2 Qd7 5. 0-0-0 0-0-0+ 1/2-1/2\n")
+	if long.PlyCount != 10 {
+		t.Fatalf("long castling: %d plies, want 10", long.PlyCount)
+	}
+	// Results and comments are left alone.
+	if mid.Result != "*" || one(t, lichessGame).Result != "0-1" {
+		t.Fatal("a result was rewritten")
+	}
+}
+
+func TestPromotionWithoutEquals(t *testing.T) {
+	g := one(t, "[FEN \"4k3/P7/8/8/8/8/8/4K3 w - - 0 1\"]\n[SetUp \"1\"]\n\n1. a8Q+ Kd7 *\n")
+	if g.PlyCount != 2 || g.FirstMoves != "1. a8=Q+ Kd7" {
+		t.Fatalf("ply %d first moves %q", g.PlyCount, g.FirstMoves)
+	}
+}
+
+func TestOpeningsAreFoundByPositionNotMoveOrder(t *testing.T) {
+	cases := []struct {
+		name, moves, eco, contains string
+	}{
+		{"Najdorf by 1. Nf3", "1. Nf3 c5 2. e4 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6", "B90", "Najdorf"},
+		{"King's Indian by 1. Nf3", "1. Nf3 Nf6 2. c4 g6 3. Nc3 Bg7 4. e4 d6 5. d4 O-O", "E9", "King's Indian"},
+		{"Nimzo-Indian by 1. c4", "1. c4 Nf6 2. Nc3 e6 3. d4 Bb4", "E2", "Nimzo-Indian"},
+	}
+	for _, c := range cases {
+		g := one(t, "[White \"a\"]\n[Black \"b\"]\n\n"+c.moves+" *\n")
+		if !strings.HasPrefix(g.ECO, c.eco) || !strings.Contains(g.Opening, c.contains) {
+			t.Errorf("%s: %s %q", c.name, g.ECO, g.Opening)
+		}
+	}
+}
+
+func TestFirstMovesFromAPosition(t *testing.T) {
+	g := one(t, "[FEN \"4k3/8/8/8/8/8/p7/4K3 b - - 0 40\"]\n[SetUp \"1\"]\n\n40... a1=N 41. Kd2 *\n")
+	if g.FirstMoves != "40... a1=N 41. Kd2" {
+		t.Fatalf("first moves %q", g.FirstMoves)
+	}
+}
+
+func TestOnlyGameLinksAreLichessGames(t *testing.T) {
+	for _, site := range []string{"https://lichess.org/tournament/abcd1234", "https://lichess.org/broadcast/round-1/abcd1234", "https://lichess.org/analysis"} {
+		g := one(t, strings.Replace(lichessGame, "https://lichess.org/abcdEFGH", site, 1))
+		if !strings.HasPrefix(g.Hash, "moves:") {
+			t.Errorf("%s: hash %q, want a moves hash", site, g.Hash)
+		}
+	}
+	// A 12-character id (the game seen from one side) is still the 8-character game.
+	g := one(t, strings.Replace(lichessGame, "https://lichess.org/abcdEFGH", "https://lichess.org/abcdEFGHwxyz", 1))
+	if g.Hash != "lichess:abcdEFGH" {
+		t.Errorf("12-character id: %q", g.Hash)
+	}
+}
+
+func TestOlderChessComLinks(t *testing.T) {
+	for _, link := range []string{"https://www.chess.com/live/game/123456789", "https://www.chess.com/game/live/123456789"} {
+		g := one(t, strings.Replace(chessComGame, "https://www.chess.com/game/live/123456789", link, 1))
+		if g.Hash != "chesscom:live/123456789" {
+			t.Errorf("%s: hash %q", link, g.Hash)
+		}
+	}
+	g := one(t, strings.Replace(chessComGame, "https://www.chess.com/game/live/123456789", "https://www.chess.com/daily/game/42", 1))
+	if g.Hash != "chesscom:daily/42" {
+		t.Errorf("daily: %q", g.Hash)
+	}
+}
+
+func TestByteOrderMark(t *testing.T) {
+	got, err := pgn.Read(strings.NewReader("\ufeff[White \"a\"]\r\n[Black \"b\"]\r\n[Result \"1-0\"]\r\n\r\n1. e4 e5 1-0\r\n"), 10)
+	if err != nil || len(got) != 1 || got[0].Err != nil || got[0].Game.White != "a" || got[0].Game.Black != "b" {
+		t.Fatalf("got %+v %v", got, err)
+	}
+}
+
+func TestSplitNeverDropsAGame(t *testing.T) {
+	cases := map[string]string{
+		"a brace in a tag":           "[Annotator \"x {\"]\n[White \"a\"]\n\n1. e4 e5 1-0\n\n[White \"c\"]\n\n1. d4 d5 0-1\n",
+		"a brace in a line comment":  "[White \"a\"]\n\n1. e4 ; a { stray\ne5 1-0\n\n[White \"c\"]\n\n1. d4 d5 0-1\n",
+		"a second game with no tags": "[White \"a\"]\n\n1. e4 e5 1-0\n\n1. d4 d5 0-1\n",
+	}
+	for name, text := range cases {
+		got, err := pgn.Read(strings.NewReader(text), 10)
+		if err != nil || len(got) != 2 {
+			t.Errorf("%s: %d games, %v", name, len(got), err)
+			continue
+		}
+		for _, p := range got {
+			if p.Err != nil || p.Game.PlyCount != 2 {
+				t.Errorf("%s: game %d %+v %v", name, p.Index, p.Game, p.Err)
+			}
+		}
+	}
+}
+
+func TestECOTagKeptOnlyWhenWellFormed(t *testing.T) {
+	// From a position there is no opening lookup; the tag is kept only as a plain code.
+	g := one(t, "[FEN \"4k3/8/8/8/8/8/8/4K2R w K - 0 1\"]\n[SetUp \"1\"]\n[ECO \"C42a\"]\n[Opening \"Petrov\"]\n\n1. O-O *\n")
+	if g.ECO != "C42" {
+		t.Fatalf("eco %q", g.ECO)
+	}
+	g = one(t, "[FEN \"4k3/8/8/8/8/8/8/4K2R w K - 0 1\"]\n[SetUp \"1\"]\n[ECO \"?\"]\n\n1. O-O *\n")
+	if g.ECO != "" {
+		t.Fatalf("eco %q", g.ECO)
+	}
+}
