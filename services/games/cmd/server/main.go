@@ -15,9 +15,14 @@ import (
 	"time"
 
 	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/app"
+	"github.com/google/uuid"
+
 	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/auth"
+	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/authprofile"
 	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/broker"
+	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/cache"
 	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/config"
+	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/explorer"
 	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/importer"
 	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/outbox"
 	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/sites"
@@ -75,6 +80,23 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	answers, err := cache.New(cfg.RedisURL)
+	if err != nil {
+		return err
+	}
+	defer answers.Close()
+	// A player's Lichess token comes from auth-profile, directly, never through the gateway.
+	tokens := authprofile.New(cfg.AuthProfileURL, cfg.InternalToken)
+	explore := &explorer.Explorer{
+		Base: cfg.ExplorerURL, Lichess: cfg.LichessURL, UserAgent: cfg.UserAgent, Cache: answers,
+		Tokens: explorer.TokensFunc(func(ctx context.Context, user uuid.UUID) (string, error) {
+			t, err := tokens.LichessToken(ctx, user)
+			if errors.Is(err, authprofile.ErrNoLichess) {
+				return "", explorer.ErrNoToken
+			}
+			return t, err
+		}),
+	}
 
 	// The relay, the import workers and the HTTP server run together; if one stops, all stop.
 	ctx, cancel := context.WithCancel(ctx)
@@ -102,6 +124,7 @@ func run() error {
 		Addr: ":" + cfg.Port,
 		Handler: app.New(app.Options{
 			Service: cfg.ServiceName, Store: db, Broker: mq, Verifier: verifier, Log: log, MaxImport: cfg.MaxImport,
+			Explorer: explore,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		// Requests live in ctx, so stopping ends the import streams instead of waiting on them.

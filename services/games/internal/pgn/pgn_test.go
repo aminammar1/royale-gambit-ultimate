@@ -396,3 +396,25 @@ func TestOpeningsFromASetPosition(t *testing.T) {
 		t.Fatalf("%s %q", g.ECO, g.Opening)
 	}
 }
+
+func TestPositionKey(t *testing.T) {
+	// Two move orders, one position, one key: the explorer's cache is shared by both.
+	a, err := pgn.PositionKey("rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := pgn.PositionKey("rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 5 9")
+	if a != b || a != "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 0 1" {
+		t.Fatalf("%q %q", a, b)
+	}
+	// An en passant square no capture can use is not part of the position.
+	c, _ := pgn.PositionKey("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
+	if c != "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1" {
+		t.Fatalf("%q", c)
+	}
+	for _, bad := range []string{"", "not a fen", "8/8/8/8/8/8/8/8 w - - 0 1", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1"} {
+		if _, err := pgn.PositionKey(bad); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+}

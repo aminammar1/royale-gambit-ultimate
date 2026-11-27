@@ -387,6 +387,28 @@ func openings() map[string]named {
 	return byEPD
 }
 
+// PositionKey checks fen with the chess library and gives the position back as a FEN with
+// neutral counters ("... 0 1") and an en passant square only when a capture is legal: the same
+// position reached by any move order has the same key (the explorer's cache key).
+func PositionKey(fen string) (key string, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			key, err = "", fmt.Errorf("not a legal position: %v", r)
+		}
+	}()
+	opt, err := chess.FEN(fen)
+	if err != nil {
+		return "", fmt.Errorf("not a legal position: %w", err)
+	}
+	pos := chess.NewGame(opt).Position()
+	// The library reads a board without kings; chess does not.
+	board := strings.Fields(pos.String())[0]
+	if strings.Count(board, "K") != 1 || strings.Count(board, "k") != 1 {
+		return "", errors.New("not a legal position: each side has one king")
+	}
+	return epd(pos) + " 0 1", nil
+}
+
 // epd keys a position for the opening table, as the desktop does: board, side to move, castling,
 // and the en passant square only when an en passant capture is legal. The library writes that
 // square after any double pawn step; kept as it is, 5. d4 into a position would not match the

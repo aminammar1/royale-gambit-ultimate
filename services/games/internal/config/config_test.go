@@ -21,7 +21,8 @@ func TestDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	if c.Port != "8085" || c.Issuer != "royale-gambit" || c.LichessURL != "https://lichess.org" ||
-		c.ChessComURL != "https://api.chess.com" || c.MaxImport != 2000 || c.ImportWorkers != 2 {
+		c.ChessComURL != "https://api.chess.com" || c.MaxImport != 2000 || c.ImportWorkers != 2 ||
+		c.ExplorerURL != "https://explorer.lichess.ovh" || c.AuthProfileURL != "http://auth-profile:8081" || c.RedisURL != "" {
 		t.Fatalf("%+v", c)
 	}
 	// Chess.com asks for a contact in the User-Agent: the project's page, never a person's email.

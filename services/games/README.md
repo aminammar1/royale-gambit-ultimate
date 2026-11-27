@@ -18,6 +18,11 @@ job), `game.saved` and `game.imported`, published through an outbox.
   player (429 beyond), and an import with no progress for 15 minutes is ended, so a username is never
   blocked. Stopping the service ends the progress streams and lets the workers finish first.
 
+- **Explorer** (M12): `GET /v1/explorer?fen=&db=masters|lichess` answers lichess's opening explorer.
+  Masters needs no Lichess account; the lichess database uses the player's own Lichess token, fetched
+  from auth-profile's `/internal` route with the shared `INTERNAL_TOKEN` (2 s timeout, 3 tries, a
+  breaker, kept 10 minutes) and never sent to the app. Answers are cached in Redis by position.
+
 ## Run (Docker only)
 `make up` at the root starts it on `localhost:8085`, behind the gateway at `/v1/games` and `/v1/imports`.
 Every route needs a bearer token (a guest's is fine):
@@ -42,6 +47,10 @@ curl -s -H "Authorization: Bearer $T" 'localhost:8080/v1/games?player=DrNykterst
 | `MAX_IMPORT_GAMES` | `2000` | games one import reads, at most |
 | `LICHESS_URL`, `CHESSCOM_URL` | the sites | API roots |
 | `USER_AGENT` | names the project page | sent to both sites |
+| `EXPLORER_URL` | `https://explorer.lichess.ovh` | lichess's opening explorer |
+| `REDIS_URL` | unset | explorer cache; unset caches nothing |
+| `AUTH_PROFILE_URL` | `http://auth-profile:8081` | for a player's Lichess token |
+| `INTERNAL_TOKEN` | (needed for the lichess database) | the secret auth-profile's `/internal` routes want |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | unset | export spans over OTLP/HTTP when set |
 
 ## Test

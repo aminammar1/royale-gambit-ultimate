@@ -29,6 +29,13 @@ info:
 
     Openings: the ECO code and name of the deepest known position, from the CC0 table
     lichess-org/chess-openings. Times are UTC. Ids are UUIDv7.
+
+    **Explorer** (M12). `GET /v1/explorer` answers what was played from a position, from
+    lichess's opening explorer: `masters` (over-the-board games of strong players, for anyone with
+    a token, a guest's included) or `lichess` (games on lichess.org, which needs the player to have
+    signed in with Lichess: their own Lichess token is used, fetched from auth-profile and never
+    sent to the app). Answers are cached (Redis) by position and database. `GET
+    /v1/explorer/games/{db}/{id}` gives a top game's PGN.
 paths:
   /health/live:
     get:
@@ -104,6 +111,36 @@ paths:
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
+  /v1/explorer:
+    get:
+      operationId: explore
+      summary: The moves played from a position, and its top games
+      parameters:
+        - { name: fen, in: query, required: true, description: "The position, a legal FEN", schema: { type: string, minLength: 1, maxLength: 100 } }
+        - { name: db, in: query, required: true, schema: { type: string, enum: [masters, lichess] } }
+      responses:
+        "200":
+          description: What was played there
+          content: { application/json: { schema: { $ref: "#/components/schemas/Explorer" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /v1/explorer/games/{db}/{id}:
+    get:
+      operationId: explorerGame
+      summary: A top game's PGN
+      parameters:
+        - { name: db, in: path, required: true, schema: { type: string, enum: [masters, lichess] } }
+        - { name: id, in: path, required: true, schema: { type: string, pattern: "^[A-Za-z0-9]{8}$" } }
+      responses:
+        "200":
+          description: The game
+          content: { application/json: { schema: { type: object, required: [pgn], properties: { pgn: { type: string } } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /v1/imports:
     post:
       operationId: startImport
@@ -150,7 +187,10 @@ components:
       description: |
         RFC 9457 problem details. Types: `.../problems/invalid-request` (a body or query that does
         not match this contract), `.../problems/too-large` (a PGN over 5 MB or 2,000 games),
-        `.../problems/too-many-imports` (3 imports already queued or running; wait for one to end).
+        `.../problems/too-many-imports` (3 imports already queued or running; wait for one to end),
+        `.../problems/invalid-position` (a FEN that is not a legal position),
+        `.../problems/lichess-needed` (403: the Lichess database needs a Lichess sign-in),
+        `.../problems/explorer-unavailable` (503: lichess's explorer is busy or down; try again).
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/Problem" }
@@ -225,6 +265,52 @@ components:
           required: [pgn]
           properties:
             pgn: { type: string }
+    ExplorerPlayer:
+      type: object
+      required: [name, rating]
+      properties:
+        name: { type: string }
+        rating: { type: [integer, "null"] }
+    Explorer:
+      type: object
+      required: [db, white, draws, black, opening, moves, top_games]
+      properties:
+        db: { type: string, enum: [masters, lichess] }
+        white: { type: integer, minimum: 0, description: "Games White won from here" }
+        draws: { type: integer, minimum: 0 }
+        black: { type: integer, minimum: 0 }
+        opening:
+          type: [object, "null"]
+          required: [eco, name]
+          properties:
+            eco: { type: string }
+            name: { type: string }
+        moves:
+          type: array
+          description: Most played first
+          items:
+            type: object
+            required: [uci, san, white, draws, black, average_rating]
+            properties:
+              uci: { type: string }
+              san: { type: string }
+              white: { type: integer, minimum: 0 }
+              draws: { type: integer, minimum: 0 }
+              black: { type: integer, minimum: 0 }
+              average_rating: { type: [integer, "null"] }
+        top_games:
+          type: array
+          description: The strongest games that reached the position
+          items:
+            type: object
+            required: [id, white, black, winner, year, uci]
+            properties:
+              id: { type: string }
+              white: { $ref: "#/components/schemas/ExplorerPlayer" }
+              black: { $ref: "#/components/schemas/ExplorerPlayer" }
+              winner: { type: [string, "null"], enum: [white, black, null] }
+              year: { type: [integer, "null"] }
+              uci: { type: string, description: "The move played from this position in that game" }
     Record:
       type: object
       required: [wins, draws, losses, unfinished]

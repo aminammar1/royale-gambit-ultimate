@@ -25,6 +25,13 @@ type Config struct {
 	// MaxImport caps the games one import reads (Amine, 2026-11-28: 2,000 per username).
 	MaxImport     int
 	ImportWorkers int
+	// RedisURL caches explorer answers; empty caches nothing.
+	RedisURL string
+	// ExplorerURL is lichess's opening explorer; AuthProfileURL and InternalToken reach
+	// auth-profile's /internal routes (a player's Lichess token, ADR-19).
+	ExplorerURL    string
+	AuthProfileURL string
+	InternalToken  string
 	// MigrateOnStart applies the migrations at start-up (dev and compose; production runs them
 	// as a step of the deploy, M16).
 	MigrateOnStart bool
@@ -43,6 +50,10 @@ func Load() (Config, error) {
 		ChessComURL:    getenv("CHESSCOM_URL", "https://api.chess.com"),
 		UserAgent:      getenv("USER_AGENT", "RoyaleGambitUltimate/0.1 (+https://github.com/aminammar1/royale-gambit-ultimate)"),
 		MigrateOnStart: getenv("MIGRATE_ON_START", "false") == "true",
+		RedisURL:       os.Getenv("REDIS_URL"),
+		ExplorerURL:    getenv("EXPLORER_URL", "https://explorer.lichess.ovh"),
+		AuthProfileURL: getenv("AUTH_PROFILE_URL", "http://auth-profile:8081"),
+		InternalToken:  os.Getenv("INTERNAL_TOKEN"),
 	}
 	var errs []error
 	for key, v := range map[string]string{"DATABASE_URL": c.DatabaseURL, "RABBITMQ_URL": c.RabbitURL, "JWKS_URL": c.JWKSURL} {

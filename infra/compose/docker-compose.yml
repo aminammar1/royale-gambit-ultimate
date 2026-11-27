@@ -129,6 +129,7 @@ services:
       # Dev only: a fresh signing key per start, so tokens die with the container. Real
       # environments set JWT_PRIVATE_KEY from a secret instead.
       JWT_EPHEMERAL_KEY: "true"
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev-internal-token}
     ports: ["127.0.0.1:8081:8081"]
 
   analysis:
@@ -159,6 +160,7 @@ services:
     depends_on:
       postgres-init: { condition: service_completed_successfully }
       rabbitmq: { condition: service_healthy }
+      redis: { condition: service_healthy }
       auth-profile: { condition: service_healthy }
     develop:
       watch:
@@ -172,6 +174,11 @@ services:
       # The smoke test points these at a closed port: fuzzing must never reach the real sites.
       LICHESS_URL: ${GAMES_LICHESS_URL:-https://lichess.org}
       CHESSCOM_URL: ${GAMES_CHESSCOM_URL:-https://api.chess.com}
+      EXPLORER_URL: ${GAMES_EXPLORER_URL:-https://explorer.lichess.ovh}
+      REDIS_URL: redis://redis:6379/2
+      AUTH_PROFILE_URL: http://auth-profile:8081
+      # Shared with auth-profile for its /internal routes; a dev-only default (real ones from the environment).
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev-internal-token}
       IMPORT_WORKERS: "2"
       MAX_IMPORT_GAMES: "2000"
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_IN_DOCKER:-}

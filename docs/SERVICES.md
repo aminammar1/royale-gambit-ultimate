@@ -90,7 +90,7 @@ Share a library between services (copy the template instead) · call another ser
 - **Does:** Save and search each player's games (PGN + indexed fields), import by username from Chess.com and Lichess (worker, at most 2,000 a username, standard chess), dedupe by game hash (the site's id, else players + day + moves), ECO tagging from the CC0 lichess-org/chess-openings table; explorer stats per EPD (M12).
 - **Owns:** games, import_jobs, outbox, processed_events; position_stats (M12)
 - **Events:** in: `import.requested` (its own worker's queue `games.import-requested`, three retries then `.dead`), `review.completed` (from M5) · out: `game.saved`, `game.imported`, `import.requested`
-- **Calls / depends on:** Chess.com API, Lichess API (public, User-Agent names the project's page, one fetch at a time per site, at most 3 live imports a player, a stalled import ended after 15 minutes); auth-profile's JWKS to read `sub`
+- **Calls / depends on:** Chess.com API, Lichess API (public, User-Agent names the project's page, one fetch at a time per site, at most 3 live imports a player, a stalled import ended after 15 minutes); auth-profile's JWKS to read `sub`; lichess's opening explorer (masters without a token, the lichess database with the player's own Lichess token from auth-profile's `/internal` route, shared secret, never through the gateway, ADR-19); Redis for explorer answers
 - **Tests that matter:** PGN edge cases (`*` results, comments, illegal moves, variants, the library's panics), import dedupe, rate-limit handling, the full import through Postgres and RabbitMQ, events against their schemas; stats query performance on a large fixture and cache fallback (M12).
 
 ## analysis

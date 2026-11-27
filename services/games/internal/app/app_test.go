@@ -7,6 +7,7 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -26,7 +27,10 @@ import (
 
 	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/app"
 	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/auth"
+	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/authprofile"
 	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/broker"
+	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/cache"
+	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/explorer"
 	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/importer"
 	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/outbox"
 	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/sites"
@@ -41,6 +45,8 @@ var (
 	// hold keeps the fake Lichess's "held" players from answering until a test lets go.
 	hold = make(chan struct{})
 	db   *store.Store
+	// withLichess has signed in with Lichess; nobody else has.
+	withLichess = uuid.Must(uuid.NewV7())
 )
 
 const issuer = "royale-gambit"
@@ -131,8 +137,39 @@ func run(m *testing.M) int {
 		return 1
 	}
 
+	// A fake lichess explorer and a fake auth-profile.
+	site := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/masters" || (r.URL.Path == "/lichess" && r.Header.Get("Authorization") == "Bearer lip_ok"):
+			_, _ = w.Write([]byte(`{"white":3,"draws":2,"black":1,"opening":{"eco":"B00","name":"King's Pawn Game"},"moves":[{"uci":"c7c5","san":"c5","averageRating":2400,"white":2,"draws":1,"black":1}],"topGames":[]}`))
+		case r.URL.Path == "/masters/pgn/abcdEFGH":
+			_, _ = w.Write([]byte("[White \"a\"]\n\n1. e4 *\n"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer site.Close()
+	ap := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, withLichess.String()) && r.Header.Get("X-Internal-Token") == "s" {
+			_, _ = w.Write([]byte(`{"access_token":"lip_ok","expires_at":null}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ap.Close()
+	tokens := authprofile.New(ap.URL, "s")
+	noCache, _ := cache.New("")
+	ex := &explorer.Explorer{Base: site.URL, Lichess: site.URL, UserAgent: "test", Cache: noCache,
+		Tokens: explorer.TokensFunc(func(ctx context.Context, u uuid.UUID) (string, error) {
+			t, err := tokens.LichessToken(ctx, u)
+			if errors.Is(err, authprofile.ErrNoLichess) {
+				return "", explorer.ErrNoToken
+			}
+			return t, err
+		})}
+
 	api = httptest.NewServer(app.New(app.Options{
-		Service: "games", Store: db, Broker: mqb, Verifier: verifier, Log: log, MaxImport: 2000,
+		Service: "games", Store: db, Broker: mqb, Verifier: verifier, Log: log, MaxImport: 2000, Explorer: ex,
 	}))
 	defer api.Close()
 	return m.Run()
@@ -408,5 +445,39 @@ func TestAllowListsExactlyTheRoutesMethods(t *testing.T) {
 		if code != 405 || h.Get("Allow") != want {
 			t.Errorf("DELETE %s: %d, Allow %q, want %q", path, code, h.Get("Allow"), want)
 		}
+	}
+}
+
+func TestExplorer(t *testing.T) {
+	me := uuid.Must(uuid.NewV7())
+	afterE4 := "rnbqkbnr%2Fpppppppp%2F8%2F8%2F4P3%2F8%2FPPPP1PPP%2FRNBQKBNR+b+KQkq+-+0+1"
+	code, body, _ := call(t, "GET", "/v1/explorer?db=masters&fen="+afterE4, me, nil)
+	if code != 200 || body["db"] != "masters" || body["white"] != float64(3) || len(body["moves"].([]any)) != 1 {
+		t.Fatalf("masters %d %v", code, body)
+	}
+	// The lichess database needs a Lichess sign-in.
+	code, body, _ = call(t, "GET", "/v1/explorer?db=lichess&fen="+afterE4, me, nil)
+	if code != 403 || !strings.HasSuffix(body["type"].(string), "/lichess-needed") {
+		t.Fatalf("without lichess %d %v", code, body)
+	}
+	code, body, _ = call(t, "GET", "/v1/explorer?db=lichess&fen="+afterE4, withLichess, nil)
+	if code != 200 || body["db"] != "lichess" {
+		t.Fatalf("with lichess %d %v", code, body)
+	}
+	for _, path := range []string{
+		"/v1/explorer?db=masters", "/v1/explorer?db=chessbase&fen=" + afterE4, "/v1/explorer?db=masters&fen=nonsense",
+		"/v1/explorer?db=masters&fen=8%2F8%2F8%2F8%2F8%2F8%2F8%2F8+w+-+-+0+1",
+		"/v1/explorer/games/masters/short", "/v1/explorer/games/fics/abcdEFGH",
+	} {
+		if code, _, _ := call(t, "GET", path, me, nil); code != 400 {
+			t.Errorf("%s: %d", path, code)
+		}
+	}
+	code, body, _ = call(t, "GET", "/v1/explorer/games/masters/abcdEFGH", me, nil)
+	if code != 200 || !strings.Contains(body["pgn"].(string), "1. e4") {
+		t.Fatalf("pgn %d %v", code, body)
+	}
+	if code, _, _ := call(t, "GET", "/v1/explorer/games/masters/zzzzzzzz", me, nil); code != 404 {
+		t.Fatalf("missing game %d", code)
 	}
 }

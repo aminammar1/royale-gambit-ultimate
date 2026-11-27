@@ -23,6 +23,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
 	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/auth"
+	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/explorer"
 	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/httpx"
 	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/pgn"
 	"github.com/aminammar1/royale-gambit-ultimate/services/games/internal/store"
@@ -40,6 +41,8 @@ type Options struct {
 	Log      *slog.Logger
 	// MaxImport caps max_games (config MAX_IMPORT_GAMES).
 	MaxImport int
+	// Explorer answers /v1/explorer from lichess's opening explorer.
+	Explorer *explorer.Explorer
 }
 
 type server struct{ Options }
@@ -74,6 +77,8 @@ func New(opts Options) *gin.Engine {
 	v1.GET("/games", s.searchGames)
 	v1.GET("/games/stats", s.playerStats)
 	v1.GET("/games/:id", s.getGame)
+	v1.GET("/explorer", s.explore)
+	v1.GET("/explorer/games/:db/:id", s.explorerGame)
 	v1.POST("/imports", s.startImport)
 	v1.GET("/imports/:id", s.getImport)
 
@@ -350,6 +355,66 @@ func (s *server) playerStats(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, st)
+}
+
+var lichessGameID = regexp.MustCompile(`^[A-Za-z0-9]{8}$`)
+
+func (s *server) explorerFailed(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, explorer.ErrLichessNeeded):
+		httpx.Abort(c, httpx.NewProblem(c, http.StatusForbidden, "lichess-needed", "Lichess sign-in needed",
+			"The Lichess database is read with your own Lichess account: sign in with Lichess first."))
+	case errors.Is(err, explorer.ErrNotFound):
+		httpx.WriteProblem(c, http.StatusNotFound, "no such game")
+	case errors.Is(err, explorer.ErrUnavailable):
+		s.Log.WarnContext(c.Request.Context(), "explorer", "error", err)
+		c.Header("Retry-After", "5")
+		httpx.Abort(c, httpx.NewProblem(c, http.StatusServiceUnavailable, "explorer-unavailable", "Explorer unavailable",
+			"Lichess's opening explorer is busy or down; try again shortly."))
+	default:
+		s.internal(c, err)
+	}
+}
+
+func (s *server) explore(c *gin.Context) {
+	q := c.Request.URL.Query()
+	db, fen := q.Get("db"), q.Get("fen")
+	if db != "masters" && db != "lichess" {
+		invalid(c, "db is masters or lichess")
+		return
+	}
+	if fen == "" || len(fen) > 100 || !plainText(fen) {
+		invalid(c, "fen is the position, as a FEN")
+		return
+	}
+	key, err := pgn.PositionKey(fen)
+	if err != nil {
+		httpx.Abort(c, httpx.NewProblem(c, http.StatusBadRequest, "invalid-position", "Invalid position", err.Error()))
+		return
+	}
+	r, cached, err := s.Explorer.Explore(c.Request.Context(), db, key, owner(c))
+	if err != nil {
+		s.explorerFailed(c, err)
+		return
+	}
+	if cached {
+		c.Header("X-Cache", "hit")
+	}
+	c.JSON(http.StatusOK, r)
+}
+
+func (s *server) explorerGame(c *gin.Context) {
+	db, id := c.Param("db"), c.Param("id")
+	if (db != "masters" && db != "lichess") || !lichessGameID.MatchString(id) {
+		invalid(c, "db is masters or lichess, and the id 8 letters and digits")
+		return
+	}
+	text, err := s.Explorer.GamePGN(c.Request.Context(), db, id)
+	if err != nil {
+		s.explorerFailed(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"pgn": text})
 }
 
 func idParam(c *gin.Context) (uuid.UUID, bool) {
