@@ -308,3 +308,76 @@ func TestProcessedOnce(t *testing.T) {
 		t.Fatal("an event handled twice")
 	}
 }
+
+// Found by the code review, 2026-11-28.
+
+func TestAStuckImportNeverBlocksTheUsername(t *testing.T) {
+	ctx := context.Background()
+	owner := uuid.Must(uuid.NewV7())
+	job, _, err := db.CreateImport(ctx, owner, "lichess", "stuck_player", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := db.StartImport(ctx, job.ID); !ok {
+		t.Fatal("not started")
+	}
+	// Still fresh: the same import comes back, and it is not stale.
+	if again, created, _ := db.CreateImport(ctx, owner, "lichess", "stuck_player", 10); created || again.ID != job.ID {
+		t.Fatal("a fresh live import was replaced")
+	}
+	if ended, _ := db.ExpireIfStale(ctx, job.ID); ended {
+		t.Fatal("a fresh import was ended")
+	}
+	// Its worker died long ago: no progress for longer than StaleAfter.
+	if err := db.Backdate(ctx, job.ID, store.StaleAfter+time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	next, created, err := db.CreateImport(ctx, owner, "lichess", "stuck_player", 10)
+	if err != nil || !created || next.ID == job.ID {
+		t.Fatalf("a new import: %v %v %v", next.ID, created, err)
+	}
+	old, _ := db.GetImport(ctx, owner, job.ID)
+	if old.Status != "failed" || old.Error == nil || !strings.Contains(*old.Error, "stopped") {
+		t.Fatalf("the stuck import: %+v", old)
+	}
+	// The stream's check ends one the same way.
+	if err := db.Backdate(ctx, next.ID, store.StaleAfter+time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	if ended, err := db.ExpireIfStale(ctx, next.ID); err != nil || !ended {
+		t.Fatalf("expire: %v %v", ended, err)
+	}
+}
+
+func TestAtMostThreeLiveImports(t *testing.T) {
+	ctx := context.Background()
+	owner := uuid.Must(uuid.NewV7())
+	for _, name := range []string{"one", "two", "three"} {
+		if _, created, err := db.CreateImport(ctx, owner, "chesscom", name, 10); err != nil || !created {
+			t.Fatalf("%s: %v %v", name, created, err)
+		}
+	}
+	if _, _, err := db.CreateImport(ctx, owner, "chesscom", "four", 10); !errors.Is(err, store.ErrTooManyImports) {
+		t.Fatalf("a fourth: want ErrTooManyImports, got %v", err)
+	}
+	// Asking again for one already live is not a new import.
+	if _, created, err := db.CreateImport(ctx, owner, "chesscom", "two", 10); err != nil || created {
+		t.Fatalf("again: %v %v", created, err)
+	}
+	// Someone else is not limited by you.
+	if _, _, err := db.CreateImport(ctx, uuid.Must(uuid.NewV7()), "chesscom", "four", 10); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestProcessedIsRead(t *testing.T) {
+	ctx := context.Background()
+	id := uuid.Must(uuid.NewV7())
+	if done, _ := db.Processed(ctx, id); done {
+		t.Fatal("processed before handling")
+	}
+	_, _ = db.MarkProcessed(ctx, id)
+	if done, _ := db.Processed(ctx, id); !done {
+		t.Fatal("not processed after handling")
+	}
+}

@@ -11,8 +11,12 @@ job), `game.saved` and `game.imported`, published through an outbox.
 - **Imports:** newest first, at most 2,000 games a username. Lichess is read as NDJSON, Chess.com month by
   month; a 429 waits as the site asks. The User-Agent names the project's page (Chess.com asks for a
   contact). Progress streams over SSE (`GET /v1/imports/{id}` with `Accept: text/event-stream`).
-- **Retries:** a failed import message is retried three times, then dead-lettered to
+- **Retries:** a failed import message is retried three times; on the last try an import that still
+  cannot finish is ended as `failed`, and a message that can never be handled goes to
   `games.import-requested.dead`. A site that fails ends the import as `failed` with a sentence for the player.
+- **Limits:** one fetch at a time per site (Lichess asks API clients for that), at most 3 live imports a
+  player (429 beyond), and an import with no progress for 15 minutes is ended, so a username is never
+  blocked. Stopping the service ends the progress streams and lets the workers finish first.
 
 ## Run (Docker only)
 `make up` at the root starts it on `localhost:8085`, behind the gateway at `/v1/games` and `/v1/imports`.

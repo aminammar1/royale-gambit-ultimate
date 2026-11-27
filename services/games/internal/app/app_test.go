@@ -38,6 +38,9 @@ var (
 	signKey *rsa.PrivateKey
 	// release lets the fake Lichess answer, so a test can catch an import while it is live.
 	release = make(chan struct{})
+	// hold keeps the fake Lichess's "held" players from answering until a test lets go.
+	hold = make(chan struct{})
+	db   *store.Store
 )
 
 const issuer = "royale-gambit"
@@ -70,7 +73,7 @@ func run(m *testing.M) int {
 		fmt.Println(err)
 		return 1
 	}
-	db, err := store.Open(ctx, dbURL)
+	db, err = store.Open(ctx, dbURL)
 	if err != nil {
 		fmt.Println(err)
 		return 1
@@ -90,6 +93,10 @@ func run(m *testing.M) int {
 
 	// A fake Lichess: three standard games and one Chess960, once released.
 	lichess := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/games/user/held") {
+			<-hold
+			return
+		}
 		if r.URL.Path != "/api/games/user/DrNykterstein" {
 			http.NotFound(w, r)
 			return
@@ -256,6 +263,10 @@ func TestInvalidRequests(t *testing.T) {
 		{"GET", "/v1/games?player=x&color=", nil, 400},
 		{"POST", "/v1/imports", map[string]any{"site": "lichess", "username": "ab", "max_games": nil}, 400},
 		{"POST", "/v1/games", map[string]any{"pgn": nil}, 400},
+		// Found by the fuzzer: Postgres refuses NUL bytes, and text must be UTF-8.
+		{"GET", "/v1/games?q=a%00b", nil, 400},
+		{"GET", "/v1/games?player=%FF%FE", nil, 400},
+		{"POST", "/v1/games", map[string]any{"pgn": "[White \"a\u0000\"]\n\n1. e4 *"}, 400},
 	}
 	for _, c := range cases {
 		code, body, h := call(t, c.method, c.path, me, c.body)
@@ -322,5 +333,42 @@ func TestImportEndToEnd(t *testing.T) {
 	code, body, _ := call(t, "GET", "/v1/games?source=lichess", me, nil)
 	if code != 200 || len(body["items"].([]any)) != 3 {
 		t.Fatalf("library %d %v", code, body)
+	}
+}
+
+func TestAtMostThreeImportsAtOnce(t *testing.T) {
+	ctx := context.Background()
+	me := uuid.Must(uuid.NewV7())
+	defer close(hold)
+	for _, name := range []string{"held1", "held2", "held3"} {
+		if _, _, err := db.CreateImport(ctx, me, "lichess", name, 10); err != nil {
+			t.Fatal(err)
+		}
+	}
+	code, body, h := call(t, "POST", "/v1/imports", me, map[string]any{"site": "lichess", "username": "fourth"})
+	if code != 429 || !strings.HasSuffix(body["type"].(string), "/too-many-imports") ||
+		!strings.HasPrefix(h.Get("Content-Type"), "application/problem+json") {
+		t.Fatalf("%d %v", code, body)
+	}
+}
+
+func TestAFinishedImportStreamsOnlyDone(t *testing.T) {
+	ctx := context.Background()
+	me := uuid.Must(uuid.NewV7())
+	job, _, _ := db.CreateImport(ctx, me, "chesscom", "anyone", 10)
+	if err := db.FinishImport(ctx, job.ID, "failed", "test"); err != nil {
+		t.Fatal(err)
+	}
+	req, _ := http.NewRequest("GET", api.URL+"/v1/imports/"+job.ID.String(), nil)
+	req.Header.Set("Authorization", "Bearer "+token(me))
+	req.Header.Set("Accept", "text/event-stream")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	if strings.Count(string(b), "event: ") != 1 || !strings.Contains(string(b), "event: done") {
+		t.Fatalf("stream %q", b)
 	}
 }

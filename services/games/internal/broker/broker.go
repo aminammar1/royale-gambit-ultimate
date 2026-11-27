@@ -19,10 +19,22 @@ const (
 	Exchange = "rg.events"
 	// DeadLetters receives what failed too often.
 	DeadLetters = "rg.dlx"
-	// retries is how many more tries a failing message gets.
-	retries     = 3
+	// MaxRetries is how many more tries a failing message gets.
+	MaxRetries  = 3
 	retryHeader = "x-retries"
 )
+
+// ErrPermanent, returned by a handler, sends the message to the dead letters at once: it can never
+// be handled, so retrying it is useless.
+var ErrPermanent = errors.New("this message can never be handled")
+
+// Retries is how many times a message was tried before this delivery.
+func Retries(d amqp.Delivery) int {
+	if v, ok := d.Headers[retryHeader].(int32); ok {
+		return int(v)
+	}
+	return 0
+}
 
 // backoff is the pause before a failed message is tried again (1, 2, 3 times this).
 var backoff = 500 * time.Millisecond
@@ -153,6 +165,10 @@ func (b *Broker) Consume(ctx context.Context, queue, routingKey string, prefetch
 				return errors.New("rabbitmq closed the consumer")
 			}
 			if err := handle(ctx, d); err != nil {
+				if errors.Is(err, ErrPermanent) {
+					_ = d.Nack(false, false)
+					continue
+				}
 				b.retry(ctx, queue, d)
 				continue
 			}
@@ -164,11 +180,8 @@ func (b *Broker) Consume(ctx context.Context, queue, routingKey string, prefetch
 // retry puts a failed message back on its queue with one more x-retries, or dead-letters it
 // once it has had its retries. If the copy cannot be published the original goes back instead.
 func (b *Broker) retry(ctx context.Context, queue string, d amqp.Delivery) {
-	n := 0
-	if v, ok := d.Headers[retryHeader].(int32); ok {
-		n = int(v)
-	}
-	if n >= retries {
+	n := Retries(d)
+	if n >= MaxRetries {
 		_ = d.Nack(false, false) // to rg.dlx, under its routing key
 		return
 	}

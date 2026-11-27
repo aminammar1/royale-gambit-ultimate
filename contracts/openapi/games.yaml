@@ -18,7 +18,10 @@ info:
     instead of a second one. Importing again later saves only the games that are new.
     `GET /v1/imports/{id}` answers the job as JSON, or as server-sent events with
     `Accept: text/event-stream`: `event: progress` (an ImportJob) whenever its counts change,
-    then one `event: done` (the finished ImportJob, `status` done or failed).
+    then one `event: done` (the finished ImportJob, `status` done or failed); a failure of the
+    stream itself comes as `event: error` with a problem body. A player has at most 3 imports
+    queued or running at once. An import that makes no progress for 15 minutes is ended as failed,
+    so a username can always be imported again.
 
     **Searching.** `GET /v1/games` lists the owner's games, newest first, filtered and paged
     with `limit` and `cursor`. `result` (win, loss, draw) and `color` read from the side of
@@ -107,6 +110,7 @@ paths:
           content: { application/json: { schema: { $ref: "#/components/schemas/ImportJob" } } }
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
   /v1/imports/{id}:
     get:
       operationId: getImport
@@ -120,7 +124,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ImportJob" }
             text/event-stream:
-              schema: { type: string, description: "`progress` events (an ImportJob), then one `done`" }
+              schema: { type: string, description: "`progress` events (an ImportJob), then one `done`; `error` (a Problem) if the stream fails" }
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
@@ -133,7 +137,8 @@ components:
     Problem:
       description: |
         RFC 9457 problem details. Types: `.../problems/invalid-request` (a body or query that does
-        not match this contract), `.../problems/too-large` (a PGN over 5 MB or 2,000 games).
+        not match this contract), `.../problems/too-large` (a PGN over 5 MB or 2,000 games),
+        `.../problems/too-many-imports` (3 imports already queued or running; wait for one to end).
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/Problem" }

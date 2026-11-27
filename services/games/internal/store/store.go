@@ -33,7 +33,18 @@ var (
 	ErrNotFound = errors.New("not found")
 	// ErrBadCursor: a cursor this service did not write.
 	ErrBadCursor = errors.New("bad cursor")
+	// ErrTooManyImports: the owner already has MaxLiveImports queued or running.
+	ErrTooManyImports = errors.New("too many imports")
 )
+
+// MaxLiveImports is how many imports one player may have queued or running at once.
+const MaxLiveImports = 3
+
+// StaleAfter is how long a live import may go without progress before it is ended as failed:
+// its worker died, or its message was dead-lettered. A username can then be imported again.
+var StaleAfter = 15 * time.Minute
+
+const staleReason = "This import stopped making progress and was ended. Try again."
 
 // Store is the service's database.
 type Store struct{ pool *pgxpool.Pool }
@@ -306,26 +317,41 @@ func scanJob(row pgx.Row) (Job, error) {
 }
 
 // CreateImport queues an import with its import.requested event, or, when the same owner already
-// has one live for this site and username, returns that one (created false).
+// has one live for this site and username, returns that one (created false). The owner's stale
+// imports are ended first; beyond MaxLiveImports live ones it is ErrTooManyImports.
 func (s *Store) CreateImport(ctx context.Context, owner uuid.UUID, site, username string, max int) (Job, bool, error) {
 	for attempt := 0; attempt < 3; attempt++ {
 		var job Job
 		created := false
 		err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+			if err := expireStale(ctx, tx, `owner_id = $1`, owner); err != nil {
+				return err
+			}
+			live, err := scanJob(tx.QueryRow(ctx, `SELECT `+jobCols+` FROM import_jobs
+				WHERE owner_id = $1 AND site = $2 AND lower(username) = lower($3) AND status IN ('queued', 'running')`,
+				owner, site, username))
+			if err == nil {
+				job = live
+				return nil
+			}
+			if !errors.Is(err, ErrNotFound) {
+				return err
+			}
+			var n int
+			if err := tx.QueryRow(ctx, `SELECT count(*) FROM import_jobs
+				WHERE owner_id = $1 AND status IN ('queued', 'running')`, owner).Scan(&n); err != nil {
+				return err
+			}
+			if n >= MaxLiveImports {
+				return ErrTooManyImports
+			}
 			j, err := scanJob(tx.QueryRow(ctx, `
 				INSERT INTO import_jobs (id, owner_id, site, username, max_games, status)
 				VALUES ($1, $2, $3, $4, $5, 'queued')
 				ON CONFLICT (owner_id, site, lower(username)) WHERE status IN ('queued', 'running') DO NOTHING
 				RETURNING `+jobCols, uuid.Must(uuid.NewV7()), owner, site, username, max))
-			if errors.Is(err, ErrNotFound) {
-				j, err = scanJob(tx.QueryRow(ctx, `SELECT `+jobCols+` FROM import_jobs
-					WHERE owner_id = $1 AND site = $2 AND lower(username) = lower($3) AND status IN ('queued', 'running')`,
-					owner, site, username))
-				job = j
-				return err
-			}
 			if err != nil {
-				return err
+				return err // ErrNotFound: another request created it a moment ago; try again
 			}
 			job, created = j, true
 			return addEvent(ctx, tx, "import.requested", map[string]any{
@@ -333,13 +359,58 @@ func (s *Store) CreateImport(ctx context.Context, owner uuid.UUID, site, usernam
 				"requested_at": j.CreatedAt,
 			})
 		})
-		// The live import ended between the insert and the read: try again.
 		if errors.Is(err, ErrNotFound) {
 			continue
 		}
 		return job, created, err
 	}
 	return Job{}, false, errors.New("could not create the import")
+}
+
+// ExpireIfStale ends one import as failed when it is live but has not moved for StaleAfter;
+// true when it did.
+func (s *Store) ExpireIfStale(ctx context.Context, id uuid.UUID) (bool, error) {
+	ended := false
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		n, err := expireStaleCount(ctx, tx, `id = $1`, id)
+		ended = n > 0
+		return err
+	})
+	return ended, err
+}
+
+func expireStale(ctx context.Context, tx pgx.Tx, where string, arg any) error {
+	_, err := expireStaleCount(ctx, tx, where, arg)
+	return err
+}
+
+// expireStaleCount fails the live imports matching where that have not moved for StaleAfter,
+// each with its game.imported event.
+func expireStaleCount(ctx context.Context, tx pgx.Tx, where string, arg any) (int, error) {
+	rows, err := tx.Query(ctx, `UPDATE import_jobs
+		SET status = 'failed', error = $2, finished_at = now(), updated_at = now()
+		WHERE `+where+` AND status IN ('queued', 'running') AND updated_at < now() - $3::interval
+		RETURNING `+jobCols, arg, staleReason, StaleAfter.String())
+	if err != nil {
+		return 0, err
+	}
+	jobs, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (Job, error) { return scanJob(r) })
+	if err != nil {
+		return 0, err
+	}
+	for _, j := range jobs {
+		if err := addEvent(ctx, tx, "game.imported", importedEvent(j)); err != nil {
+			return 0, err
+		}
+	}
+	return len(jobs), nil
+}
+
+func importedEvent(j Job) map[string]any {
+	return map[string]any{
+		"job_id": j.ID, "user_id": j.Owner, "site": j.Site, "username": j.Username, "status": j.Status,
+		"fetched": j.Fetched, "saved": j.Saved, "duplicates": j.Duplicates, "finished_at": j.FinishedAt,
+	}
 }
 
 // GetImport returns one of owner's imports.
@@ -378,10 +449,7 @@ func (s *Store) FinishImport(ctx context.Context, id uuid.UUID, status, reason s
 		if err != nil {
 			return err
 		}
-		return addEvent(ctx, tx, "game.imported", map[string]any{
-			"job_id": j.ID, "user_id": j.Owner, "site": j.Site, "username": j.Username, "status": j.Status,
-			"fetched": j.Fetched, "saved": j.Saved, "duplicates": j.Duplicates, "finished_at": j.FinishedAt,
-		})
+		return addEvent(ctx, tx, "game.imported", importedEvent(j))
 	})
 }
 
@@ -433,6 +501,13 @@ func (s *Store) Unpublished(ctx context.Context, n int) ([]Event, error) {
 func (s *Store) MarkPublished(ctx context.Context, ids []uuid.UUID) error {
 	_, err := s.pool.Exec(ctx, `UPDATE outbox SET published_at = now() WHERE id = ANY($1)`, ids)
 	return err
+}
+
+// Processed says whether a consumed event was already handled.
+func (s *Store) Processed(ctx context.Context, id uuid.UUID) (bool, error) {
+	var done bool
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM processed_events WHERE id = $1)`, id).Scan(&done)
+	return done, err
 }
 
 // MarkProcessed records a consumed event; false when it was already handled.

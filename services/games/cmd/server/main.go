@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -78,13 +80,20 @@ func run() error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	errc := make(chan error, cfg.ImportWorkers+1)
-	go (&outbox.Relay{Store: db, Pub: mq, Log: log, Every: 500 * time.Millisecond}).Run(ctx)
+	// Everything that uses the database and the broker, waited for before they close.
+	var running sync.WaitGroup
+	running.Add(1 + cfg.ImportWorkers)
+	go func() {
+		defer running.Done()
+		(&outbox.Relay{Store: db, Pub: mq, Log: log, Every: 500 * time.Millisecond}).Run(ctx)
+	}()
 	worker := &importer.Worker{Store: db, Log: log, Batch: 50, Sites: map[string]sites.Fetcher{
 		"lichess":  &sites.Lichess{Base: cfg.LichessURL, UserAgent: cfg.UserAgent},
 		"chesscom": &sites.ChessCom{Base: cfg.ChessComURL, UserAgent: cfg.UserAgent},
 	}}
 	for i := 0; i < cfg.ImportWorkers; i++ {
 		go func() {
+			defer running.Done()
 			errc <- fmt.Errorf("import worker: %w", mq.Consume(ctx, importer.Queue, importer.Event, 1, worker.Handle))
 		}()
 	}
@@ -95,6 +104,8 @@ func run() error {
 			Service: cfg.ServiceName, Store: db, Broker: mq, Verifier: verifier, Log: log, MaxImport: cfg.MaxImport,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
+		// Requests live in ctx, so stopping ends the import streams instead of waiting on them.
+		BaseContext: func(net.Listener) context.Context { return ctx },
 	}
 	go func() { errc <- srv.ListenAndServe() }()
 	log.Info("listening", "port", cfg.Port, "import_workers", cfg.ImportWorkers)
@@ -108,13 +119,15 @@ func run() error {
 	case <-ctx.Done():
 		log.Info("shutting down")
 	}
+	// Cancelling ends the workers, the relay and the import streams; then the server answers
+	// what is left in flight, and the workers finish before the database and broker close.
 	cancel()
-	sctx, done := context.WithTimeout(context.Background(), 10*time.Second)
+	sctx, done := context.WithTimeout(context.Background(), 8*time.Second)
 	defer done()
-	// Streams of import progress end with the request context; answer what is in flight.
 	if err := srv.Shutdown(sctx); err != nil && runErr == nil {
 		runErr = err
 	}
+	running.Wait()
 	return runErr
 }
 

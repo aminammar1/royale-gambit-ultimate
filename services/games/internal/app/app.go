@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -147,7 +148,7 @@ func decode(c *gin.Context, limit int64, v any) bool {
 	if err := dec.Decode(v); err != nil {
 		var tooBig *http.MaxBytesError
 		if errors.As(err, &tooBig) {
-			tooLarge(c, "the body is over 5 MB")
+			tooLarge(c, fmt.Sprintf("the body is over %d MB", limit>>20))
 		} else {
 			invalid(c, "the body is not the JSON this route takes: "+err.Error())
 		}
@@ -175,6 +176,10 @@ func (s *server) saveGames(c *gin.Context) {
 	}
 	if req.PGN == nil {
 		invalid(c, "pgn is required")
+		return
+	}
+	if !plainText(*req.PGN) {
+		invalid(c, "the PGN must be UTF-8 text without NUL characters")
 		return
 	}
 	if len(*req.PGN) > maxPGNBytes {
@@ -238,6 +243,9 @@ func (s *server) searchGames(c *gin.Context) {
 		}
 	}
 	switch {
+	case !plainText(f.Q) || !plainText(f.Player) || !plainText(f.Cursor):
+		invalid(c, "q, player and cursor must be UTF-8 text without NUL characters")
+		return
 	case len(f.Q) > 100, len(f.Player) > 60, len(f.Cursor) > 200:
 		invalid(c, "q, player or cursor is too long")
 		return
@@ -281,6 +289,9 @@ func (s *server) searchGames(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"items": games, "next_cursor": nextCursor})
 }
+
+// plainText is UTF-8 without NUL, which Postgres text cannot hold.
+func plainText(s string) bool { return utf8.ValidString(s) && !strings.ContainsRune(s, 0) }
 
 func contains(list []string, v string) bool {
 	for _, x := range list {
@@ -351,6 +362,11 @@ func (s *server) startImport(c *gin.Context) {
 		limit = min(*maxGames, s.MaxImport)
 	}
 	job, created, err := s.Store.CreateImport(c.Request.Context(), owner(c), req.Site, req.Username, limit)
+	if errors.Is(err, store.ErrTooManyImports) {
+		httpx.Abort(c, httpx.NewProblem(c, http.StatusTooManyRequests, "too-many-imports", "Too many imports",
+			fmt.Sprintf("%d imports are already queued or running; wait for one to end", store.MaxLiveImports)))
+		return
+	}
 	if err != nil {
 		s.internal(c, err)
 		return
@@ -391,7 +407,9 @@ func (s *server) getImport(c *gin.Context) {
 		_, _ = fmt.Fprintf(c.Writer, "event: %s\ndata: %s\n\n", event, data)
 		c.Writer.Flush()
 	}
-	send("progress", job)
+	if job.Status == "queued" || job.Status == "running" {
+		send("progress", job)
+	}
 	quiet := time.Now()
 	for job.Status == "queued" || job.Status == "running" {
 		select {
@@ -414,6 +432,11 @@ func (s *server) getImport(c *gin.Context) {
 			}
 			quiet = time.Now()
 		} else if time.Since(quiet) > keepAliveEvery {
+			// A quiet import may be a dead one: end it if it has not moved for too long, so
+			// the stream (and the username) is never held forever.
+			if _, err := s.Store.ExpireIfStale(ctx, id); err != nil && ctx.Err() == nil {
+				s.Log.WarnContext(ctx, "import stream", "error", err)
+			}
 			_, _ = fmt.Fprint(c.Writer, ": importing\n\n")
 			c.Writer.Flush()
 			quiet = time.Now()

@@ -152,7 +152,6 @@ services:
     mem_limit: 512m
     ports: ["127.0.0.1:8084:8084"]
 
-  # ---- template (copied to create a Python service; never deployed)
   games:
     <<: *service-defaults
     profiles: [full]
@@ -179,6 +178,7 @@ services:
     mem_limit: 256m
     ports: ["127.0.0.1:8085:8085"]
 
+  # ---- template (copied to create a Python service; never deployed)
   template-py:
     <<: *service-defaults
     profiles: [templates]
