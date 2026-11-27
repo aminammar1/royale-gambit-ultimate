@@ -4,7 +4,9 @@
 package pgn
 
 import (
+	"bufio"
 	"crypto/sha256"
+	"embed"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -17,7 +19,6 @@ import (
 	"time"
 
 	"github.com/corentings/chess/v2"
-	"github.com/corentings/chess/v2/opening"
 )
 
 // Game is one game as stored: the PGN as given, and what is searched and shown on its card.
@@ -311,14 +312,12 @@ func parse(scanned *chess.GameScanned) (*Game, error) {
 	}
 	g.FirstMoves = numbered(san, positions)
 
-	// Openings are named by position, the deepest the game reaches, so another move order
-	// (1. Nf3 c5 2. e4 into a Najdorf) finds the same name. From a set position there is none.
-	if tag("FEN") == "" && tag("SetUp") != "1" {
-		for i := len(positions) - 1; i >= 0; i-- {
-			if o, ok := openings()[epd(positions[i])]; ok {
-				g.ECO, g.Opening = o.code, o.title
-				break
-			}
+	// Openings are named by position, the deepest the game reaches from wherever it starts, so
+	// another move order (1. Nf3 c5 2. e4 into a Najdorf) finds the same name.
+	for i := len(positions) - 1; i >= 0; i-- {
+		if o, ok := openings()[epd(positions[i])]; ok {
+			g.ECO, g.Opening = o.code, o.title
+			break
 		}
 	}
 	if g.ECO == "" {
@@ -339,36 +338,77 @@ func parse(scanned *chess.GameScanned) (*Game, error) {
 
 type named struct{ code, title string }
 
+// The lichess-org/chess-openings table (CC0), pinned in contracts/fixtures/openings and copied
+// here; the desktop app builds its own lookup from the same files, with the same key.
+//
+//go:embed openings/*.tsv
+var openingFiles embed.FS
+
 var (
 	bookOnce sync.Once
 	byEPD    map[string]named
 	ecoCode  = regexp.MustCompile(`^[A-E][0-9]{2}`)
 )
 
-// openings indexes the opening table by the position each line reaches, once: the table is
-// meant to be read by position, and the book's own lookup follows one move order only.
+// openings indexes the table by the position each line reaches, once: each line is read by the
+// chess library, as any game is.
 func openings() map[string]named {
 	bookOnce.Do(func() {
 		byEPD = map[string]named{}
-		for _, o := range opening.NewBookECO().Possible(nil) {
-			key := epd(o.Game().Position())
-			if _, seen := byEPD[key]; !seen {
-				byEPD[key] = named{o.Code(), o.Title()}
+		for _, f := range []string{"a", "b", "c", "d", "e"} {
+			file, err := openingFiles.Open("openings/" + f + ".tsv")
+			if err != nil {
+				panic(err) // embedded at build time: never missing
 			}
+			sc := bufio.NewScanner(file)
+			sc.Scan() // eco, name, pgn
+			for sc.Scan() {
+				cols := strings.Split(sc.Text(), "\t")
+				if len(cols) != 3 {
+					continue
+				}
+				lib := chess.NewScanner(strings.NewReader(cols[2] + " *"))
+				if !lib.HasNext() {
+					continue
+				}
+				cg, err := lib.ParseNext()
+				if err != nil {
+					continue
+				}
+				positions := cg.Positions()
+				key := epd(positions[len(positions)-1])
+				if _, seen := byEPD[key]; !seen {
+					byEPD[key] = named{cols[0], cols[1]}
+				}
+			}
+			_ = file.Close()
 		}
 	})
 	return byEPD
 }
 
-// epd keys a position for the opening table: board, side to move and castling. The en passant
-// square is left out: it is written after any double pawn step, so 5. d4 into a position would
-// not match the same position reached by 5. Nf3.
+// epd keys a position for the opening table, as the desktop does: board, side to move, castling,
+// and the en passant square only when an en passant capture is legal. The library writes that
+// square after any double pawn step; kept as it is, 5. d4 into a position would not match the
+// same position reached by 5. Nf3. Legality is the library's answer, never ours.
 func epd(p *chess.Position) string {
 	f := strings.Fields(p.String())
-	if len(f) > 3 {
-		f = f[:3]
+	if len(f) < 4 {
+		return strings.Join(f, " ")
 	}
-	return strings.Join(f, " ")
+	if f[3] != "-" {
+		legal := false
+		for _, m := range p.ValidMoves() {
+			if m.HasTag(chess.EnPassant) {
+				legal = true
+				break
+			}
+		}
+		if !legal {
+			f[3] = "-"
+		}
+	}
+	return strings.Join(f[:4], " ")
 }
 
 func orUnknown(name string) string {

@@ -1,9 +1,10 @@
 // The opening on the board: the deepest named position the game has reached, from the CC0
-// lichess-org/chess-openings table (src/chess/openings.json, built by scripts/build-openings.mjs
-// with chess.js). Keyed by position, not move order, so transpositions are named too. No React.
+// lichess-org/chess-openings table pinned in contracts/fixtures/openings (src/chess/openings.json,
+// built by scripts/build-openings.mjs with chess.js), the games service's table too. Keyed by
+// position, not move order, so transpositions are named. No React.
 import { fenAt, type Game } from "./game";
 
-/** Position key (board, side to move, castling) to [ECO, name]. */
+/** Position key (board, side to move, castling, en passant) to [ECO, name]. */
 export type OpeningTable = Record<string, readonly [string, string]>;
 
 export type Opening = {
@@ -15,8 +16,12 @@ export type Opening = {
   variation?: string;
 };
 
-/** The table's key for a position: its FEN's board, side to move and castling. */
-export const positionKey = (fen: string): string => fen.split(" ").slice(0, 3).join(" ");
+/**
+ * The table's key for a position: its FEN without the move counters. chess.js writes the en
+ * passant square only when a capture is legal, so it is part of the position (Mason-Keres and the
+ * Nowokunski Gambit differ by it) without splitting a transposition.
+ */
+export const positionKey = (fen: string): string => fen.split(" ").slice(0, 4).join(" ");
 
 /** "Sicilian Defense: Najdorf Variation" as the opening and its variation. */
 export function splitName(name: string): { family: string; variation?: string } {

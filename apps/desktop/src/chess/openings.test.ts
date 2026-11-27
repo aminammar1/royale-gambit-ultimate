@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import golden from "../../../../contracts/fixtures/openings/golden.json";
 import { load, type Game } from "./game";
 import table from "./openings.json";
 import { openingAt, splitName, type OpeningTable } from "./openings";
@@ -49,5 +50,20 @@ describe("an opening's name in two parts", () => {
       variation: "Najdorf Variation, English Attack",
     });
     expect(splitName("Ruy Lopez")).toEqual({ family: "Ruy Lopez", variation: undefined });
+  });
+});
+
+describe("the shared golden lines (contracts/fixtures/openings/golden.json)", () => {
+  // The games service names the same lines the same way: both read this file.
+
+  it.each(golden)("$pgn is $eco $name", ({ pgn, eco, name }) => {
+    const g = game(pgn);
+    expect(openingAt(g, g.plies.length, book)).toMatchObject({ eco, name });
+  });
+
+  it("two positions an en passant capture tells apart keep their own names", () => {
+    const mason = game("1. e4 e5 2. f4 exf4 3. Nc3");
+    expect(openingAt(mason, 4, book)?.family).toBe("King's Gambit Accepted");
+    expect(openingAt(mason, 5, book)?.name).toBe("King's Gambit Accepted: Mason-Keres Gambit");
   });
 });

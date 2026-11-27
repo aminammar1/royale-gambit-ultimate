@@ -1,6 +1,7 @@
 package pgn_test
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -333,7 +334,7 @@ func TestSplitNeverDropsAGame(t *testing.T) {
 }
 
 func TestECOTagKeptOnlyWhenWellFormed(t *testing.T) {
-	// From a position there is no opening lookup; the tag is kept only as a plain code.
+	// A position no opening names: the tag is kept, only as a plain code.
 	g := one(t, "[FEN \"4k3/8/8/8/8/8/8/4K2R w K - 0 1\"]\n[SetUp \"1\"]\n[ECO \"C42a\"]\n[Opening \"Petrov\"]\n\n1. O-O *\n")
 	if g.ECO != "C42" {
 		t.Fatalf("eco %q", g.ECO)
@@ -341,5 +342,57 @@ func TestECOTagKeptOnlyWhenWellFormed(t *testing.T) {
 	g = one(t, "[FEN \"4k3/8/8/8/8/8/8/4K2R w K - 0 1\"]\n[SetUp \"1\"]\n[ECO \"?\"]\n\n1. O-O *\n")
 	if g.ECO != "" {
 		t.Fatalf("eco %q", g.ECO)
+	}
+}
+
+// The shared opening table and golden lines (contracts/fixtures/openings): the desktop app names
+// the same lines the same way.
+
+func TestTheEmbeddedTableIsThePinnedOne(t *testing.T) {
+	dir := os.Getenv("CONTRACTS_DIR")
+	if dir == "" {
+		dir = "/contracts"
+	}
+	for _, f := range []string{"a.tsv", "b.tsv", "c.tsv", "d.tsv", "e.tsv", "SOURCE_COMMIT"} {
+		want, err := os.ReadFile(filepath.Join(dir, "fixtures", "openings", f))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := os.ReadFile(filepath.Join("openings", f))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got) != string(want) {
+			t.Errorf("internal/pgn/openings/%s differs from contracts/fixtures/openings/%s: copy it again", f, f)
+		}
+	}
+}
+
+func TestGoldenOpenings(t *testing.T) {
+	dir := os.Getenv("CONTRACTS_DIR")
+	if dir == "" {
+		dir = "/contracts"
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "fixtures", "openings", "golden.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var golden []struct{ PGN, ECO, Name string }
+	if err := json.Unmarshal(raw, &golden); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range golden {
+		g := one(t, "[White \"a\"]\n[Black \"b\"]\n\n"+c.PGN+" *\n")
+		if g.ECO != c.ECO || g.Opening != c.Name {
+			t.Errorf("%s: %s %q, want %s %q", c.PGN, g.ECO, g.Opening, c.ECO, c.Name)
+		}
+	}
+}
+
+func TestOpeningsFromASetPosition(t *testing.T) {
+	// Named by position from any start, as on the desktop: the Ruy Lopez set up, then 3... a6.
+	g := one(t, "[FEN \"r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3\"]\n[SetUp \"1\"]\n\n3... a6 *\n")
+	if g.ECO != "C70" || !strings.HasPrefix(g.Opening, "Ruy Lopez: Morphy Defense") {
+		t.Fatalf("%s %q", g.ECO, g.Opening)
 	}
 }
